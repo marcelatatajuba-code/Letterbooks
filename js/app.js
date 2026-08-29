@@ -199,6 +199,19 @@
     '<span class="estrelas">★★★★★</span></div>';
   }
 
+  /* Um item da fileira de atividade: capa com nota e marcadores embaixo —
+     como o original resume cada leitura recente no perfil. */
+  function htmlAtividade(log) {
+    var livro = livroDe(log.chave);
+    return '<a class="cartao atividade" href="' + rotaLivro(log.chave) + '" title="' +
+      esc(livro.titulo) + '">' + htmlCapa(livro) +
+      '<span class="atividade-marcas">' +
+        (typeof log.nota === 'number'
+          ? '<span class="estrelas">' + estrelasTexto(log.nota) + '</span>' : '') +
+        glifosDaLinha(log, true) +
+      '</span></a>';
+  }
+
   function mediaTexto(media) {
     return media === null ? '' : media.toFixed(1).replace('.', ',');
   }
@@ -297,6 +310,7 @@
 
   function telaBusca(termo, pagina) {
     marcarAba('buscar');
+    Dados.registrarBusca(termo);
     document.getElementById('campo-busca').value = termo;
     carregando('Procurando “' + termo + '” no acervo…');
 
@@ -357,8 +371,7 @@
     });
   }
 
-  function desenhaLivro(livro, abaAtiva) {
-    abaAtiva = abaAtiva || 'sinopse';
+  function desenhaLivro(livro) {
     var logs  = Dados.logsDo(livro.chave);
     var nota  = Dados.notaDe(livro.chave);
     var lido  = logs.length > 0;
@@ -367,39 +380,37 @@
     var fav   = Dados.favorito(livro.chave);
     var fundo = livro.capaGrande || livro.capa;
 
-    /* ---- coluna do meio: as abas internas da ficha ---- */
-    var miolo = '';
-    if (abaAtiva === 'sinopse') {
-      var s = livro.sinopse || '';
-      var longa = s.length > 520;
-      miolo = s
-        ? '<p class="sinopse' + (longa ? ' recolhida' : '') + '" id="sinopse">' + esc(s) + '</p>' +
-          (longa ? '<button class="mais" data-acao="expandir">Ler a sinopse inteira</button>' : '')
-        : '<p class="sinopse" style="color:var(--texto-3)">Esta obra ainda não tem sinopse na Open Library.</p>';
-    } else if (abaAtiva === 'detalhes') {
-      var linhas = [
-        ['Autoria', (livro.autores || []).join(', ') || '—'],
-        ['Publicado', livro.ano || '—'],
-        ['Páginas', livro.paginas || '—'],
-        ['Edições', livro.edicoes || '—'],
-        ['Open Library', livro.chave]
-      ];
-      miolo = '<table class="detalhes"><tbody>' + linhas.map(function (l) {
-        return '<tr><th>' + esc(l[0]) + '</th><td>' + esc(l[1]) + '</td></tr>';
-      }).join('') + '</tbody></table>';
-    } else {
-      var as = livro.assuntos || [];
-      miolo = as.length
-        ? '<div class="assuntos">' + as.slice(0, 24).map(function (a) {
-            return '<a class="assunto" href="#/buscar/' + encodeURIComponent(a) + '/1">' + esc(a) + '</a>';
-          }).join('') + '</div>'
-        : '<p class="sinopse" style="color:var(--texto-3)">Sem assuntos cadastrados para esta obra.</p>';
+    /* O original nao usa abas na ficha: empilha sinopse, assuntos e detalhes,
+       com a sinopse longa esmaecendo no fim em vez de ser cortada. */
+    var sin = livro.sinopse || '';
+    /* ~320 caracteres sao cerca de quatro linhas no celular, que e onde o
+       original comeca a esmaecer. */
+    var longa = sin.length > 320;
+    var miolo = (sin
+      ? '<p class="sinopse' + (longa ? ' recolhida' : '') + '" id="sinopse">' + esc(sin) + '</p>' +
+        (longa ? '<button class="mais" data-acao="expandir">Ler a sinopse inteira</button>' : '')
+      : '<p class="sinopse" style="color:var(--texto-3)">' +
+        'Esta obra ainda não tem sinopse na Open Library.</p>');
+
+    var as = livro.assuntos || [];
+    if (as.length) {
+      miolo += '<div class="bloco"><span class="rotulo">Assuntos</span>' +
+        '<div class="assuntos">' + as.slice(0, 18).map(function (a) {
+          return '<a class="assunto" href="#/buscar/' + encodeURIComponent(a) + '/1">' +
+                 esc(a) + '</a>';
+        }).join('') + '</div></div>';
     }
 
-    function aba(id, rotulo) {
-      return '<button data-acao="aba" data-aba="' + id + '"' +
-             (abaAtiva === id ? ' class="ativa"' : '') + '>' + rotulo + '</button>';
-    }
+    var linhas = [
+      ['Publicado', livro.ano || '—'],
+      ['Páginas', livro.paginas || '—'],
+      ['Edições', livro.edicoes || '—'],
+      ['Open Library', livro.chave]
+    ];
+    miolo += '<div class="bloco"><span class="rotulo">Detalhes</span>' +
+      '<table class="detalhes"><tbody>' + linhas.map(function (l) {
+        return '<tr><th>' + esc(l[0]) + '</th><td>' + esc(l[1]) + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
 
     /* ---- painel lateral ---- */
     var e = Dados.estatisticas();
@@ -427,7 +438,7 @@
     /* O histograma sai do painel e vai para o corpo, com a media grande ao
        lado — e assim continua visivel no celular, onde o painel nao aparece. */
     var blocoNotas = e.media === null ? '' :
-      '<section class="secao avaliacoes"><h2>Avaliações</h2>' +
+      '<section class="avaliacoes"><span class="rotulo">Avaliações</span>' +
         '<div class="avaliacoes-linha">' +
           '<div class="avaliacoes-grafico">' + htmlHistograma(e.faixas) + '</div>' +
           '<div class="avaliacoes-media">' + mediaTexto(e.media) + '</div>' +
@@ -445,8 +456,6 @@
             (livro.ano ? '<span class="ano">' + livro.ano + '</span>' : '') +
             '<span class="autoria">de ' + htmlAutoria(livro) + '</span>' +
           '</div>' +
-          '<div class="fichas">' + aba('sinopse', 'Sinopse') + aba('detalhes', 'Detalhes') +
-            aba('assuntos', 'Assuntos') + '</div>' +
           miolo +
           blocoNotas +
           (logs.length ? '<section class="secao" style="margin-top:30px">' +
@@ -467,15 +476,14 @@
     pintar(html);
 
     acoes({
-      aba: function (a) { desenhaLivro(livro, a.getAttribute('data-aba')); },
       expandir: function (a) {
         document.getElementById('sinopse').classList.remove('recolhida');
         a.remove();
       },
       registrar: function () { abrirFolhaRegistro(livro, null); },
       rapida: function () { abrirFolhaRapida(livro); },
-      quero:  function () { Dados.alternarQuerLer(livro.chave); desenhaLivro(livro, abaAtiva); },
-      curtir: function () { Dados.alternarCurtida(livro.chave); desenhaLivro(livro, abaAtiva); },
+      quero:  function () { Dados.alternarQuerLer(livro.chave); desenhaLivro(livro); },
+      curtir: function () { Dados.alternarCurtida(livro.chave); desenhaLivro(livro); },
       listas: function () { abrirFolhaListas(livro); },
       compartilhar: function (b) {
         b.disabled = true;
@@ -484,12 +492,12 @@
           if (msg) aviso(msg);
         }).catch(function (err) {
           aviso('Não consegui montar a imagem: ' + err.message);
-        }).then(function () { desenhaLivro(livro, abaAtiva); });
+        }).then(function () { desenhaLivro(livro); });
       },
       favorito: function () {
         var r = Dados.alternarFavorito(livro.chave);
         if (r.cheio) aviso('Os favoritos guardam ' + Dados.MAX_FAVORITOS + ' livros. Tire um antes.');
-        else desenhaLivro(livro, abaAtiva);
+        else desenhaLivro(livro);
       },
       'editar-log': function (a) {
         var log = Dados.log(a.getAttribute('data-id'));
@@ -498,7 +506,7 @@
       'apagar-log': function (a) {
         if (!confirm('Apagar este registro de leitura?')) return;
         Dados.apagarLog(a.getAttribute('data-id'));
-        desenhaLivro(livro, abaAtiva);
+        desenhaLivro(livro);
       },
       'ver-spoiler': revelarSpoiler
     });
@@ -598,13 +606,18 @@
            cabecalho + '<tbody>' + corpo + '</tbody></table></div>';
   }
 
-  /* Curtida, releitura e resenha, do jeito que o original marca cada entrada. */
-  function glifosDaLinha(log) {
+  /* Curtida, releitura e resenha, do jeito que o original marca cada entrada.
+     Com semLink, o ≡ sai como texto e nao como link: dentro de um cartao ele
+     seria uma ancora dentro de outra, o que o navegador nao aceita — fecha a
+     de fora e joga o glifo para fora do cartao. */
+  function glifosDaLinha(log, semLink) {
     var g = '';
     if (Dados.curtido(log.chave)) g += '<i class="on" title="Curtido">♥</i>';
     if (log.relido)               g += '<i title="Releitura">↺</i>';
     if (log.resenha) {
-      g += '<a href="#/resenha/' + log.id + '" title="Tem resenha">≡</a>';
+      g += semLink
+        ? '<i title="Tem resenha">≡</i>'
+        : '<a href="#/resenha/' + log.id + '" title="Tem resenha">≡</a>';
     }
     return g;
   }
@@ -890,13 +903,37 @@
     var e = Dados.estatisticas();
     var pct = e.meta ? Math.min(100, Math.round((e.noAno / e.meta) * 100)) : 0;
     var inicial = (d.perfil.nome || '?').trim().charAt(0).toUpperCase();
+    var ultimos = Dados.logs().slice(0, 8);
 
+    /* A ordem e a do original: abas primeiro, avatar centralizado, favoritos,
+       atividade recente, e so entao os numeros e o resto. */
     var html =
+      '<nav class="perfil-atalhos" aria-label="Suas coleções">' +
+        '<a class="ativa" href="#/perfil">Perfil</a>' +
+        '<a href="#/diario">Diário</a>' +
+        '<a href="#/listas">Listas</a>' +
+        '<a href="#/estante">Estante</a>' +
+      '</nav>' +
+
       '<div class="perfil-topo">' +
         '<div class="avatar" aria-hidden="true">' + esc(inicial) + '</div>' +
-        '<div><h1 class="perfil-nome">' + esc(d.perfil.nome) + '</h1>' +
-        '<p class="perfil-bio">' + (d.perfil.bio ? esc(d.perfil.bio) : 'Sem descrição ainda.') + '</p></div>' +
+        '<h1 class="perfil-nome">' + esc(d.perfil.nome) + '</h1>' +
+        '<p class="perfil-bio">' +
+          (d.perfil.bio ? esc(d.perfil.bio) : 'Sem descrição ainda.') + '</p>' +
       '</div>' +
+
+      (d.favoritos.length
+        ? '<section class="bloco"><span class="rotulo">Favoritos</span>' +
+          '<div class="fileira">' + d.favoritos.slice(0, Dados.MAX_FAVORITOS)
+            .map(function (c) { return htmlCartao(livroDe(c), 0); }).join('') +
+          '</div></section>'
+        : '') +
+
+      (ultimos.length
+        ? '<section class="bloco"><span class="rotulo">Atividade recente</span>' +
+          '<div class="fileira">' + ultimos.slice(0, 4).map(htmlAtividade).join('') + '</div>' +
+          '<a class="linha-mais" href="#/diario">Mais atividade</a></section>'
+        : '') +
 
       '<div class="numeros">' +
         numero(e.lidos, 'leituras') +
@@ -906,15 +943,6 @@
         numero(e.paginas ? e.paginas.toLocaleString('pt-BR') : '—', 'páginas') +
       '</div>' +
 
-      /* No original, estante e listas vivem dentro do perfil — nao na barra
-         principal. Esta fileira e a porta de entrada para elas. */
-      '<nav class="perfil-atalhos" aria-label="Suas coleções">' +
-        '<a class="ativa" href="#/perfil">Perfil</a>' +
-        '<a href="#/diario">Diário</a>' +
-        '<a href="#/listas">Listas</a>' +
-        '<a href="#/estante">Estante</a>' +
-      '</nav>' +
-
       '<section class="secao"><h2>Meta de ' + d.perfil.meta.ano + '</h2>' +
         '<p style="margin:0 0 4px;color:var(--texto-2);font-size:13px">' +
           e.noAno + ' de ' + e.meta + ' livros · ' + pct + '%</p>' +
@@ -923,21 +951,11 @@
       '</section>';
 
     if (e.media !== null) {
-      html += '<section class="secao"><h2>Como você avalia' +
-        '<span class="conta">média ' + mediaTexto(e.media) + '</span></h2>' +
-        '<div style="max-width:300px">' + htmlHistograma(e.faixas) + '</div></section>';
-    }
-
-    if (d.favoritos.length) {
-      html += '<section class="secao"><h2>Favoritos<span class="conta">' +
-        d.favoritos.length + ' de ' + Dados.MAX_FAVORITOS + '</span></h2>' +
-        htmlGrade(d.favoritos.map(livroDe)) + '</section>';
-    }
-
-    var ultimos = Dados.logs().slice(0, 8);
-    if (ultimos.length) {
-      html += '<section class="secao"><h2>Diário recente<a href="#/diario">ver tudo</a></h2>' +
-        tabelaDiario(ultimos, true) + '</section>';
+      html += '<section class="avaliacoes"><span class="rotulo">Como você avalia</span>' +
+        '<div class="avaliacoes-linha">' +
+          '<div class="avaliacoes-grafico">' + htmlHistograma(e.faixas) + '</div>' +
+          '<div class="avaliacoes-media">' + mediaTexto(e.media) + '</div>' +
+        '</div></section>';
     }
 
     html += '<section class="secao"><h2>Seus dados</h2>' +
@@ -1137,6 +1155,19 @@
            ' aria-label="' + i + ' estrela' + (i > 1 ? 's' : '') + '"></button>';
     }
     return s;
+  }
+
+  /* As ultimas buscas, para repetir sem redigitar — como no cartao de
+     adicionar do original. */
+  function htmlBuscasRecentes() {
+    var b = Dados.buscas();
+    if (!b.length) return '';
+    return '<div class="recentes"><div class="recentes-topo">' +
+        '<span class="rotulo">Buscas recentes</span>' +
+        '<button class="mais" data-esquecer="1">Limpar</button></div>' +
+      b.map(function (t) {
+        return '<button class="recente" data-busca="' + esc(t) + '">' + esc(t) + '</button>';
+      }).join('') + '</div>';
   }
 
   /* ============================================== folha de acao rapida ==== */
@@ -1360,7 +1391,7 @@
         '<p class="folha-sub">Qual livro você terminou?</p>' +
         '<label class="campo"><span>Buscar</span>' +
           '<input id="escolha-termo" placeholder="Título, autor ou ISBN" autocomplete="off"></label>' +
-        '<div id="escolha-resultados"></div>' +
+        '<div id="escolha-resultados">' + htmlBuscasRecentes() + '</div>' +
         '<div class="folha-rodape"><button class="botao" data-fechar="cancelar">Fechar</button></div>' +
       '</div></div>';
 
@@ -1372,10 +1403,11 @@
 
     function buscar() {
       var termo = campo.value.trim();
-      if (termo.length < 3) { caixa.innerHTML = ''; return; }
+      if (termo.length < 3) { caixa.innerHTML = htmlBuscasRecentes(); return; }
       caixa.innerHTML = '<p class="carregando" style="padding:20px">Procurando…</p>';
       API.buscar(termo, 1).then(function (r) {
         if (campo.value.trim() !== termo) return;   /* chegou tarde, ja mudou */
+        Dados.registrarBusca(termo);
         r.livros.forEach(Dados.guardarLivro);
         caixa.innerHTML = r.livros.length
           ? '<div class="grade miuda">' + r.livros.slice(0, 12).map(function (l) {
@@ -1402,6 +1434,18 @@
     document.addEventListener('keydown', aoTeclar);
 
     painel.addEventListener('click', function (ev) {
+      var repetir = ev.target.closest('[data-busca]');
+      if (repetir) {
+        ev.preventDefault();
+        campo.value = repetir.getAttribute('data-busca');
+        return buscar();
+      }
+      if (ev.target.closest('[data-esquecer]')) {
+        ev.preventDefault();
+        Dados.esquecerBuscas();
+        caixa.innerHTML = htmlBuscasRecentes();
+        return;
+      }
       var escolha = ev.target.closest('[data-escolher]');
       if (escolha) {
         ev.preventDefault();

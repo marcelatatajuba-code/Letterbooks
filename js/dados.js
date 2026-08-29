@@ -16,7 +16,8 @@
      querLer:   [ chave ],
      curtidas:  [ chave ],
      favoritos: [ chave ],                    // no maximo 4, como as vitrines
-     listas:    [ {id, nome, descricao, livros: [chave], criadoEm} ]
+     listas:    [ {id, nome, descricao, livros: [chave], criadoEm} ],
+     buscas:    [ termo ]                     // as ultimas buscas, para repetir
    }
    ========================================================================== */
 var Dados = (function () {
@@ -33,7 +34,8 @@ var Dados = (function () {
     querLer: [],
     curtidas: [],
     favoritos: [],
-    listas: []
+    listas: [],
+    buscas: []
   };
 
   var estado = carregar();
@@ -188,6 +190,23 @@ var Dados = (function () {
     return l.livros.indexOf(chave) >= 0;
   }
 
+  /* ------------------------------------------------------------ buscas */
+
+  var MAX_BUSCAS = 8;
+
+  /* Guarda o termo no topo da lista, sem repetir. */
+  function registrarBusca(termo) {
+    termo = String(termo || '').trim();
+    if (termo.length < 2) return estado.buscas;
+    estado.buscas = [termo].concat(
+      estado.buscas.filter(function (b) { return b.toLowerCase() !== termo.toLowerCase(); })
+    ).slice(0, MAX_BUSCAS);
+    salvar();
+    return estado.buscas;
+  }
+
+  function esquecerBuscas() { estado.buscas = []; return salvar(); }
+
   /* ------------------------------------------------------------ estatisticas */
 
   function estatisticas() {
@@ -274,6 +293,10 @@ var Dados = (function () {
     editarLista:    editarLista,
     apagarLista:    apagarLista,
     alternarNaLista: alternarNaLista,
+
+    buscas:         function () { return estado.buscas.slice(); },
+    registrarBusca: registrarBusca,
+    esquecerBuscas: esquecerBuscas,
 
     estatisticas: estatisticas,
     exportar:     exportar,

@@ -313,7 +313,12 @@ img { display: block; max-width: 100%; }
 .fichas button.ativa { color: var(--texto); border-bottom-color: var(--a1); }
 
 .sinopse { color: var(--texto-2); line-height: 1.7; margin: 0 0 18px; white-space: pre-wrap; font-size: 14.5px; }
-.sinopse.recolhida { display: -webkit-box; -webkit-line-clamp: 7; -webkit-box-orient: vertical; overflow: hidden; }
+.sinopse.recolhida {
+  max-height: 11.2em; overflow: hidden;
+  /* Esmaece no fim, como no original, em vez de cortar seco na linha. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 62%, transparent 100%);
+          mask-image: linear-gradient(to bottom, #000 62%, transparent 100%);
+}
 .mais {
   background: none; border: 0; padding: 0; cursor: pointer;
   color: var(--texto-3); font-size: 11px; font-weight: 700;
@@ -390,10 +395,48 @@ img { display: block; max-width: 100%; }
 }
 .histograma-media { color: var(--texto); font-size: 15px; font-weight: 700; }
 
+/* ================================== blocos rotulados dentro da pagina ==== */
+/* O original distingue dois niveis: titulo de secao da home em caixa normal
+   e negrito, e rotulo DENTRO da pagina em versalete cinza — RATINGS,
+   FAVORITES, RECENT ACTIVITY. Este e o segundo. */
+
+.bloco {
+  padding-top: 20px; margin-top: 20px;
+  border-top: 1px solid var(--borda);
+}
+.bloco > .rotulo { display: block; margin-bottom: 12px; }
+
+/* Fileira fixa de quatro capas, como os favoritos e a atividade do perfil. */
+.fileira { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+/* Nas fileiras do perfil o original nao poe titulo: a capa basta, e a
+   atividade ja carrega nota e marcadores embaixo. */
+.fileira .cartao-legenda { display: none; }
+
+.atividade-marcas {
+  display: flex; align-items: center; gap: 5px;
+  margin-top: 5px; font-size: 11px; color: var(--texto-3);
+}
+.atividade-marcas .estrelas { font-size: 11px; letter-spacing: 0; }
+.atividade-marcas i, .atividade-marcas a { font-style: normal; color: var(--texto-3); }
+.atividade-marcas i.on { color: var(--curtida); }
+
+.linha-mais {
+  display: flex; align-items: center;
+  margin-top: 16px; padding-top: 14px;
+  border-top: 1px solid var(--borda);
+  font-size: 15px; color: var(--texto-2);
+}
+.linha-mais::after { content: "›"; margin-left: auto; font-size: 20px; color: var(--texto-3); }
+.linha-mais:hover { color: var(--texto); }
+
 /* ============================================ avaliacoes no corpo ======== */
 /* Histograma com a media grande ao lado, como na ficha do original. */
 
-.avaliacoes { margin-top: 30px; }
+.avaliacoes {
+  padding-top: 20px; margin-top: 24px;
+  border-top: 1px solid var(--borda);
+}
+.avaliacoes > .rotulo { display: block; margin-bottom: 12px; }
 .avaliacoes-linha { display: flex; align-items: flex-end; gap: 18px; }
 .avaliacoes-grafico { flex: 1; max-width: 320px; }
 .avaliacoes-media {
@@ -423,8 +466,20 @@ img { display: block; max-width: 100%; }
   }
   /* A barra flutua a 64px do fim e tem ~46px: sem esta folga ela cobria o
      histograma de avaliacoes. */
-  .livro-colunas { padding-bottom: 84px; }
+  .livro-colunas { padding-bottom: 112px; }
 }
+
+/* ======================================== buscas recentes na folha ====== */
+
+.recentes-topo { display: flex; align-items: baseline; margin-bottom: 4px; }
+.recentes-topo .mais { margin-left: auto; }
+.recente {
+  display: block; width: 100%; padding: 11px 2px; text-align: left;
+  background: none; border: 0; border-bottom: 1px solid var(--borda);
+  color: var(--texto-2); font-size: 15px; cursor: pointer;
+}
+.recente:hover { color: var(--texto); }
+.recente:last-child { border-bottom: 0; }
 
 /* ============================================== folha de acao rapida ==== */
 
@@ -518,16 +573,18 @@ img { display: block; max-width: 100%; }
 /* ==================================================== perfil e numeros == */
 
 .perfil-topo {
-  display: flex; align-items: center; gap: 18px;
-  padding-bottom: 22px; margin-bottom: 22px; border-bottom: 1px solid var(--borda);
+  text-align: center;
+  padding: 6px 0 24px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--borda);
 }
 .avatar {
-  width: 78px; height: 78px; border-radius: 50%; flex: none;
+  width: 96px; height: 96px; border-radius: 50%;
+  margin: 0 auto 14px;
   display: grid; place-items: center;
   background: var(--superficie-2); color: var(--a1);
-  font-size: 30px; font-weight: 800;
+  font-size: 38px; font-weight: 800;
 }
-.perfil-nome { margin: 0 0 3px; font-size: 22px; font-weight: 700; }
+.perfil-nome { margin: 0 0 4px; font-size: 21px; font-weight: 700; }
 .perfil-bio { margin: 0; color: var(--texto-3); font-size: 13.5px; }
 
 .numeros { display: flex; flex-wrap: wrap; gap: 30px; margin-bottom: 34px; }

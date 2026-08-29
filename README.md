@@ -42,14 +42,14 @@ navegação por hash justamente para isso.
 |---|---|
 | **Início** | Suas leituras recentes, a fila de "quero ler", os livros em alta na semana e um resumo de onde você está no ano. |
 | **Busca** | Título, autor ou ISBN, com paginação. Cola um ISBN de 10 ou 13 dígitos e ele busca pelo campo certo, não pelo texto livre. |
-| **Ficha do livro** | Três colunas: capa, conteúdo e painel de ações. O fundo atrás do título é a própria capa, ampliada e desfocada — o lugar que no original é do still do filme. O conteúdo tem abas de sinopse, detalhes e assuntos; o painel concentra lido, curtir, quero ler, registrar, listas, favoritar e o histograma das suas notas. |
-| **Registro de leitura** | Nota de meia a cinco estrelas, data em que terminou, resenha, marcação de releitura e aviso de spoiler. Um livro pode ter vários registros — cada releitura é uma linha nova. O botão da ponta do cabeçalho abre a busca e emenda direto aqui. |
+| **Ficha do livro** | Fundo formado pela própria capa, ampliada e desfocada — o lugar que no original é do still do filme. Sem abas: sinopse (que esmaece no fim, não corta), assuntos e detalhes empilhados, e o histograma de avaliações com a média grande ao lado. No computador as ações ficam num painel à direita; no celular, numa barra fixa que abre o cartão das quatro funções. |
+| **Registro de leitura** | Nota de meia a cinco estrelas, data em que terminou, resenha, marcação de releitura e aviso de spoiler. Um livro pode ter vários registros — cada releitura é uma linha nova. O "+" da barra abre a busca, com as **buscas recentes** guardadas para repetir sem redigitar, e emenda direto aqui. |
 | **Diário** | No computador, uma tabela com a célula do mês atravessando as linhas daquele mês. No celular vira o que é no original: faixa de mês de largura inteira e linhas enxutas, com ♥ (curtida), ↺ (releitura) e ≡ (tem resenha) ao lado da nota. Spoiler fica coberto até você tocar. |
 | **Resenha** | Cada resenha tem endereço próprio: fundo, autoria, livro, nota, data e o texto inteiro. É onde ficam editar e apagar. Abre pelo ≡ do diário. |
 | **Autor** | O equivalente ao *cast & crew*: tocar no nome de quem escreveu abre a pessoa — retrato, datas, biografia e todas as obras dela no acervo, já marcadas com o que você leu. |
 | **Estante** | Quatro prateleiras: quero ler, lidos, curtidos e favoritos. |
 | **Listas** | Agrupamentos livres, com pôsteres **numerados** — a ordem importa. A capa do primeiro livro vira o fundo do cabeçalho. |
-| **Perfil** | É o eixo: fileira de números, atalhos para diário, estante e listas, meta de leitura, histograma de como você avalia, favoritos e prévia do diário. |
+| **Perfil** | É o eixo, na ordem do original: controle segmentado (perfil · diário · listas · estante), avatar centralizado, fileira de favoritos, fileira de atividade recente com nota e marcadores sob cada capa, e então números, meta e histograma. |
 
 ## A avaliação em meia-estrela
 
@@ -76,8 +76,10 @@ A home não empilha grades: cada seção é um **trilho** que rola de lado, com 
 as capas — é o ritmo do original. As grades com título ficam nas telas de
 buscar, estante e listas, onde se varre com o olho em vez de folhear.
 
-Os títulos de seção são negrito em caixa normal com um `›`, não versalete
-espaçado com régua embaixo. Quase não há bordas: o que separa é espaço e
+Há dois níveis de título, e a diferença importa: **seção da home** é negrito
+em caixa normal com um `›`; **rótulo dentro da página** — avaliações,
+favoritos, atividade recente, detalhes — é versalete cinza. Usar versalete em
+tudo foi o que dava ao app cara de painel administrativo. Quase não há bordas: o que separa é espaço e
 imagem. Na ficha do livro, o histograma de avaliações fica no corpo com a média
 grande ao lado, e no celular o painel lateral dá lugar a uma **barra de ação
 fixa** que abre um cartão com as quatro funções — lido, curtir, quero ler e
