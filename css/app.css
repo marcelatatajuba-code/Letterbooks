@@ -18,25 +18,25 @@
 
 :root {
   /* ------------------------------------------------------------- superficies */
-  --fundo:        #14181b;
-  --fundo-rgb:    20, 24, 27;   /* o mesmo --fundo, para usos com transparencia */
-  --fundo-2:      #1a1f23;
-  --superficie:   #232a30;
-  --superficie-2: #2c353c;
-  --borda:        #38424a;
-  --borda-2:      #47535d;
+  --fundo:        #16110e;
+  --fundo-rgb:    22, 17, 14;   /* o mesmo --fundo, para usos com transparencia */
+  --fundo-2:      #1d1713;
+  --superficie:   #271f19;
+  --superficie-2: #332920;
+  --borda:        #43362b;
+  --borda-2:      #55463a;
 
   /* ------------------------------------------------------------------ texto */
-  --texto:   #e8eef2;
-  --texto-2: #96a5b0;
-  --texto-3: #6b7a85;
+  --texto:   #f4ede4;
+  --texto-2: #b3a595;
+  --texto-3: #82756a;
 
   /* ------------------------------------------------------ o trio da marca */
-  --a1: #2ec4a6;   /* jade    — acao primaria, estrelas, "lido" */
-  --a2: #e8c07d;   /* areia   — segundo plano da marca */
-  --a3: #d4649b;   /* magenta — terceiro plano da marca */
+  --a1: #ff7a3d;   /* coral — acao primaria, estrelas, "lido" */
+  --a2: #a8b864;   /* oliva — segundo plano da marca, "quero ler" */
+  --a3: #e0a0b8;   /* rosa  — terceiro plano da marca, "curtir" */
 
-  --sobre-a1: #0d1614;   /* texto que fica POR CIMA da cor de acao */
+  --sobre-a1: #1f0d04;   /* texto que fica POR CIMA da cor de acao */
   --estrela: var(--a1);
   --curtida: var(--a3);
   --quero:   var(--a2);
@@ -167,10 +167,12 @@ img { display: block; max-width: 100%; }
 
 .cartao { display: block; }
 
-/* Grade sem legenda, como as grades de posters do original. Para voltar a
-   mostrar o titulo abaixo de cada capa, basta trocar este display por block. */
-.cartao-legenda { display: none; }
+/* Titulo abaixo da capa, com a nota logo embaixo. O original mostra so os
+   posteres, mas livro se reconhece bem menos pela capa do que filme por
+   poster — e boa parte do acervo da Open Library nem tem capa cadastrada.
+   Para voltar a grade so de capas, troque este display por none. */
 .cartao-legenda {
+  display: -webkit-box;
   margin-top: 6px;
   font-size: 12px; line-height: 1.35; color: var(--texto-2);
   overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical;

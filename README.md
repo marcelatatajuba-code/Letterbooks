@@ -3,11 +3,12 @@
 O que o Letterboxd faz por filmes, para livros: buscar no acervo, registrar o
 que você leu, dar estrelas, escrever resenha e montar listas.
 
-As funcionalidades seguem o original de perto — busca, log, avaliação em
-meia-estrela, resenha, curtir, favoritos, listas e diário. A identidade visual é
-própria: fundo ameixa-tinta no lugar do azul-ardósia, o trio **terracota ·
-âmbar · ameixa** no lugar do verde-azul-laranja, e uma marca de três lombadas de
-livro numa prateleira em vez dos três pontos.
+A arquitetura é a do original, seguida de perto — página do livro em três
+colunas com painel de ações à direita, diário em tabela com a célula do mês
+atravessando as linhas, navegação inline no cabeçalho, avaliação de meia em
+meia estrela. A paleta é própria: **coral sobre café**, um fundo marrom-tinta
+com o trio **coral · oliva · rosa**, no lugar do azul-ardósia com verde-limão.
+A marca são três lombadas numa prateleira, e não os três pontos.
 
 > **Aviso.** Projeto independente, sem vínculo com o Letterboxd. A inspiração é
 > declarada: a arquitetura de navegação e a gramática de avaliação vêm de lá.
@@ -34,12 +35,12 @@ navegação por hash justamente para isso.
 |---|---|
 | **Início** | Suas leituras recentes, a fila de "quero ler", os livros em alta na semana e um resumo de onde você está no ano. |
 | **Busca** | Título, autor ou ISBN, com paginação. Cola um ISBN de 10 ou 13 dígitos e ele busca pelo campo certo, não pelo texto livre. |
-| **Ficha do livro** | Capa, autoria, ano, número de páginas, quantidade de edições, sinopse e assuntos. Daqui saem todas as ações: registrar leitura, quero ler, curtir, favoritar e adicionar a listas. |
-| **Registro de leitura** | Nota de meia a cinco estrelas, data em que terminou, resenha, marcação de releitura e aviso de spoiler. Um livro pode ter vários registros — cada releitura é uma linha nova. |
-| **Diário** | Tudo o que você leu, agrupado por mês, da leitura mais recente para a mais antiga. Resenhas com spoiler ficam cobertas até você tocar. |
+| **Ficha do livro** | Três colunas: capa, conteúdo e painel de ações. O fundo atrás do título é a própria capa, ampliada e desfocada — o lugar que no original é do still do filme. O conteúdo tem abas de sinopse, detalhes e assuntos; o painel concentra lido, curtir, quero ler, registrar, listas, favoritar e o histograma das suas notas. |
+| **Registro de leitura** | Nota de meia a cinco estrelas, data em que terminou, resenha, marcação de releitura e aviso de spoiler. Um livro pode ter vários registros — cada releitura é uma linha nova. O botão da ponta do cabeçalho abre a busca e emenda direto aqui. |
+| **Diário** | Uma tabela: mês, dia, capa, livro, ano, nota, curtida. A célula do mês atravessa as linhas daquele mês. Resenhas com spoiler ficam cobertas até você tocar. |
 | **Estante** | Quatro prateleiras: quero ler, lidos, curtidos e favoritos. |
 | **Listas** | Agrupamentos livres — "li na praia", "para reler", "presentes". |
-| **Perfil** | Números do seu ano, meta de leitura com barra de progresso, histograma de como você avalia, favoritos, e exportar/importar/apagar. |
+| **Perfil** | Fileira de números do seu ano, meta de leitura com barra de progresso, histograma de como você avalia, favoritos e prévia do diário. |
 
 ## A avaliação em meia-estrela
 
@@ -49,7 +50,19 @@ metade direita vale a estrela inteira. Pelo teclado, as setas sobem e descem de
 
 A nota que aparece na capa e na ficha é sempre a da **leitura mais recente**.
 As notas antigas continuam no diário, e é a distribuição delas que alimenta o
-histograma do perfil.
+histograma do perfil e do painel.
+
+## Duas escolhas que fogem do original
+
+**As grades mostram o título abaixo da capa.** O Letterboxd mostra só os
+pôsteres. Aqui não funciona igual: livro se reconhece bem menos pela capa do que
+filme por pôster, e boa parte do acervo da Open Library não tem capa cadastrada.
+Voltar à grade só de capas é trocar um `display` em `.cartao-legenda`.
+
+**A paleta é quente.** O original é azul-ardósia frio com verde-limão. Todas as
+cores moram no bloco `:root` de `css/app.css` — marca, degradê do herói e todos
+os componentes saem dessas variáveis, então trocar o tema inteiro é reescrever
+esse bloco e mais nada.
 
 ## De onde vêm os livros
 
@@ -88,8 +101,8 @@ O seu diário não passa por aí — ele já é local.
 
 ```
 letterbooks/
-├── index.html              casca do app: topo, abas e a marca em SVG
-├── css/app.css             paleta, tipografia e todos os componentes
+├── index.html              casca do app: cabeçalho, navegação e a marca em SVG
+├── css/app.css             a paleta (bloco :root) e todos os componentes
 ├── js/
 │   ├── api.js              Open Library: busca, tendências, ficha e capas
 │   ├── dados.js            localStorage: leituras, listas, estatísticas
