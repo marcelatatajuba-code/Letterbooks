@@ -1,0 +1,144 @@
+/* ============================================================================
+   api.js — acesso ao acervo de livros.
+
+   Fonte: Open Library (openlibrary.org), o catalogo aberto do Internet Archive.
+   Sao mais de 40 milhoes de edicoes, com capas, autores, ano e sinopse, e a API
+   e publica: nao exige chave nem cadastro. Por isso ela faz aqui o papel que o
+   TMDB faz no Letterboxd.
+
+   Tudo que sai deste modulo ja vem normalizado no formato interno de livro:
+
+     { chave, titulo, autores[], ano, capa, capaGrande, paginas, edicoes }
+
+   A "chave" e o identificador da obra na Open Library (ex.: "/works/OL45804W").
+   E ela que amarra o livro aos seus logs, resenhas e listas.
+   ========================================================================== */
+var API = (function () {
+  'use strict';
+
+  var BUSCA     = 'https://openlibrary.org/search.json';
+  var TENDENCIA = 'https://openlibrary.org/trending/weekly.json';
+  var CAPAS     = 'https://covers.openlibrary.org/b/id/';
+  var CAMPOS    = 'key,title,author_name,first_publish_year,cover_i,' +
+                  'number_of_pages_median,edition_count,subject';
+
+  /* Cache em memoria: a mesma busca repetida na sessao nao vai de novo a rede. */
+  var cache = {};
+
+  function url(base, params) {
+    var partes = [];
+    for (var k in params) {
+      if (params[k] === undefined || params[k] === null || params[k] === '') continue;
+      partes.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
+    }
+    return base + (partes.length ? '?' + partes.join('&') : '');
+  }
+
+  function pegar(endereco) {
+    if (cache[endereco]) return Promise.resolve(cache[endereco]);
+    return fetch(endereco, { headers: { Accept: 'application/json' } })
+      .then(function (r) {
+        if (!r.ok) throw new Error('A Open Library respondeu ' + r.status + '.');
+        return r.json();
+      })
+      .then(function (dados) { cache[endereco] = dados; return dados; });
+  }
+
+  /* URL da capa. Tamanhos da Open Library: S (pequena), M (media), L (grande). */
+  function capa(idCapa, tamanho) {
+    if (!idCapa) return null;
+    return CAPAS + idCapa + '-' + (tamanho || 'M') + '.jpg';
+  }
+
+  /* Converte um registro cru da Open Library no formato interno. */
+  function normalizar(cru) {
+    if (!cru || !cru.key) return null;
+    return {
+      chave:      cru.key,
+      titulo:     cru.title || 'Sem titulo',
+      autores:    cru.author_name || cru.authors || [],
+      ano:        cru.first_publish_year || null,
+      capa:       capa(cru.cover_i, 'M'),
+      capaGrande: capa(cru.cover_i, 'L'),
+      paginas:    cru.number_of_pages_median || null,
+      edicoes:    cru.edition_count || null,
+      assuntos:   (cru.subject || []).slice(0, 12)
+    };
+  }
+
+  /* ------------------------------------------------------------------ busca */
+
+  /* termo livre: titulo, autor, ISBN, o que a pessoa digitar.
+     pagina comeca em 1. Devolve { livros, total, pagina }. */
+  function buscar(termo, pagina) {
+    termo = (termo || '').trim();
+    if (!termo) return Promise.resolve({ livros: [], total: 0, pagina: 1 });
+    pagina = pagina || 1;
+
+    var so = somenteDigitos(termo);
+    var params = { fields: CAMPOS, limit: 24, page: pagina };
+    /* 10 ou 13 digitos: a pessoa colou um ISBN, entao busca pelo campo certo. */
+    if (so.length === 10 || so.length === 13) params.isbn = so;
+    else params.q = termo;
+
+    return pegar(url(BUSCA, params)).then(function (d) {
+      return {
+        livros: (d.docs || []).map(normalizar).filter(Boolean),
+        total:  d.numFound || 0,
+        pagina: pagina
+      };
+    });
+  }
+
+  function somenteDigitos(s) { return String(s).replace(/[^0-9]/g, ''); }
+
+  /* Livros em alta na semana — alimenta a tela inicial. */
+  function emAlta(limite) {
+    return pegar(url(TENDENCIA, { limit: limite || 12 }))
+      .then(function (d) { return (d.works || []).map(normalizar).filter(Boolean); })
+      .catch(function () {
+        /* Se o endpoint de tendencia falhar, cai numa busca por classicos. */
+        return buscar('classicos da literatura', 1).then(function (r) {
+          return r.livros.slice(0, limite || 12);
+        });
+      });
+  }
+
+  /* Livros de um assunto (ex.: "fantasy", "brazilian literature"). */
+  function porAssunto(assunto, limite) {
+    return pegar(url(BUSCA, { subject: assunto, fields: CAMPOS, limit: limite || 12 }))
+      .then(function (d) { return (d.docs || []).map(normalizar).filter(Boolean); });
+  }
+
+  /* ----------------------------------------------------------- ficha da obra */
+
+  /* Detalhes da obra: sinopse e assuntos. A chave e do tipo "/works/OL45804W". */
+  function detalhe(chave) {
+    return pegar('https://openlibrary.org' + chave + '.json').then(function (d) {
+      return {
+        sinopse:  textoDe(d.description),
+        assuntos: (d.subjects || []).slice(0, 12),
+        capaId:   (d.covers || [])[0] || null
+      };
+    }).catch(function () {
+      return { sinopse: '', assuntos: [], capaId: null };
+    });
+  }
+
+  /* A sinopse as vezes vem como string, as vezes como { type, value }. */
+  function textoDe(d) {
+    if (!d) return '';
+    var t = typeof d === 'string' ? d : (d.value || '');
+    /* A Open Library costuma anexar a fonte no fim, separada por tracos. */
+    return t.split(/\n----/)[0].split(/\n\(\[source/)[0].trim();
+  }
+
+  return {
+    buscar: buscar,
+    emAlta: emAlta,
+    porAssunto: porAssunto,
+    detalhe: detalhe,
+    capa: capa,
+    normalizar: normalizar
+  };
+})();

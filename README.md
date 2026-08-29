@@ -1,0 +1,114 @@
+# Letterbooks — diário de leitura (PWA)
+
+O que o Letterboxd faz por filmes, para livros: buscar no acervo, registrar o
+que você leu, dar estrelas, escrever resenha e montar listas.
+
+As funcionalidades seguem o original de perto — busca, log, avaliação em
+meia-estrela, resenha, curtir, favoritos, listas e diário. A identidade visual é
+própria: fundo ameixa-tinta no lugar do azul-ardósia, o trio **terracota ·
+âmbar · ameixa** no lugar do verde-azul-laranja, e uma marca de três lombadas de
+livro numa prateleira em vez dos três pontos.
+
+> **Aviso.** Projeto independente, sem vínculo com o Letterboxd. A inspiração é
+> declarada: a arquitetura de navegação e a gramática de avaliação vêm de lá.
+
+---
+
+## Como abrir
+
+Não tem build, não tem dependência, não tem servidor. É HTML, CSS e JavaScript
+servidos como estão.
+
+```bash
+# a partir da pasta letterbooks/
+python3 -m http.server 8000
+# depois abra http://localhost:8000
+```
+
+Publicando em **GitHub Pages**, funciona igual — o app usa caminhos relativos e
+navegação por hash justamente para isso.
+
+## Telas
+
+| Tela | O que faz |
+|---|---|
+| **Início** | Suas leituras recentes, a fila de "quero ler", os livros em alta na semana e um resumo de onde você está no ano. |
+| **Busca** | Título, autor ou ISBN, com paginação. Cola um ISBN de 10 ou 13 dígitos e ele busca pelo campo certo, não pelo texto livre. |
+| **Ficha do livro** | Capa, autoria, ano, número de páginas, quantidade de edições, sinopse e assuntos. Daqui saem todas as ações: registrar leitura, quero ler, curtir, favoritar e adicionar a listas. |
+| **Registro de leitura** | Nota de meia a cinco estrelas, data em que terminou, resenha, marcação de releitura e aviso de spoiler. Um livro pode ter vários registros — cada releitura é uma linha nova. |
+| **Diário** | Tudo o que você leu, agrupado por mês, da leitura mais recente para a mais antiga. Resenhas com spoiler ficam cobertas até você tocar. |
+| **Estante** | Quatro prateleiras: quero ler, lidos, curtidos e favoritos. |
+| **Listas** | Agrupamentos livres — "li na praia", "para reler", "presentes". |
+| **Perfil** | Números do seu ano, meta de leitura com barra de progresso, histograma de como você avalia, favoritos, e exportar/importar/apagar. |
+
+## A avaliação em meia-estrela
+
+Como no Letterboxd: clicar na metade esquerda de uma estrela vale meia nota, na
+metade direita vale a estrela inteira. Pelo teclado, as setas sobem e descem de
+0,5 em 0,5 — o controle tem `role="slider"` e anuncia o valor.
+
+A nota que aparece na capa e na ficha é sempre a da **leitura mais recente**.
+As notas antigas continuam no diário, e é a distribuição delas que alimenta o
+histograma do perfil.
+
+## De onde vêm os livros
+
+Do acervo da [Open Library](https://openlibrary.org), o catálogo aberto do
+Internet Archive: mais de 40 milhões de edições, com capas, autoria, ano e
+sinopse. A API é pública e não exige chave nem cadastro — é ela que faz aqui o
+papel que o TMDB faz no Letterboxd.
+
+Nem toda obra tem capa por lá. Quando falta, o app desenha uma lombada com o
+título em vez de mostrar um retângulo cinza.
+
+## Onde ficam os seus dados
+
+**Só no seu navegador**, no `localStorage`. Não existe servidor, conta nem senha,
+e nada do que você escreve sai do aparelho.
+
+A contrapartida é que o diário **não sincroniza entre aparelhos** e some se você
+limpar os dados do site. Por isso o perfil tem **Exportar diário**, que baixa um
+`.json` com tudo, e **Importar diário**, que lê esse arquivo de volta — é assim
+que se leva a conta para outro celular ou se faz uma cópia de segurança.
+
+## Offline
+
+O *service worker* usa duas estratégias, porque as duas coisas têm naturezas
+diferentes:
+
+- **O app** (HTML, CSS, JS, ícones) é *cache-first*: abre instantâneo e funciona
+  sem rede. Publicar uma atualização é trocar a versão do cache em `sw.js`.
+- **O acervo** (buscas, fichas e capas) é *rede-primeiro com cache de reserva*:
+  os dados chegam sempre frescos quando há conexão, mas os livros que você já
+  abriu continuam acessíveis no avião.
+
+O seu diário não passa por aí — ele já é local.
+
+## Estrutura
+
+```
+letterbooks/
+├── index.html              casca do app: topo, abas e a marca em SVG
+├── css/app.css             paleta, tipografia e todos os componentes
+├── js/
+│   ├── api.js              Open Library: busca, tendências, ficha e capas
+│   ├── dados.js            localStorage: leituras, listas, estatísticas
+│   └── app.js              roteador por hash e as telas
+├── icons/                  ícones do PWA (192, 512, maskable, apple-touch)
+├── manifest.webmanifest
+└── sw.js
+```
+
+Sem framework e sem etapa de build, de propósito: o arquivo que está no
+repositório é exatamente o que roda no navegador.
+
+## Limitações conhecidas
+
+- **Um aparelho por vez.** Sem conta, não há sincronização; a ponte é o
+  exportar/importar.
+- **Nada é social.** Não há perfis de outras pessoas, seguir, comentar nem
+  resenhas alheias — a parte comunitária do Letterboxd está fora do escopo.
+- **O acervo é o da Open Library.** Livros muito recentes ou de editoras
+  pequenas podem não estar lá, ou aparecer sem capa e sem sinopse.
+- **A busca é a da Open Library.** Ela responde melhor a título e autor do que a
+  frases soltas.

@@ -1,0 +1,487 @@
+/* ============================================================================
+   app.css — Letterbooks
+
+   A arquitetura visual segue o Letterboxd: fundo escuro, grade de capas como
+   protagonista, barra fixa no topo, estrelas como unidade de avaliacao.
+   A paleta, essa sim, e propria: em vez do azul-ardosia com verde-limao do
+   original, um fundo ameixa-tinta e o trio terracota / ambar / ameixa que
+   aparece nas tres lombadas da marca.
+   ========================================================================== */
+
+:root {
+  /* fundos e superficies */
+  --fundo:        #151119;
+  --fundo-2:      #1b1522;
+  --superficie:   #241d2c;
+  --superficie-2: #2e2638;
+  --borda:        #3a3146;
+  --borda-2:      #4a4058;
+
+  /* texto */
+  --texto:   #f3eef5;
+  --texto-2: #b6a9c0;
+  --texto-3: #877a92;
+
+  /* o trio da marca */
+  --terra:  #e2694a;
+  --ambar:  #e9a63c;
+  --ameixa: #a86fd0;
+
+  --estrela: #e9a63c;
+  --curtida: #e2694a;
+  --quero:   #6fb8d0;
+
+  --raio:   10px;
+  --raio-g: 16px;
+  --sombra: 0 10px 30px rgba(0, 0, 0, .45);
+  --topo-h: 58px;
+
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+  --sans:  -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--texto);
+  font: 15px/1.55 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-wrap: break-word;
+}
+
+a { color: inherit; text-decoration: none; }
+button, input, select, textarea { font: inherit; color: inherit; }
+img { display: block; max-width: 100%; }
+
+:focus-visible { outline: 2px solid var(--ambar); outline-offset: 2px; border-radius: 4px; }
+/* A tela recebe foco por codigo a cada navegacao, so para levar o leitor de tela
+   ao inicio do conteudo novo. Isso nao e foco de teclado, entao nao desenha anel. */
+#tela:focus, #tela:focus-visible { outline: none; }
+
+/* --------------------------------------------------------------------- topo */
+
+.topo {
+  position: sticky; top: 0; z-index: 40;
+  height: var(--topo-h);
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 16px;
+  background: rgba(21, 17, 25, .92);
+  backdrop-filter: saturate(1.4) blur(10px);
+  border-bottom: 1px solid var(--borda);
+}
+
+.marca { display: flex; align-items: center; gap: 9px; flex: none; }
+.marca svg { width: 26px; height: 26px; flex: none; }
+.marca b {
+  font: 700 16px/1 var(--sans);
+  letter-spacing: .14em; text-transform: uppercase;
+}
+.marca b i { font-style: normal; color: var(--texto-3); }
+
+/* busca do topo */
+.topo-busca { margin-left: auto; position: relative; flex: 1 1 260px; max-width: 340px; }
+.topo-busca input {
+  width: 100%; height: 36px;
+  padding: 0 34px 0 12px;
+  background: var(--superficie); border: 1px solid var(--borda);
+  border-radius: 999px; color: var(--texto);
+}
+.topo-busca input::placeholder { color: var(--texto-3); }
+.topo-busca button {
+  position: absolute; right: 4px; top: 4px;
+  width: 28px; height: 28px; display: grid; place-items: center;
+  background: none; border: 0; color: var(--texto-3); cursor: pointer;
+}
+.topo-busca button:hover { color: var(--texto); }
+
+/* --------------------------------------------------------------------- abas */
+
+.abas {
+  position: sticky; top: var(--topo-h); z-index: 30;
+  display: flex; gap: 2px; overflow-x: auto;
+  padding: 0 8px;
+  background: var(--fundo-2);
+  border-bottom: 1px solid var(--borda);
+  scrollbar-width: none;
+}
+.abas::-webkit-scrollbar { display: none; }
+.abas a {
+  flex: none;
+  padding: 12px 14px;
+  font-size: 13px; font-weight: 600;
+  letter-spacing: .06em; text-transform: uppercase;
+  color: var(--texto-3);
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.abas a:hover { color: var(--texto-2); }
+.abas a.ativa { color: var(--texto); border-bottom-color: var(--terra); }
+
+/* ------------------------------------------------------------------ estrutura */
+
+.pagina { max-width: 1040px; margin: 0 auto; padding: 24px 16px 72px; }
+
+.secao { margin-bottom: 40px; }
+.secao > h2 {
+  display: flex; align-items: baseline; gap: 10px;
+  margin: 0 0 14px;
+  font: 600 12px/1 var(--sans);
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--texto-3);
+  padding-bottom: 9px; border-bottom: 1px solid var(--borda);
+}
+.secao > h2 a { margin-left: auto; color: var(--texto-3); font-size: 11px; }
+.secao > h2 a:hover { color: var(--terra); }
+
+.titulo-pagina {
+  margin: 0 0 6px;
+  font: 400 30px/1.15 var(--serif);
+}
+.sub-pagina { margin: 0 0 26px; color: var(--texto-3); font-size: 14px; }
+
+/* ------------------------------------------------------------ grade de capas */
+
+.grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 16px 12px;
+}
+.grade.compacta { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+
+.cartao { display: block; cursor: pointer; }
+
+.capa {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--superficie-2);
+  border: 1px solid var(--borda);
+  transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+}
+.cartao:hover .capa,
+.cartao:focus-visible .capa {
+  transform: translateY(-3px);
+  border-color: var(--ambar);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .5);
+}
+.capa img { width: 100%; height: 100%; object-fit: cover; }
+
+/* quando nao ha capa na Open Library, a lombada vira o proprio placeholder */
+.capa-vazia {
+  height: 100%;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 10px 9px;
+  background: linear-gradient(160deg, var(--superficie-2), var(--superficie));
+  border-left: 4px solid var(--terra);
+}
+.capa-vazia span {
+  font: 600 11px/1.3 var(--serif);
+  color: var(--texto-2);
+  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* selos no canto da capa */
+.selos {
+  position: absolute; inset: auto 0 0 0;
+  display: flex; gap: 4px; padding: 5px 6px;
+  background: linear-gradient(to top, rgba(0, 0, 0, .8), transparent);
+}
+.selos i {
+  font-style: normal; font-size: 10px; line-height: 1;
+}
+
+.cartao-legenda {
+  margin-top: 6px;
+  font-size: 12px; line-height: 1.35;
+  color: var(--texto-2);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.cartao-nota { margin-top: 3px; font-size: 11px; }
+
+/* ---------------------------------------------------------------- estrelas */
+
+.estrelas { color: var(--estrela); letter-spacing: .5px; white-space: nowrap; }
+.estrelas.apagada { color: var(--texto-3); }
+
+/* seletor interativo de 0,5 a 5 */
+.seletor-estrelas { display: inline-flex; align-items: center; gap: 8px; }
+.seletor-estrelas .campo { display: inline-flex; }
+.seletor-estrelas .est {
+  position: relative; width: 30px; height: 30px;
+  background: none; border: 0; padding: 0; cursor: pointer;
+  color: var(--borda-2);
+}
+.seletor-estrelas .est::before,
+.seletor-estrelas .est::after {
+  content: "★";
+  position: absolute; top: 0; left: 0;
+  width: 30px; height: 30px;
+  font-size: 26px; line-height: 30px; text-align: center;
+}
+.seletor-estrelas .est::after { color: var(--estrela); width: 0; overflow: hidden; }
+.seletor-estrelas .est[data-preenchida="meia"]::after { width: 15px; }
+.seletor-estrelas .est[data-preenchida="cheia"]::after { width: 30px; }
+.seletor-estrelas .limpar {
+  background: none; border: 0; color: var(--texto-3);
+  cursor: pointer; font-size: 12px; text-decoration: underline;
+}
+.seletor-estrelas .limpar:hover { color: var(--terra); }
+
+/* ------------------------------------------------------------ ficha do livro */
+
+.ficha { display: grid; grid-template-columns: 200px 1fr; gap: 28px; align-items: start; }
+.ficha-capa { border-radius: 6px; overflow: hidden; border: 1px solid var(--borda); background: var(--superficie-2); }
+.ficha-capa .capa { aspect-ratio: 2 / 3; border: 0; border-radius: 0; }
+.ficha h1 { margin: 0 0 4px; font: 400 32px/1.15 var(--serif); }
+.ficha .autoria { color: var(--texto-2); margin: 0 0 14px; font-size: 15px; }
+.ficha .autoria b { font-weight: 600; color: var(--texto); }
+.ficha .meta {
+  display: flex; flex-wrap: wrap; gap: 6px 16px;
+  margin: 0 0 18px; padding-bottom: 16px;
+  border-bottom: 1px solid var(--borda);
+  color: var(--texto-3); font-size: 13px;
+}
+.sinopse { color: var(--texto-2); line-height: 1.65; margin: 0 0 20px; white-space: pre-wrap; }
+.sinopse.recolhida { display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+
+.assuntos { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 22px; }
+.assunto {
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--superficie); border: 1px solid var(--borda);
+  font-size: 11.5px; color: var(--texto-2);
+}
+
+/* barra de acoes: ler / quero ler / curtir */
+.acoes {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 1px; background: var(--borda);
+  border: 1px solid var(--borda); border-radius: var(--raio);
+  overflow: hidden; margin-bottom: 18px;
+}
+.acao {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 13px 6px;
+  background: var(--superficie); border: 0; cursor: pointer;
+  color: var(--texto-3); font-size: 11px; font-weight: 600;
+  letter-spacing: .05em; text-transform: uppercase;
+  transition: background .12s ease, color .12s ease;
+}
+.acao:hover { background: var(--superficie-2); color: var(--texto-2); }
+.acao .glifo { font-size: 19px; line-height: 1; }
+.acao.ativa { color: var(--texto); }
+.acao.ativa.lido   .glifo { color: var(--ambar); }
+.acao.ativa.quero  .glifo { color: var(--quero); }
+.acao.ativa.curtir .glifo { color: var(--curtida); }
+
+/* -------------------------------------------------------------------- botoes */
+
+.botao {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 9px 16px; min-height: 38px;
+  background: var(--superficie-2); border: 1px solid var(--borda-2);
+  border-radius: var(--raio); color: var(--texto);
+  font-size: 13.5px; font-weight: 600; cursor: pointer;
+  transition: background .12s ease, border-color .12s ease;
+}
+.botao:hover { background: var(--borda); }
+.botao.destaque { background: var(--terra); border-color: var(--terra); color: #1a1014; }
+.botao.destaque:hover { background: #ef7e5f; border-color: #ef7e5f; }
+.botao.discreto { background: none; border-color: var(--borda); color: var(--texto-2); }
+.botao.discreto:hover { background: var(--superficie); color: var(--texto); }
+.botao.perigo { color: var(--terra); border-color: var(--borda); background: none; }
+.botao.perigo:hover { background: rgba(226, 105, 74, .12); }
+.botao[disabled] { opacity: .45; cursor: not-allowed; }
+
+.linha-botoes { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* -------------------------------------------------------------------- campos */
+
+.campo { display: block; margin-bottom: 16px; }
+.campo > span {
+  display: block; margin-bottom: 6px;
+  font-size: 11.5px; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--texto-3);
+}
+.campo input, .campo textarea, .campo select {
+  width: 100%; padding: 10px 12px;
+  background: var(--fundo-2); border: 1px solid var(--borda);
+  border-radius: var(--raio); color: var(--texto);
+}
+.campo textarea { min-height: 128px; resize: vertical; line-height: 1.6; }
+.campo input:focus, .campo textarea:focus, .campo select:focus {
+  outline: none; border-color: var(--ambar);
+}
+
+.marcador { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; cursor: pointer; font-size: 14px; }
+.marcador input { width: 17px; height: 17px; accent-color: var(--terra); flex: none; }
+
+/* --------------------------------------------------------------------- folha */
+/* o painel de registro de leitura, que sobe por cima da ficha */
+
+.folha-fundo {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(8, 6, 10, .72);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  animation: surge .16s ease;
+}
+.folha {
+  width: 100%; max-width: 560px; max-height: 88vh; overflow-y: auto;
+  background: var(--fundo-2); border: 1px solid var(--borda);
+  border-radius: var(--raio-g); box-shadow: var(--sombra);
+  padding: 22px;
+  animation: sobe .18s ease;
+}
+.folha h2 { margin: 0 0 4px; font: 400 22px/1.25 var(--serif); }
+.folha .folha-sub { margin: 0 0 20px; color: var(--texto-3); font-size: 13px; }
+.folha-rodape { display: flex; gap: 10px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--borda); }
+.folha-rodape .espaco { margin-left: auto; }
+
+@keyframes surge { from { opacity: 0 } to { opacity: 1 } }
+@keyframes sobe  { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: none } }
+
+/* -------------------------------------------------------------------- diario */
+
+.entrada {
+  display: grid; grid-template-columns: 56px 1fr; gap: 14px;
+  padding: 16px 0; border-bottom: 1px solid var(--borda);
+}
+/* Na ficha do livro a entrada nao mostra capa: a primeira coluna passa a
+   carregar a nota, e precisa caber "★★★★½" sem transbordar. */
+.entrada.sem-capa { grid-template-columns: 92px 1fr; }
+.entrada .capa { border-radius: 4px; }
+.entrada-topo { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.entrada-titulo { font: 400 17px/1.3 var(--serif); }
+.entrada-ano { color: var(--texto-3); font-size: 13px; }
+.entrada-linha { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 12.5px; color: var(--texto-3); }
+.entrada-resenha { margin: 8px 0 0; color: var(--texto-2); font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+.entrada-acoes { display: flex; gap: 8px; margin-top: 10px; }
+.entrada-acoes button {
+  background: none; border: 0; cursor: pointer;
+  color: var(--texto-3); font-size: 12px; text-decoration: underline; padding: 0;
+}
+.entrada-acoes button:hover { color: var(--terra); }
+
+.spoiler-aviso {
+  display: inline-block; margin-top: 8px; padding: 8px 12px;
+  border: 1px dashed var(--borda-2); border-radius: var(--raio);
+  color: var(--texto-3); font-size: 13px; cursor: pointer; background: none;
+}
+.spoiler-aviso:hover { color: var(--texto-2); border-color: var(--ambar); }
+
+/* -------------------------------------------------------------------- perfil */
+
+.numeros {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1px; background: var(--borda);
+  border: 1px solid var(--borda); border-radius: var(--raio-g); overflow: hidden;
+  margin-bottom: 32px;
+}
+.numero { background: var(--superficie); padding: 18px 14px; text-align: center; }
+.numero b { display: block; font: 400 28px/1 var(--serif); color: var(--texto); }
+.numero span {
+  display: block; margin-top: 6px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--texto-3);
+}
+
+.meta-barra { height: 8px; border-radius: 999px; background: var(--superficie-2); overflow: hidden; margin: 10px 0 6px; }
+.meta-barra i { display: block; height: 100%; background: linear-gradient(90deg, var(--terra), var(--ambar)); }
+
+/* histograma de notas */
+.histograma {
+  display: flex; align-items: flex-end; gap: 4px;
+  height: 88px; max-width: 340px; margin-bottom: 8px;
+}
+.histograma .col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+.histograma .col i {
+  display: block; width: 100%; min-height: 3px;
+  background: var(--superficie-2); border-radius: 3px 3px 0 0;
+  transition: background .12s ease;
+}
+.histograma .col.tem i { background: var(--ambar); }
+.histograma-eixo {
+  display: flex; justify-content: space-between;
+  max-width: 340px; color: var(--texto-3); font-size: 11px;
+}
+
+/* -------------------------------------------------------------------- listas */
+
+.cartao-lista {
+  display: block; padding: 16px;
+  background: var(--superficie); border: 1px solid var(--borda);
+  border-radius: var(--raio-g); margin-bottom: 12px; cursor: pointer;
+  transition: border-color .12s ease;
+}
+.cartao-lista:hover { border-color: var(--ambar); }
+.cartao-lista h3 { margin: 0 0 4px; font: 400 19px/1.25 var(--serif); }
+.cartao-lista p { margin: 0 0 12px; color: var(--texto-2); font-size: 13.5px; }
+.pilha { display: flex; }
+.pilha .capa { width: 44px; flex: none; margin-right: -14px; border-radius: 3px; box-shadow: -3px 0 8px rgba(0, 0, 0, .5); }
+.pilha .capa:last-child { margin-right: 0; }
+
+/* ---------------------------------------------------------- estados e avisos */
+
+.vazio {
+  padding: 44px 20px; text-align: center;
+  border: 1px dashed var(--borda); border-radius: var(--raio-g);
+  color: var(--texto-3);
+}
+.vazio strong { display: block; margin-bottom: 6px; color: var(--texto-2); font-weight: 600; }
+.vazio .botao { margin-top: 16px; }
+
+.carregando { padding: 40px; text-align: center; color: var(--texto-3); font-size: 14px; }
+.carregando::after {
+  content: ""; display: block; width: 22px; height: 22px; margin: 14px auto 0;
+  border: 2px solid var(--borda-2); border-top-color: var(--ambar);
+  border-radius: 50%; animation: gira .7s linear infinite;
+}
+@keyframes gira { to { transform: rotate(360deg) } }
+
+.erro {
+  padding: 14px 16px; border-radius: var(--raio);
+  background: rgba(226, 105, 74, .1); border: 1px solid rgba(226, 105, 74, .35);
+  color: #f4a68e; font-size: 13.5px;
+}
+
+.aviso-flutuante {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+  z-index: 80; padding: 11px 18px;
+  background: var(--superficie-2); border: 1px solid var(--borda-2);
+  border-radius: 999px; box-shadow: var(--sombra);
+  font-size: 13.5px; animation: sobe .18s ease;
+}
+
+/* ---------------------------------------------------------------- responsivo */
+
+@media (max-width: 720px) {
+  .ficha { grid-template-columns: 120px 1fr; gap: 18px; }
+  .ficha h1 { font-size: 24px; }
+  .titulo-pagina { font-size: 25px; }
+  .marca b { font-size: 14px; }
+}
+
+@media (max-width: 560px) {
+  .topo { gap: 10px; padding: 0 12px; }
+  .topo-busca { flex-basis: 130px; }
+  /* A marca encolhe, mas nao se parte: "LETTER" sozinho parece defeito. */
+  .marca b { font-size: 12px; letter-spacing: .1em; }
+  .marca svg { width: 22px; height: 22px; }
+  /* Duas colunas fechadas: com 4 ou 6 indicadores nao sobra celula vazia. */
+  .numeros { grid-template-columns: repeat(2, 1fr); }
+  .pagina { padding: 18px 12px 64px; }
+  .grade { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 14px 10px; }
+  .acoes { grid-template-columns: 1fr; }
+  .acao { flex-direction: row; justify-content: center; gap: 9px; padding: 11px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
