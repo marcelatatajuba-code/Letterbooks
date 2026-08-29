@@ -16,6 +16,12 @@ A marca são três lombadas numa prateleira, e não os três pontos.
 
 ---
 
+## No ar
+
+**https://marcelatatajuba-code.github.io/Letterbooks/**
+
+O GitHub Pages publica a `main` direto, sem workflow: cada push republica.
+
 ## Como abrir
 
 Não tem build, não tem dependência, não tem servidor. É HTML, CSS e JavaScript
@@ -63,6 +69,19 @@ capa, o título, a autoria e a sua nota — para o story ou para qualquer conver
 A imagem é desenhada no próprio aparelho, num `canvas`, e entregue à folha de
 compartilhamento do sistema. Nada é enviado a servidor nenhum. Onde o navegador
 não oferece o compartilhamento nativo, o arquivo é baixado.
+
+## O desenho
+
+A home não empilha grades: cada seção é um **trilho** que rola de lado, com só
+as capas — é o ritmo do original. As grades com título ficam nas telas de
+buscar, estante e listas, onde se varre com o olho em vez de folhear.
+
+Os títulos de seção são negrito em caixa normal com um `›`, não versalete
+espaçado com régua embaixo. Quase não há bordas: o que separa é espaço e
+imagem. Na ficha do livro, o histograma de avaliações fica no corpo com a média
+grande ao lado, e no celular o painel lateral dá lugar a uma **barra de ação
+fixa** que abre um cartão com as quatro funções — lido, curtir, quero ler e
+favoritar.
 
 ## Navegação
 

@@ -170,6 +170,13 @@
       '</div>';
   }
 
+  /* Trilho horizontal: o formato da home no original. */
+  function htmlTrilho(livros) {
+    if (!livros.length) return '';
+    return '<div class="trilho">' +
+      livros.map(function (l) { return htmlCartao(l, 0); }).join('') + '</div>';
+  }
+
   function htmlVazio(titulo, texto, botao) {
     return '<div class="vazio"><strong>' + esc(titulo) + '</strong><div>' + esc(texto) + '</div>' +
            (botao || '') + '</div>';
@@ -211,8 +218,8 @@
         vistos[l.chave] = 1;
         recentes.push(livroDe(l.chave));
       });
-      html += '<section class="secao"><h2>Suas leituras recentes<a href="#/diario">ver o diário</a></h2>' +
-              htmlGrade(recentes) + '</section>';
+      html += '<section class="secao"><h2>Suas leituras recentes' +
+              '<a href="#/diario">diário</a></h2>' + htmlTrilho(recentes) + '</section>';
     } else {
       html += '<h1 class="titulo-pagina">Seu diário de leitura começa aqui</h1>' +
               '<p class="sub-pagina">Busque um livro, dê estrelas e escreva o que achou. ' +
@@ -220,8 +227,8 @@
     }
 
     if (Dados.estado().querLer.length) {
-      html += '<section class="secao"><h2>Quero ler<a href="#/estante">ver a estante</a></h2>' +
-              htmlGrade(Dados.estado().querLer.slice(0, 14).map(livroDe), 'miuda') + '</section>';
+      html += '<section class="secao"><h2>Quero ler<a href="#/estante">estante</a></h2>' +
+              htmlTrilho(Dados.estado().querLer.slice(0, 16).map(livroDe)) + '</section>';
     }
 
     html += '<section class="secao" id="secao-alta"><h2>Em alta esta semana</h2>' +
@@ -248,7 +255,7 @@
       if (!s) return;
       livros.forEach(Dados.guardarLivro);
       s.querySelector('.carregando').outerHTML = livros.length
-        ? htmlGrade(livros)
+        ? (s.getAttribute('data-forma') === 'grade' ? htmlGrade(livros) : htmlTrilho(livros))
         : '<p class="erro">Não consegui carregar os destaques agora.</p>';
     }).catch(function (err) {
       var s = document.getElementById('secao-alta');
@@ -256,10 +263,6 @@
       s.querySelector('.carregando').outerHTML =
         '<p class="erro">' + esc(err.message) + ' Verifique a conexão e recarregue.</p>';
     });
-  }
-
-  function atalho(rota, rotulo, conta) {
-    return '<a href="' + rota + '"><b>' + conta + '</b><span>' + esc(rotulo) + '</span></a>';
   }
 
   function numero(valor, rotulo) {
@@ -279,7 +282,7 @@
                'placeholder="O que você está procurando?" aria-label="Buscar livros">' +
         '<button type="submit" class="botao destaque">Buscar</button>' +
       '</form>' +
-      '<section class="secao" id="secao-alta" style="margin-top:32px">' +
+      '<section class="secao" id="secao-alta" data-forma="grade" style="margin-top:32px">' +
         '<h2>Em alta esta semana</h2>' +
         '<p class="carregando">Buscando na Open Library…</p></section>');
 
@@ -419,13 +422,17 @@
         '<button class="painel-botao" data-acao="favorito">' +
           (fav ? '★ Nos favoritos' : '☆ Favoritar') + '</button>' +
         '<button class="painel-botao" data-acao="compartilhar">Compartilhar</button>' +
-        (e.media !== null
-          ? '<div class="painel-bloco">' +
-            '<div class="bloco-topo"><span class="rotulo">Como você avalia</span>' +
-            '<span class="histograma-media">' + mediaTexto(e.media) + '</span></div>' +
-            htmlHistograma(e.faixas) + '</div>'
-          : '') +
       '</aside>';
+
+    /* O histograma sai do painel e vai para o corpo, com a media grande ao
+       lado — e assim continua visivel no celular, onde o painel nao aparece. */
+    var blocoNotas = e.media === null ? '' :
+      '<section class="secao avaliacoes"><h2>Avaliações</h2>' +
+        '<div class="avaliacoes-linha">' +
+          '<div class="avaliacoes-grafico">' + htmlHistograma(e.faixas) + '</div>' +
+          '<div class="avaliacoes-media">' + mediaTexto(e.media) + '</div>' +
+        '</div>' +
+      '</section>';
 
     var html =
       (fundo ? '<div class="heroi"><div class="heroi-imagem" style="background-image:url(' +
@@ -441,12 +448,21 @@
           '<div class="fichas">' + aba('sinopse', 'Sinopse') + aba('detalhes', 'Detalhes') +
             aba('assuntos', 'Assuntos') + '</div>' +
           miolo +
+          blocoNotas +
           (logs.length ? '<section class="secao" style="margin-top:30px">' +
             '<h2>Suas leituras<span class="conta">' + logs.length + '</span></h2>' +
             tabelaDiario(logs, false) + '</section>' : '') +
         '</div>' +
         painel +
-      '</div>';
+      '</div>' +
+
+      /* No celular o painel some e esta barra fica fixa acima da navegacao,
+         como a barra de acao do original. */
+      '<div class="barra-acao"><button data-acao="rapida">' +
+        (lido ? 'Você leu' + (nota ? ' · ' + estrelasTexto(nota) : '') +
+                ' — avaliar, resenhar…'
+              : 'Avaliar, registrar, resenhar…') +
+      '</button></div>';
 
     pintar(html);
 
@@ -457,6 +473,7 @@
         a.remove();
       },
       registrar: function () { abrirFolhaRegistro(livro, null); },
+      rapida: function () { abrirFolhaRapida(livro); },
       quero:  function () { Dados.alternarQuerLer(livro.chave); desenhaLivro(livro, abaAtiva); },
       curtir: function () { Dados.alternarCurtida(livro.chave); desenhaLivro(livro, abaAtiva); },
       listas: function () { abrirFolhaListas(livro); },
@@ -892,9 +909,10 @@
       /* No original, estante e listas vivem dentro do perfil — nao na barra
          principal. Esta fileira e a porta de entrada para elas. */
       '<nav class="perfil-atalhos" aria-label="Suas coleções">' +
-        atalho('#/diario',  'Diário',   e.lidos) +
-        atalho('#/estante', 'Estante',  d.querLer.length + d.curtidas.length + d.favoritos.length) +
-        atalho('#/listas',  'Listas',   e.listas) +
+        '<a class="ativa" href="#/perfil">Perfil</a>' +
+        '<a href="#/diario">Diário</a>' +
+        '<a href="#/listas">Listas</a>' +
+        '<a href="#/estante">Estante</a>' +
       '</nav>' +
 
       '<section class="secao"><h2>Meta de ' + d.perfil.meta.ano + '</h2>' +
@@ -1119,6 +1137,75 @@
            ' aria-label="' + i + ' estrela' + (i > 1 ? 's' : '') + '"></button>';
     }
     return s;
+  }
+
+  /* ============================================== folha de acao rapida ==== */
+  /* As quatro acoes do livro num cartao so, como o cartao de avaliacao rapida
+     do original. E o que a barra fixa do celular abre. */
+
+  function abrirFolhaRapida(livro) {
+    function botao(acao, glifo, rotulo, ativa) {
+      return '<button class="rapida-acao' + (ativa ? ' ativa' : '') + '" data-r="' + acao + '">' +
+             '<span class="glifo" aria-hidden="true">' + glifo + '</span>' +
+             '<span>' + esc(rotulo) + '</span></button>';
+    }
+
+    function pinta() {
+      var nota = Dados.notaDe(livro.chave);
+      var lido = Dados.jaLeu(livro.chave);
+      return '<div class="rapida-capa">' + htmlCapa(livro) + '</div>' +
+        '<h2>' + esc(livro.titulo) + '</h2>' +
+        '<p class="folha-sub">' + esc(autoria(livro)) +
+          (livro.ano ? ' · ' + livro.ano : '') + '</p>' +
+        '<div class="rapida-acoes">' +
+          botao('registrar', lido ? '◉' : '○', lido ? 'Lido' : 'Registrar', lido) +
+          botao('curtir', Dados.curtido(livro.chave) ? '♥' : '♡', 'Curtir',
+                Dados.curtido(livro.chave)) +
+          botao('quero', Dados.querLer(livro.chave) ? '◷' : '◌', 'Quero ler',
+                Dados.querLer(livro.chave)) +
+          botao('favorito', Dados.favorito(livro.chave) ? '★' : '☆', 'Favorito',
+                Dados.favorito(livro.chave)) +
+        '</div>' +
+        (nota ? '<p class="rapida-nota estrelas">' + estrelasTexto(nota) + '</p>' : '');
+    }
+
+    camada.innerHTML =
+      '<div class="folha-fundo" data-fechar="fundo">' +
+        '<div class="folha folha-rapida" role="dialog" aria-modal="true" aria-label="' +
+          esc(livro.titulo) + '"><div id="rapida-miolo">' + pinta() + '</div>' +
+        '<div class="folha-rodape"><button class="botao" data-fechar="ok">Fechar</button></div>' +
+      '</div></div>';
+
+    var painel = camada.firstElementChild;
+    var miolo = document.getElementById('rapida-miolo');
+
+    function fechar() {
+      document.removeEventListener('keydown', aoTeclar);
+      camada.innerHTML = '';
+    }
+    function aoTeclar(ev) { if (ev.key === 'Escape') { fechar(); rotear(); } }
+    document.addEventListener('keydown', aoTeclar);
+
+    painel.addEventListener('click', function (ev) {
+      var acao = ev.target.closest('[data-r]');
+      if (acao) {
+        var qual = acao.getAttribute('data-r');
+        if (qual === 'registrar') { fechar(); return abrirFolhaRegistro(livro, null); }
+        if (qual === 'curtir')  Dados.alternarCurtida(livro.chave);
+        if (qual === 'quero')   Dados.alternarQuerLer(livro.chave);
+        if (qual === 'favorito') {
+          var r = Dados.alternarFavorito(livro.chave);
+          if (r.cheio) aviso('Os favoritos guardam ' + Dados.MAX_FAVORITOS + ' livros.');
+        }
+        miolo.innerHTML = pinta();
+        return;
+      }
+      var alvo = ev.target.closest('[data-fechar]');
+      if (!alvo) return;
+      if (alvo.getAttribute('data-fechar') === 'fundo' && ev.target !== alvo) return;
+      fechar();
+      rotear();
+    });
   }
 
   /* ====================================================== cartao para compartilhar */

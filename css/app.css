@@ -142,18 +142,43 @@ img { display: block; max-width: 100%; }
 .pagina { max-width: 1000px; margin: 0 auto; padding: 26px 20px 80px; }
 
 .secao { margin-bottom: 34px; }
+/* Titulo de secao: negrito em caixa normal, sem regra embaixo. O versalete
+   espacado com linha, repetido em toda secao, e o que mais fazia a tela
+   parecer painel administrativo em vez de aplicativo. */
 .secao > h2 {
-  display: flex; align-items: center; gap: 10px;
-  margin: 0 0 12px; padding-bottom: 8px;
-  border-bottom: 1px solid var(--borda);
-  font-size: 11px; font-weight: 700;
-  letter-spacing: .1em; text-transform: uppercase; color: var(--texto-3);
+  display: flex; align-items: baseline; gap: 10px;
+  margin: 0 0 12px;
+  font-size: 17px; font-weight: 700; letter-spacing: -.01em; color: var(--texto);
 }
-.secao > h2 a, .secao > h2 .conta { margin-left: auto; color: var(--texto-3); font-size: 11px; }
-.secao > h2 a:hover { color: var(--a1); }
+.secao > h2 a, .secao > h2 .conta {
+  margin-left: auto; color: var(--texto-3); font-size: 13px; font-weight: 400;
+}
+.secao > h2 a::after { content: " ›"; }
+.secao > h2 a:hover { color: var(--texto); }
 
 .titulo-pagina { margin: 0 0 4px; font-size: 24px; font-weight: 700; letter-spacing: -.01em; }
 .sub-pagina { margin: 0 0 24px; color: var(--texto-3); font-size: 13px; }
+
+/* ============================================================== trilhos === */
+/* A home do original nao empilha grades: ela rola de lado, um trilho por
+   secao. So as capas, sem legenda — no trilho o titulo atrapalharia o ritmo. */
+
+.trilho {
+  display: flex; gap: 9px;
+  overflow-x: auto; scroll-snap-type: x proximity;
+  margin: 0 -20px; padding: 2px 20px 6px;
+  /* Sem isto o snap encosta o primeiro item no inicio da area de rolagem,
+     que ignora o padding — o navegador rola 20px e anula o recuo. */
+  scroll-padding-left: 20px;
+  scrollbar-width: none;
+}
+.trilho::-webkit-scrollbar { display: none; }
+.trilho .cartao { flex: 0 0 104px; scroll-snap-align: start; }
+.trilho .cartao-legenda { display: none; }
+@media (max-width: 720px) {
+  .trilho { margin: 0 -14px; padding-left: 14px; padding-right: 14px; scroll-padding-left: 14px; }
+  .trilho .cartao { flex-basis: 96px; }
+}
 
 /* =========================================================== grade de capas */
 /* Como as grades de posters do original: so as capas, sem legenda. */
@@ -186,11 +211,11 @@ img { display: block; max-width: 100%; }
   border-radius: var(--raio);
   overflow: hidden;
   background: var(--superficie-2);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, .06);
-  transition: box-shadow .1s ease;
+  transition: box-shadow .1s ease, transform .1s ease;
 }
 .cartao:hover .capa, .cartao:focus-visible .capa {
   box-shadow: 0 0 0 2px var(--a1);
+  transform: translateY(-2px);
 }
 .capa img { width: 100%; height: 100%; object-fit: cover; }
 
@@ -306,11 +331,10 @@ img { display: block; max-width: 100%; }
 
 .assuntos { display: flex; flex-wrap: wrap; gap: 6px; }
 .assunto {
-  padding: 4px 9px; border-radius: var(--raio);
-  background: var(--superficie); border: 1px solid var(--borda);
-  font-size: 11.5px; color: var(--texto-2);
+  padding: 5px 11px; border-radius: 999px;
+  background: var(--superficie); font-size: 12px; color: var(--texto-2);
 }
-.assunto:hover { border-color: var(--a1); color: var(--texto); }
+.assunto:hover { background: var(--superficie-2); color: var(--texto); }
 
 /* ------------------------------------------------- painel lateral de acoes */
 
@@ -365,6 +389,65 @@ img { display: block; max-width: 100%; }
   margin-top: 6px; color: var(--texto-3); font-size: 10px;
 }
 .histograma-media { color: var(--texto); font-size: 15px; font-weight: 700; }
+
+/* ============================================ avaliacoes no corpo ======== */
+/* Histograma com a media grande ao lado, como na ficha do original. */
+
+.avaliacoes { margin-top: 30px; }
+.avaliacoes-linha { display: flex; align-items: flex-end; gap: 18px; }
+.avaliacoes-grafico { flex: 1; max-width: 320px; }
+.avaliacoes-media {
+  font-size: 34px; font-weight: 300; line-height: 1; color: var(--texto);
+  padding-bottom: 14px;
+}
+
+/* ========================================= barra de acao do celular ====== */
+/* Some no computador, onde as acoes vivem no painel lateral. */
+
+.barra-acao { display: none; }
+.barra-acao button {
+  width: 100%; padding: 13px 16px; text-align: left;
+  background: var(--superficie-2); border: 0; border-radius: 999px;
+  color: var(--texto-2); font-size: 14px; cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .45);
+}
+.barra-acao button:active { background: var(--borda); }
+
+@media (max-width: 720px) {
+  .painel { display: none; }
+  .barra-acao {
+    display: block;
+    position: fixed; left: 0; right: 0; z-index: 35;
+    bottom: calc(64px + env(safe-area-inset-bottom));
+    padding: 0 14px;
+  }
+  /* A barra flutua a 64px do fim e tem ~46px: sem esta folga ela cobria o
+     histograma de avaliacoes. */
+  .livro-colunas { padding-bottom: 84px; }
+}
+
+/* ============================================== folha de acao rapida ==== */
+
+.folha-rapida { max-width: 360px; text-align: center; }
+.folha-rapida h2 { margin: 14px 0 2px; font-size: 20px; }
+.rapida-capa { width: 118px; margin: 0 auto; }
+.rapida-acoes {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 4px; margin: 20px 0 0;
+}
+.rapida-acao {
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  padding: 12px 4px; border-radius: 10px;
+  background: none; border: 0; cursor: pointer;
+  color: var(--texto-3); font-size: 10.5px; font-weight: 600;
+}
+.rapida-acao .glifo { font-size: 24px; line-height: 1; }
+.rapida-acao:hover { background: var(--superficie); color: var(--texto-2); }
+.rapida-acao.ativa { color: var(--texto); }
+.rapida-acao.ativa .glifo { color: var(--a1); }
+.rapida-acao[data-r="curtir"].ativa .glifo { color: var(--curtida); }
+.rapida-acao[data-r="quero"].ativa  .glifo { color: var(--quero); }
+.rapida-nota { margin: 14px 0 0; font-size: 20px; }
 
 /* ==================================================== diario como tabela == */
 
@@ -541,29 +624,24 @@ img { display: block; max-width: 100%; }
 /* ============================================== atalhos do perfil ======== */
 /* No original, estante e listas ficam dentro do perfil. */
 
+/* Controle segmentado, como as abas do perfil no original. */
 .perfil-atalhos {
-  display: flex; gap: 1px;
-  background: var(--borda); border-radius: var(--raio-g);
-  overflow: hidden; margin-bottom: 30px;
+  display: flex; gap: 2px; padding: 3px;
+  background: var(--superficie); border-radius: 9px; margin-bottom: 26px;
 }
 .perfil-atalhos a {
-  flex: 1; padding: 14px 10px; text-align: center;
-  background: var(--superficie);
+  flex: 1; padding: 8px 6px; text-align: center; border-radius: 7px;
+  font-size: 13.5px; font-weight: 600; color: var(--texto-2);
 }
-.perfil-atalhos a:hover { background: var(--superficie-2); }
-.perfil-atalhos a b { display: block; font-size: 19px; font-weight: 700; }
-.perfil-atalhos a span {
-  display: block; margin-top: 3px;
-  font-size: 10px; font-weight: 700; letter-spacing: .09em;
-  text-transform: uppercase; color: var(--texto-3);
-}
+.perfil-atalhos a:hover { color: var(--texto); }
+.perfil-atalhos a.ativa { background: var(--superficie-2); color: var(--texto); }
 
 /* ================================================================ listas == */
 
 .cartao-lista {
   display: block; padding: 14px 0; border-bottom: 1px solid var(--borda);
 }
-.cartao-lista h3 { margin: 0 0 3px; font-size: 17px; font-weight: 700; }
+.cartao-lista h3 { margin: 0 0 3px; font-size: 18px; font-weight: 700; }
 .cartao-lista:hover h3 { color: var(--a1); }
 .cartao-lista p { margin: 0 0 10px; color: var(--texto-3); font-size: 13px; }
 .pilha { display: flex; }
@@ -582,7 +660,7 @@ img { display: block; max-width: 100%; }
 .botao:hover { background: var(--borda); color: var(--texto); }
 .botao.destaque { background: var(--a1); color: var(--sobre-a1); }
 .botao.destaque:hover { filter: brightness(1.1); background: var(--a1); }
-.botao.perigo { background: none; box-shadow: inset 0 0 0 1px var(--borda); color: var(--a3); }
+.botao.perigo { background: none; color: var(--a3); }
 .botao.perigo:hover { background: rgba(212, 100, 155, .12); }
 .linha-botoes { display: flex; flex-wrap: wrap; gap: 9px; }
 
@@ -722,11 +800,10 @@ img { display: block; max-width: 100%; }
 
 /* O "+" central: o unico elemento colorido da barra, como no original. */
 .aba-mais {
-  flex: none; width: 40px; height: 40px; margin: 0 4px;
+  flex: none; width: 38px; height: 38px; margin: 0 4px;
   display: grid; place-items: center;
-  background: var(--a1); border: 0; border-radius: 50%;
-  color: var(--sobre-a1); cursor: pointer;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, .4);
+  background: none; border: 2px solid var(--a1); border-radius: 50%;
+  color: var(--a1); cursor: pointer;
 }
 .aba-mais svg { width: 21px; height: 21px; }
 .aba-mais:active { transform: scale(.94); }
