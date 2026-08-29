@@ -232,7 +232,8 @@
         recentes.push(livroDe(l.chave));
       });
       html += '<section class="secao"><h2>Suas leituras recentes' +
-              '<a href="#/diario">diário</a></h2>' + htmlTrilho(recentes) + '</section>';
+              '<a class="seta" href="#/diario" aria-label="Ver o diário"></a></h2>' +
+              htmlTrilho(recentes) + '</section>';
     } else {
       html += '<h1 class="titulo-pagina">Seu diário de leitura começa aqui</h1>' +
               '<p class="sub-pagina">Busque um livro, dê estrelas e escreva o que achou. ' +
@@ -240,7 +241,8 @@
     }
 
     if (Dados.estado().querLer.length) {
-      html += '<section class="secao"><h2>Quero ler<a href="#/estante">estante</a></h2>' +
+      html += '<section class="secao"><h2>Quero ler' +
+              '<a class="seta" href="#/estante" aria-label="Ver a estante"></a></h2>' +
               htmlTrilho(Dados.estado().querLer.slice(0, 16).map(livroDe)) + '</section>';
     }
 
@@ -288,14 +290,21 @@
      celular. Com termo, e a tela de resultados. */
   function telaBuscaVazia() {
     marcarAba('buscar');
+    var r = API.recortes();
+    var linhas = Object.keys(r).map(function (k) {
+      return '<a class="linha-diretorio" href="#/explorar/' + k + '/1">' +
+             esc(r[k].rotulo) + '</a>';
+    }).join('');
+
     pintar('<h1 class="titulo-pagina">Buscar</h1>' +
-      '<p class="sub-pagina">Título, autor ou ISBN. O acervo é o da Open Library.</p>' +
       '<form class="busca-grande" id="busca-grande">' +
         '<input id="busca-grande-campo" type="search" autocomplete="off" ' +
-               'placeholder="O que você está procurando?" aria-label="Buscar livros">' +
-        '<button type="submit" class="botao destaque">Buscar</button>' +
+               'placeholder="Título, autor ou ISBN" aria-label="Buscar livros">' +
       '</form>' +
-      '<section class="secao" id="secao-alta" data-forma="grade" style="margin-top:32px">' +
+      '<div id="recentes-busca">' + htmlBuscasRecentes() + '</div>' +
+      '<section class="secao" style="margin-top:28px"><h2>Explorar por</h2>' +
+        '<nav class="diretorio">' + linhas + '</nav></section>' +
+      '<section class="secao" id="secao-alta" data-forma="grade">' +
         '<h2>Em alta esta semana</h2>' +
         '<p class="carregando">Buscando na Open Library…</p></section>');
 
@@ -304,7 +313,16 @@
       var t = document.getElementById('busca-grande-campo').value.trim();
       if (t) ir('#/buscar/' + encodeURIComponent(t) + '/1');
     });
-    document.getElementById('busca-grande-campo').focus();
+    acoes({});
+    tela.addEventListener('click', function (ev) {
+      var b = ev.target.closest('[data-busca]');
+      if (b) { ev.preventDefault(); return ir('#/buscar/' + encodeURIComponent(b.getAttribute('data-busca')) + '/1'); }
+      if (ev.target.closest('[data-esquecer]')) {
+        ev.preventDefault();
+        Dados.esquecerBuscas();
+        document.getElementById('recentes-busca').innerHTML = '';
+      }
+    });
     preencherEmAlta(14);
   }
 
@@ -345,6 +363,42 @@
     }).catch(function (err) {
       pintar('<h1 class="titulo-pagina">' + esc(termo) + '</h1>' +
              '<p class="erro">Não foi possível buscar agora. ' + esc(err.message) + '</p>');
+    });
+  }
+
+  /* =============================================================== TELA: recorte */
+
+  function telaExplorar(chave, pagina) {
+    marcarAba('buscar');
+    carregando('Montando a seleção…');
+
+    API.explorar(chave, pagina).then(function (r) {
+      r.livros.forEach(Dados.guardarLivro);
+      var html = '<h1 class="titulo-pagina">' + esc(r.recorte.rotulo) + '</h1>' +
+        '<p class="sub-pagina">' + esc(r.recorte.descricao) + '</p>';
+
+      if (!r.livros.length) {
+        return pintar(html + htmlVazio('Nada aqui agora',
+          'A Open Library não devolveu resultados para este recorte.'));
+      }
+
+      html += htmlGrade(r.livros);
+      var ultima = Math.min(Math.ceil(r.total / 24), 42);
+      if (ultima > 1) {
+        html += '<div class="linha-botoes" style="margin-top:24px;justify-content:center">';
+        if (pagina > 1) {
+          html += '<a class="botao" href="#/explorar/' + chave + '/' + (pagina - 1) + '">← Anteriores</a>';
+        }
+        html += '<span class="botao" style="cursor:default">Página ' + pagina + '</span>';
+        if (pagina < ultima) {
+          html += '<a class="botao" href="#/explorar/' + chave + '/' + (pagina + 1) + '">Próximos →</a>';
+        }
+        html += '</div>';
+      }
+      pintar(html);
+      window.scrollTo(0, 0);
+    }).catch(function (err) {
+      pintar('<p class="erro">Não consegui montar esta seleção. ' + esc(err.message) + '</p>');
     });
   }
 
@@ -1302,17 +1356,45 @@
         y += 80;
       }
 
-      /* Rodape com a marca. */
+      /* Rodape com a marca, no arranjo do original: uma regua interrompida
+         pela palavra "EM" e, embaixo, as tres lombadas com o nome. */
+      var yr = A - 250;
       c.strokeStyle = cor('--borda') || '#43362b';
       c.lineWidth = 2;
-      c.beginPath(); c.moveTo(L / 2 - 130, A - 190); c.lineTo(L / 2 + 130, A - 190); c.stroke();
+      c.beginPath();
+      c.moveTo(L / 2 - 170, yr); c.lineTo(L / 2 - 40, yr);
+      c.moveTo(L / 2 + 40, yr);  c.lineTo(L / 2 + 170, yr);
+      c.stroke();
 
       c.fillStyle = cor('--texto-3') || '#82756a';
-      c.font = '700 26px -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
-      c.fillText('N O   L E T T E R B O O K S', L / 2, A - 130);
+      c.font = '700 22px -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+      c.fillText('EM', L / 2, yr + 8);
+
+      desenharMarca(c, L / 2, A - 170, cor);
 
       return entregarCartao(cv, livro);
     });
+  }
+
+  /* As tres lombadas e o nome, centrados em (cx, y). */
+  function desenharMarca(c, cx, y, cor) {
+    var cores = [cor('--a1') || '#ff7a3d', cor('--a2') || '#a8b864', cor('--a3') || '#e0a0b8'];
+    var lom = 13, alt = 44, vao = 6;
+    var largura = cores.length * lom + (cores.length - 1) * vao;
+    var x = cx - 150 - largura / 2;
+
+    cores.forEach(function (k, i) {
+      c.fillStyle = k;
+      var a = alt - (i === 1 ? 0 : 7);          /* a do meio um pouco mais alta */
+      c.fillRect(x + i * (lom + vao), y - a, lom, a);
+    });
+    c.fillStyle = cor('--texto') || '#f4ede4';
+    c.fillRect(x - 5, y, largura + 10, 4);       /* a prateleira */
+
+    c.textAlign = 'left';
+    c.font = '800 42px -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+    c.fillText('Letterbooks', x + largura + 22, y - 4);
+    c.textAlign = 'center';
   }
 
   /* Quebra o texto em linhas que caibam na largura, com reticencias na ultima. */
@@ -1520,6 +1602,7 @@
       if (!termo) return telaBuscaVazia();
       return telaBusca(termo, Math.max(1, parseInt(partes[2], 10) || 1));
     }
+    if (rota === 'explorar') return telaExplorar(partes[1], Math.max(1, parseInt(partes[2], 10) || 1));
     if (rota === 'autor')   return telaAutor(decodeURIComponent(partes.slice(1).join('/')));
     if (rota === 'resenha') return telaResenha(partes[1]);
     if (rota === 'livro')   return telaLivro(decodeURIComponent(partes.slice(1).join('/')));

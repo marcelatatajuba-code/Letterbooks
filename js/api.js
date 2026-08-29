@@ -126,6 +126,50 @@ var API = (function () {
     });
   }
 
+  /* -------------------------------------------------------------- explorar */
+  /* Os recortes prontos da tela de busca. A Open Library aceita ordenacao em
+     search.json: "readinglog" e quantas pessoas puseram na estante (o mais
+     perto de popularidade que existe la), "rating" e a nota media, "new" e a
+     data de publicacao. */
+
+  var RECORTES = {
+    populares:  { rotulo: 'Mais lidos',
+                  descricao: 'O que mais gente guardou na estante.',
+                  params: { q: '*', sort: 'readinglog' } },
+    avaliados:  { rotulo: 'Melhor avaliados',
+                  descricao: 'As notas mais altas do acervo.',
+                  params: { q: '*', sort: 'rating' } },
+    recentes:   { rotulo: 'Publicados recentemente',
+                  descricao: 'O que saiu por último.',
+                  params: { q: '*', sort: 'new' } },
+    classicos:  { rotulo: 'Clássicos',
+                  descricao: 'Publicados até 1950, dos mais lidos aos menos.',
+                  params: { q: 'first_publish_year:[* TO 1950]', sort: 'readinglog' } },
+    brasileira: { rotulo: 'Literatura brasileira',
+                  descricao: 'De Machado a agora.',
+                  params: { subject: 'brazilian literature', sort: 'readinglog' } },
+    poesia:     { rotulo: 'Poesia',
+                  descricao: 'Versos, do acervo inteiro.',
+                  params: { subject: 'poetry', sort: 'readinglog' } }
+  };
+
+  function recortes() { return RECORTES; }
+
+  function explorar(chave, pagina) {
+    var r = RECORTES[chave];
+    if (!r) return Promise.reject(new Error('Recorte desconhecido.'));
+    var params = { fields: CAMPOS, limit: 24, page: pagina || 1 };
+    for (var k in r.params) params[k] = r.params[k];
+    return pegar(url(BUSCA, params)).then(function (d) {
+      return {
+        livros: (d.docs || []).map(normalizar).filter(Boolean),
+        total:  d.numFound || 0,
+        pagina: pagina || 1,
+        recorte: r
+      };
+    });
+  }
+
   /* ------------------------------------------------------------------ autor */
   /* O equivalente do "cast & crew" de um filme: quem escreveu, e o que mais
      essa pessoa escreveu. A chave e do tipo "OL33810A" ou "/authors/OL33810A". */
@@ -191,6 +235,8 @@ var API = (function () {
     emAlta: emAlta,
     porAssunto: porAssunto,
     detalhe: detalhe,
+    recortes: recortes,
+    explorar: explorar,
     autor: autor,
     obrasDo: obrasDo,
     capa: capa,

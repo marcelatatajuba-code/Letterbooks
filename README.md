@@ -41,7 +41,7 @@ navegação por hash justamente para isso.
 | Tela | O que faz |
 |---|---|
 | **Início** | Suas leituras recentes, a fila de "quero ler", os livros em alta na semana e um resumo de onde você está no ano. |
-| **Busca** | Título, autor ou ISBN, com paginação. Cola um ISBN de 10 ou 13 dígitos e ele busca pelo campo certo, não pelo texto livre. |
+| **Busca** | Não é só um campo: é o diretório do original. Em cima, título, autor ou ISBN — cola um ISBN de 10 ou 13 dígitos e ele busca pelo campo certo, não pelo texto livre — e as suas buscas recentes. Embaixo, **Explorar por**: mais lidos, melhor avaliados, publicados recentemente, clássicos, literatura brasileira e poesia. |
 | **Ficha do livro** | Fundo formado pela própria capa, ampliada e desfocada — o lugar que no original é do still do filme. Sem abas: sinopse (que esmaece no fim, não corta), assuntos e detalhes empilhados, e o histograma de avaliações com a média grande ao lado. No computador as ações ficam num painel à direita; no celular, numa barra fixa que abre o cartão das quatro funções. |
 | **Registro de leitura** | Nota de meia a cinco estrelas, data em que terminou, resenha, marcação de releitura e aviso de spoiler. Um livro pode ter vários registros — cada releitura é uma linha nova. O "+" da barra abre a busca, com as **buscas recentes** guardadas para repetir sem redigitar, e emenda direto aqui. |
 | **Diário** | No computador, uma tabela com a célula do mês atravessando as linhas daquele mês. No celular vira o que é no original: faixa de mês de largura inteira e linhas enxutas, com ♥ (curtida), ↺ (releitura) e ≡ (tem resenha) ao lado da nota. Spoiler fica coberto até você tocar. |
@@ -64,7 +64,8 @@ histograma do perfil e do painel.
 ## Compartilhar
 
 Na ficha de cada livro há **Compartilhar**, que monta uma imagem 1080×1920 com a
-capa, o título, a autoria e a sua nota — para o story ou para qualquer conversa.
+capa, o título, a autoria, a sua nota e a marca — no arranjo do cartão do
+original, com a régua interrompida pela palavra *em*.
 
 A imagem é desenhada no próprio aparelho, num `canvas`, e entregue à folha de
 compartilhamento do sistema. Nada é enviado a servidor nenhum. Onde o navegador
