@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Letterbooks — seu diário de leitura</title>
 <meta name="description" content="Registre o que você lê, dê estrelas, escreva resenhas e monte listas. Um diário de leitura com o acervo aberto da Open Library.">
-<meta name="theme-color" content="#151119">
+<meta name="theme-color" content="#14181b">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Letterbooks">
@@ -20,46 +20,53 @@
 <!-- ------------------------------------------------------------------ topo -->
 <header class="topo">
   <a class="marca" href="#/inicio" aria-label="Letterbooks, ir para o início">
-    <!-- As tres lombadas da marca, as mesmas do icone do aplicativo. -->
     <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-      <g>
-        <path d="M9.5 12.8 L17.4 11 L20.6 38.5 L12.6 38.5 Z" fill="#e2694a"/>
-        <path d="M17.4 11 L19.6 10.5 L22.9 38.5 L20.6 38.5 Z" fill="#f3eef5"/>
-        <path d="M22.6 9 L30.2 9 L30.2 38.5 L22.6 38.5 Z" fill="#e9a63c"/>
-        <path d="M30.2 9 L32.4 9 L32.4 38.5 L30.2 38.5 Z" fill="#f3eef5"/>
-        <path d="M36.6 10.4 L43.4 11.9 L40.3 38.5 L33.5 38.5 Z" fill="#a86fd0"/>
-        <path d="M43.4 11.9 L45.4 12.3 L42.3 38.5 L40.3 38.5 Z" fill="#f3eef5"/>
-        <rect x="6" y="39.8" width="38" height="3.4" rx="1.7" fill="#f3eef5"/>
-      </g>
+      <path class="l1" d="M9.5 12.8 L17.4 11 L20.6 38.5 L12.6 38.5 Z"/>
+      <path class="lp" d="M17.4 11 L19.6 10.5 L22.9 38.5 L20.6 38.5 Z"/>
+      <path class="l2" d="M22.6 9 L30.2 9 L30.2 38.5 L22.6 38.5 Z"/>
+      <path class="lp" d="M30.2 9 L32.4 9 L32.4 38.5 L30.2 38.5 Z"/>
+      <path class="l3" d="M36.6 10.4 L43.4 11.9 L40.3 38.5 L33.5 38.5 Z"/>
+      <path class="lp" d="M43.4 11.9 L45.4 12.3 L42.3 38.5 L40.3 38.5 Z"/>
+      <rect class="lp" x="6" y="39.8" width="38" height="3.4" rx="1.7"/>
     </svg>
     <b>Letter<i>books</i></b>
   </a>
 
-  <form class="topo-busca" id="forma-busca" role="search">
-    <label class="sr-only" for="campo-busca" hidden>Buscar livros</label>
-    <input id="campo-busca" type="search" placeholder="Buscar livro, autor ou ISBN" autocomplete="off">
-    <button type="submit" aria-label="Buscar">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-           stroke-linecap="round" aria-hidden="true">
-        <circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.6-3.6"></path>
-      </svg>
-    </button>
-  </form>
+  <nav class="topo-nav" id="topo-nav" aria-label="Seções">
+    <a href="#/inicio">Livros</a>
+    <a href="#/diario">Diário</a>
+    <a href="#/estante">Estante</a>
+    <a href="#/listas">Listas</a>
+    <a href="#/perfil">Perfil</a>
+  </nav>
+
+  <div class="topo-fim">
+    <form class="topo-busca" id="forma-busca" role="search">
+      <input id="campo-busca" type="search" placeholder="Buscar livro, autor ou ISBN"
+             autocomplete="off" aria-label="Buscar livros">
+      <button type="submit" aria-label="Buscar">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.6-3.6"></path>
+        </svg>
+      </button>
+    </form>
+    <button class="botao-registrar" id="botao-registrar" aria-label="Registrar uma leitura">+<span> Registrar</span></button>
+  </div>
 </header>
 
-<!-- ------------------------------------------------------------------ abas -->
-<nav class="abas" id="abas" aria-label="Seções do aplicativo">
-  <a href="#/inicio">Início</a>
+<!-- ------------------------------------------------------------- conteúdo -->
+<main class="pagina" id="tela" tabindex="-1"></main>
+
+<!-- Navegação de rodapé, para quando a do topo se recolhe no celular. -->
+<nav class="abas-pe" id="abas-pe" aria-label="Seções">
+  <a href="#/inicio">Livros</a>
   <a href="#/diario">Diário</a>
   <a href="#/estante">Estante</a>
   <a href="#/listas">Listas</a>
   <a href="#/perfil">Perfil</a>
 </nav>
 
-<!-- ------------------------------------------------------------- conteúdo -->
-<main class="pagina" id="tela" tabindex="-1"></main>
-
-<!-- Onde a folha de registro de leitura é montada. -->
 <div id="camada"></div>
 
 <script src="./js/api.js"></script>

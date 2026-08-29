@@ -1,16 +1,19 @@
 /* ============================================================================
    app.js — telas, navegacao e interacao do Letterbooks.
 
-   Vanilla JS, sem framework e sem build: o arquivo e servido como esta.
-   A navegacao e por hash (#/diario, #/livro/...), o que mantem o app
-   funcionando aberto direto do sistema de arquivos e no GitHub Pages.
+   Vanilla JS, sem framework e sem build. A navegacao e por hash (#/diario,
+   #/livro/...), o que mantem o app funcionando no GitHub Pages e aberto
+   direto do sistema de arquivos.
+
+   A organizacao das telas segue a do Letterboxd: pagina do livro em tres
+   colunas com painel de acoes a direita, diario em tabela com a celula do mes
+   atravessando as linhas, e grades de capas sem legenda.
    ========================================================================== */
 (function () {
   'use strict';
 
   var tela   = document.getElementById('tela');
   var camada = document.getElementById('camada');
-  var abas   = document.getElementById('abas');
 
   /* ====================================================== utilidades de texto */
 
@@ -31,14 +34,12 @@
   }
 
   function hoje() { return new Date().toISOString().slice(0, 10); }
-
   function plural(n, um, muitos) { return n + ' ' + (n === 1 ? um : muitos); }
 
-  /* Estrelas em texto, no estilo do Letterboxd: 3,5 vira "★★★½". */
+  /* Estrelas em texto: 3,5 vira "★★★½". */
   function estrelasTexto(nota) {
     if (typeof nota !== 'number' || nota <= 0) return '';
-    var cheias = Math.floor(nota);
-    return new Array(cheias + 1).join('★') + (nota % 1 >= 0.5 ? '½' : '');
+    return new Array(Math.floor(nota) + 1).join('★') + (nota % 1 >= 0.5 ? '½' : '');
   }
 
   function autoria(livro) {
@@ -57,17 +58,20 @@
     setTimeout(function () { d.remove(); }, 2600);
   }
 
-  /* ========================================================== rotas / navegacao */
+  /* ========================================================= rotas / navegacao */
 
   function ir(rota) { location.hash = rota; }
   function rotaLivro(chave) { return '#/livro/' + encodeURIComponent(chave); }
 
   function marcarAba(nome) {
-    Array.prototype.forEach.call(abas.querySelectorAll('a'), function (a) {
-      var ativa = a.getAttribute('href') === '#/' + nome;
-      a.classList.toggle('ativa', ativa);
-      if (ativa) a.setAttribute('aria-current', 'page');
-      else a.removeAttribute('aria-current');
+    var alvo = '#/' + nome;
+    ['topo-nav', 'abas-pe'].forEach(function (id) {
+      Array.prototype.forEach.call(document.getElementById(id).querySelectorAll('a'), function (a) {
+        var ativa = a.getAttribute('href') === alvo;
+        a.classList.toggle('ativa', ativa);
+        if (ativa) a.setAttribute('aria-current', 'page');
+        else a.removeAttribute('aria-current');
+      });
     });
   }
 
@@ -91,48 +95,76 @@
     pintar('<p class="carregando">' + esc(texto || 'Carregando…') + '</p>');
   }
 
+  /* Atalho para ligar um punhado de acoes delegadas na tela atual. */
+  function acoes(mapa) {
+    tela.addEventListener('click', function (ev) {
+      var alvo = ev.target.closest('[data-acao]');
+      if (!alvo || !tela.contains(alvo)) return;
+      var fn = mapa[alvo.getAttribute('data-acao')];
+      if (fn) fn(alvo, ev);
+    });
+  }
+
   /* ========================================================= pecas reutilizaveis */
 
-  /* A capa de um livro. Quando a Open Library nao tem imagem, desenha uma
-     lombada com o titulo — melhor do que um retangulo cinza. */
-  function htmlCapa(livro, tamanho, extra) {
-    var url = tamanho === 'L' ? (livro.capaGrande || livro.capa) : livro.capa;
+  function htmlCapa(livro, extra) {
+    var url = livro.capa || livro.capaGrande;
     var miolo = url
       ? '<img src="' + esc(url) + '" alt="Capa de ' + esc(livro.titulo) + '" loading="lazy">'
       : '<div class="capa-vazia"><span>' + esc(livro.titulo) + '</span></div>';
     return '<div class="capa">' + miolo + (extra || '') + '</div>';
   }
 
-  /* Um item da grade, com os selos do que voce ja marcou naquele livro. */
+  /* Um item da grade: so a capa, como as grades de posters do original. O que
+     voce marcou naquele livro aparece na fita do pe. */
   function htmlCartao(livro) {
-    var nota = Dados.notaDe(livro.chave);
     var selos = '';
-    if (Dados.jaLeu(livro.chave))   selos += '<i title="Lido" style="color:var(--ambar)">◉</i>';
+    if (Dados.jaLeu(livro.chave))   selos += '<i title="Lido" style="color:var(--a1)">◉</i>';
     if (Dados.curtido(livro.chave)) selos += '<i title="Curtido" style="color:var(--curtida)">♥</i>';
     if (Dados.querLer(livro.chave)) selos += '<i title="Quero ler" style="color:var(--quero)">◷</i>';
+    var nota = Dados.notaDe(livro.chave);
+    var dica = livro.titulo + (livro.ano ? ' (' + livro.ano + ')' : '') +
+               (nota ? ' — ' + estrelasTexto(nota) : '');
 
-    return '<a class="cartao" href="' + rotaLivro(livro.chave) + '">' +
-             htmlCapa(livro, 'M', selos ? '<div class="selos">' + selos + '</div>' : '') +
-             '<div class="cartao-legenda">' + esc(livro.titulo) + '</div>' +
-             (nota ? '<div class="cartao-nota estrelas">' + estrelasTexto(nota) + '</div>' : '') +
-           '</a>';
+    /* A legenda vai sempre no HTML e quem decide se aparece e o CSS
+       (.grade { --legenda }), para alternar entre a grade sem legenda do
+       original e a grade com titulo sem mexer no JavaScript. */
+    return '<a class="cartao" href="' + rotaLivro(livro.chave) + '" title="' + esc(dica) + '">' +
+           htmlCapa(livro, selos ? '<div class="selos">' + selos + '</div>' : '') +
+           '<div class="cartao-legenda">' + esc(livro.titulo) +
+             (nota ? '<span class="estrelas">' + estrelasTexto(nota) + '</span>' : '') +
+           '</div></a>';
   }
 
   function htmlGrade(livros, classe) {
     if (!livros.length) return '';
-    return '<div class="grade ' + (classe || '') + '">' +
-           livros.map(htmlCartao).join('') + '</div>';
+    return '<div class="grade ' + (classe || '') + '">' + livros.map(htmlCartao).join('') + '</div>';
   }
 
   function htmlVazio(titulo, texto, botao) {
-    return '<div class="vazio"><strong>' + esc(titulo) + '</strong>' +
-           '<div>' + esc(texto) + '</div>' +
+    return '<div class="vazio"><strong>' + esc(titulo) + '</strong><div>' + esc(texto) + '</div>' +
            (botao || '') + '</div>';
   }
 
-  /* Resolve a ficha de um livro a partir da chave, usando o cache local. */
   function livroDe(chave) {
     return Dados.livro(chave) || { chave: chave, titulo: 'Livro', autores: [], capa: null };
+  }
+
+  /* Histograma de notas, usado no painel do livro e no perfil. */
+  function htmlHistograma(faixas) {
+    var maior = Math.max.apply(null, faixas.map(function (f) { return f.qtd; }).concat([1]));
+    return '<div class="histograma">' +
+      faixas.map(function (f) {
+        return '<div class="col' + (f.qtd ? ' tem' : '') + '" title="' +
+               String(f.nota).replace('.', ',') + ' — ' + plural(f.qtd, 'livro', 'livros') + '">' +
+               '<i style="height:' + Math.round((f.qtd / maior) * 100) + '%"></i></div>';
+      }).join('') +
+    '</div><div class="histograma-eixo"><span class="estrelas">★</span>' +
+    '<span class="estrelas">★★★★★</span></div>';
+  }
+
+  function mediaTexto(media) {
+    return media === null ? '' : media.toFixed(1).replace('.', ',');
   }
 
   /* ================================================================== TELA: inicio */
@@ -141,19 +173,16 @@
     marcarAba('inicio');
     var logs = Dados.logs();
     var e = Dados.estatisticas();
-
     var html = '';
 
     if (logs.length) {
-      var recentes = [];
-      var vistos = {};
+      var vistos = {}, recentes = [];
       logs.forEach(function (l) {
         if (vistos[l.chave] || recentes.length >= 12) return;
         vistos[l.chave] = 1;
         recentes.push(livroDe(l.chave));
       });
-      html += '<section class="secao"><h2>Suas leituras recentes' +
-              '<a href="#/diario">ver o diário</a></h2>' +
+      html += '<section class="secao"><h2>Suas leituras recentes<a href="#/diario">ver o diário</a></h2>' +
               htmlGrade(recentes) + '</section>';
     } else {
       html += '<h1 class="titulo-pagina">Seu diário de leitura começa aqui</h1>' +
@@ -162,10 +191,8 @@
     }
 
     if (Dados.estado().querLer.length) {
-      html += '<section class="secao"><h2>Quero ler' +
-              '<a href="#/estante">ver a estante</a></h2>' +
-              htmlGrade(Dados.estado().querLer.slice(0, 12).map(livroDe), 'compacta') +
-              '</section>';
+      html += '<section class="secao"><h2>Quero ler<a href="#/estante">ver a estante</a></h2>' +
+              htmlGrade(Dados.estado().querLer.slice(0, 14).map(livroDe), 'miuda') + '</section>';
     }
 
     html += '<section class="secao" id="secao-alta"><h2>Em alta esta semana</h2>' +
@@ -175,14 +202,14 @@
       html += '<section class="secao"><h2>Onde você está</h2><div class="numeros">' +
               numero(e.lidos, 'leituras') +
               numero(e.noAno, 'em ' + Dados.estado().perfil.meta.ano) +
-              numero(e.media ? e.media.toFixed(1).replace('.', ',') : '—', 'média') +
+              numero(e.media ? e.media.toFixed(1).replace('.', ',') : '—', 'nota média') +
               numero(e.resenhas, 'resenhas') +
               '</div></section>';
     }
 
     pintar(html);
 
-    API.emAlta(12).then(function (livros) {
+    API.emAlta(14).then(function (livros) {
       var s = document.getElementById('secao-alta');
       if (!s) return;
       livros.forEach(Dados.guardarLivro);
@@ -210,30 +237,27 @@
 
     API.buscar(termo, pagina).then(function (r) {
       r.livros.forEach(Dados.guardarLivro);
-
       var html = '<h1 class="titulo-pagina">' + esc(termo) + '</h1>';
+
       if (!r.livros.length) {
-        html += htmlVazio('Nada encontrado',
-          'Tente outra grafia, o nome do autor, ou o ISBN da edição.');
-        return pintar(html);
+        return pintar(html + htmlVazio('Nada encontrado',
+          'Tente outra grafia, o nome do autor, ou o ISBN da edição.'));
       }
 
-      html += '<p class="sub-pagina">' +
-              plural(r.total, 'resultado', 'resultados') + ' no acervo da Open Library.</p>' +
-              htmlGrade(r.livros);
+      html += '<p class="sub-pagina">' + plural(r.total, 'resultado', 'resultados') +
+              ' no acervo da Open Library.</p>' + htmlGrade(r.livros);
 
-      var ultimas = Math.ceil(r.total / 24);
-      if (ultimas > 1) {
-        html += '<div class="linha-botoes" style="margin-top:26px;justify-content:center">';
+      var ultima = Math.min(Math.ceil(r.total / 24), 42);
+      if (ultima > 1) {
+        html += '<div class="linha-botoes" style="margin-top:24px;justify-content:center">';
         if (pagina > 1) {
-          html += '<a class="botao discreto" href="#/buscar/' + encodeURIComponent(termo) +
-                  '/' + (pagina - 1) + '">← Anteriores</a>';
+          html += '<a class="botao" href="#/buscar/' + encodeURIComponent(termo) + '/' +
+                  (pagina - 1) + '">← Anteriores</a>';
         }
-        html += '<span class="botao discreto" style="cursor:default">Página ' + pagina +
-                ' de ' + Math.min(ultimas, 42) + '</span>';
-        if (pagina < ultimas && pagina < 42) {
-          html += '<a class="botao discreto" href="#/buscar/' + encodeURIComponent(termo) +
-                  '/' + (pagina + 1) + '">Próximos →</a>';
+        html += '<span class="botao" style="cursor:default">Página ' + pagina + ' de ' + ultima + '</span>';
+        if (pagina < ultima) {
+          html += '<a class="botao" href="#/buscar/' + encodeURIComponent(termo) + '/' +
+                  (pagina + 1) + '">Próximos →</a>';
         }
         html += '</div>';
       }
@@ -268,113 +292,470 @@
     });
   }
 
-  function desenhaLivro(livro) {
+  function desenhaLivro(livro, abaAtiva) {
+    abaAtiva = abaAtiva || 'sinopse';
     var logs  = Dados.logsDo(livro.chave);
     var nota  = Dados.notaDe(livro.chave);
     var lido  = logs.length > 0;
     var quero = Dados.querLer(livro.chave);
     var curti = Dados.curtido(livro.chave);
     var fav   = Dados.favorito(livro.chave);
+    var fundo = livro.capaGrande || livro.capa;
 
-    var meta = [];
-    if (livro.ano)     meta.push('Publicado em ' + livro.ano);
-    if (livro.paginas) meta.push(livro.paginas + ' páginas');
-    if (livro.edicoes) meta.push(plural(livro.edicoes, 'edição', 'edições'));
+    /* ---- coluna do meio: as abas internas da ficha ---- */
+    var miolo = '';
+    if (abaAtiva === 'sinopse') {
+      var s = livro.sinopse || '';
+      var longa = s.length > 520;
+      miolo = s
+        ? '<p class="sinopse' + (longa ? ' recolhida' : '') + '" id="sinopse">' + esc(s) + '</p>' +
+          (longa ? '<button class="mais" data-acao="expandir">Ler a sinopse inteira</button>' : '')
+        : '<p class="sinopse" style="color:var(--texto-3)">Esta obra ainda não tem sinopse na Open Library.</p>';
+    } else if (abaAtiva === 'detalhes') {
+      var linhas = [
+        ['Autoria', (livro.autores || []).join(', ') || '—'],
+        ['Publicado', livro.ano || '—'],
+        ['Páginas', livro.paginas || '—'],
+        ['Edições', livro.edicoes || '—'],
+        ['Open Library', livro.chave]
+      ];
+      miolo = '<table class="detalhes"><tbody>' + linhas.map(function (l) {
+        return '<tr><th>' + esc(l[0]) + '</th><td>' + esc(l[1]) + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    } else {
+      var as = livro.assuntos || [];
+      miolo = as.length
+        ? '<div class="assuntos">' + as.slice(0, 24).map(function (a) {
+            return '<a class="assunto" href="#/buscar/' + encodeURIComponent(a) + '/1">' + esc(a) + '</a>';
+          }).join('') + '</div>'
+        : '<p class="sinopse" style="color:var(--texto-3)">Sem assuntos cadastrados para esta obra.</p>';
+    }
 
-    var sinopse = livro.sinopse || '';
-    var longa = sinopse.length > 460;
+    function aba(id, rotulo) {
+      return '<button data-acao="aba" data-aba="' + id + '"' +
+             (abaAtiva === id ? ' class="ativa"' : '') + '>' + rotulo + '</button>';
+    }
+
+    /* ---- painel lateral ---- */
+    var e = Dados.estatisticas();
+    var painel =
+      '<aside class="painel">' +
+        '<div class="painel-acoes">' +
+          acaoPainel('registrar', 'lido',   lido,  lido ? '◉' : '○', 'Lido') +
+          acaoPainel('curtir',    'curtir', curti, curti ? '♥' : '♡', 'Curtir') +
+          acaoPainel('quero',     'quero',  quero, quero ? '◷' : '◌', 'Quero ler') +
+        '</div>' +
+        '<div class="painel-nota">' +
+          '<span class="rotulo">' + (nota ? 'Sua nota' : 'Avaliar') + '</span>' +
+          (nota ? '<span class="estrelas" style="font-size:17px">' + estrelasTexto(nota) + '</span>'
+                : '<span style="color:var(--texto-3);font-size:12px">ainda sem nota</span>') +
+        '</div>' +
+        '<button class="painel-botao" data-acao="registrar">' +
+          (lido ? plural(logs.length, 'leitura registrada', 'leituras registradas') : 'Registrar leitura') +
+        '</button>' +
+        '<button class="painel-botao" data-acao="listas">Adicionar a uma lista</button>' +
+        '<button class="painel-botao" data-acao="favorito">' +
+          (fav ? '★ Nos favoritos' : '☆ Favoritar') + '</button>' +
+        (e.media !== null
+          ? '<div class="painel-bloco">' +
+            '<div class="bloco-topo"><span class="rotulo">Como você avalia</span>' +
+            '<span class="histograma-media">' + mediaTexto(e.media) + '</span></div>' +
+            htmlHistograma(e.faixas) + '</div>'
+          : '') +
+      '</aside>';
 
     var html =
-      '<article class="ficha">' +
+      (fundo ? '<div class="heroi"><div class="heroi-imagem" style="background-image:url(' +
+               esc(fundo) + ')"></div></div>' : '') +
+      '<div class="livro-colunas">' +
+        '<div class="livro-capa">' + htmlCapa(livro) + '</div>' +
         '<div>' +
-          '<div class="ficha-capa">' + htmlCapa(livro, 'L') + '</div>' +
-        '</div>' +
-        '<div>' +
-          '<h1>' + esc(livro.titulo) + '</h1>' +
-          '<p class="autoria">de <b>' + esc(autoria(livro)) + '</b></p>' +
-          (meta.length ? '<div class="meta">' +
-            meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') +
-            '</div>' : '') +
-
-          '<div class="acoes">' +
-            botaoAcao('registrar', 'lido',   lido,  lido ? '◉' : '○',
-                      lido ? plural(logs.length, 'leitura', 'leituras') : 'Registrar leitura') +
-            botaoAcao('quero',     'quero',  quero, quero ? '◷' : '◌',
-                      quero ? 'Na fila' : 'Quero ler') +
-            botaoAcao('curtir',    'curtir', curti, curti ? '♥' : '♡',
-                      curti ? 'Curtido' : 'Curtir') +
+          '<h1 class="livro-titulo">' + esc(livro.titulo) + '</h1>' +
+          '<div class="livro-linha">' +
+            (livro.ano ? '<span class="ano">' + livro.ano + '</span>' : '') +
+            '<span class="autoria">de <b>' + esc(autoria(livro)) + '</b></span>' +
           '</div>' +
-
-          (nota ? '<p class="estrelas" style="font-size:20px;margin:0 0 16px">' +
-                  estrelasTexto(nota) +
-                  '<span style="color:var(--texto-3);font-size:13px;margin-left:8px">' +
-                  'sua nota: ' + String(nota).replace('.', ',') + '</span></p>' : '') +
-
-          (sinopse
-            ? '<p class="sinopse' + (longa ? ' recolhida' : '') + '" id="sinopse">' + esc(sinopse) + '</p>' +
-              (longa ? '<button class="botao discreto" data-acao="expandir" ' +
-                       'style="margin:-8px 0 20px">Ler a sinopse inteira</button>' : '')
-            : '<p class="sinopse" style="color:var(--texto-3)">Esta obra ainda não tem sinopse na Open Library.</p>') +
-
-          ((livro.assuntos && livro.assuntos.length)
-            ? '<div class="assuntos">' + livro.assuntos.slice(0, 10).map(function (a) {
-                return '<a class="assunto" href="#/buscar/' + encodeURIComponent(a) + '/1">' +
-                       esc(a) + '</a>';
-              }).join('') + '</div>' : '') +
-
-          '<div class="linha-botoes">' +
-            '<button class="botao" data-acao="listas">Adicionar a uma lista</button>' +
-            '<button class="botao discreto" data-acao="favorito">' +
-              (fav ? '★ Nos favoritos' : '☆ Marcar como favorito') +
-            '</button>' +
-          '</div>' +
+          '<div class="fichas">' + aba('sinopse', 'Sinopse') + aba('detalhes', 'Detalhes') +
+            aba('assuntos', 'Assuntos') + '</div>' +
+          miolo +
+          (logs.length ? '<section class="secao" style="margin-top:30px">' +
+            '<h2>Suas leituras<span class="conta">' + logs.length + '</span></h2>' +
+            tabelaDiario(logs, false) + '</section>' : '') +
         '</div>' +
-      '</article>';
-
-    if (logs.length) {
-      html += '<section class="secao" style="margin-top:40px"><h2>Suas leituras</h2>' +
-              logs.map(function (l) { return htmlEntrada(l, false); }).join('') +
-              '</section>';
-    }
+        painel +
+      '</div>';
 
     pintar(html);
 
-    tela.addEventListener('click', function (ev) {
-      var alvo = ev.target.closest('[data-acao]');
-      if (!alvo) return;
-      var acao = alvo.getAttribute('data-acao');
-
-      if (acao === 'registrar') abrirFolhaRegistro(livro, null);
-      if (acao === 'quero')     { Dados.alternarQuerLer(livro.chave); desenhaLivro(livro); }
-      if (acao === 'curtir')    { Dados.alternarCurtida(livro.chave); desenhaLivro(livro); }
-      if (acao === 'listas')    abrirFolhaListas(livro);
-      if (acao === 'expandir')  {
+    acoes({
+      aba: function (a) { desenhaLivro(livro, a.getAttribute('data-aba')); },
+      expandir: function (a) {
         document.getElementById('sinopse').classList.remove('recolhida');
-        alvo.remove();
-      }
-      if (acao === 'favorito') {
+        a.remove();
+      },
+      registrar: function () { abrirFolhaRegistro(livro, null); },
+      quero:  function () { Dados.alternarQuerLer(livro.chave); desenhaLivro(livro, abaAtiva); },
+      curtir: function () { Dados.alternarCurtida(livro.chave); desenhaLivro(livro, abaAtiva); },
+      listas: function () { abrirFolhaListas(livro); },
+      favorito: function () {
         var r = Dados.alternarFavorito(livro.chave);
         if (r.cheio) aviso('Os favoritos guardam ' + Dados.MAX_FAVORITOS + ' livros. Tire um antes.');
-        else desenhaLivro(livro);
-      }
-      if (acao === 'editar-log') abrirFolhaRegistro(livro, alvo.getAttribute('data-id'));
-      if (acao === 'apagar-log') {
-        if (confirm('Apagar este registro de leitura?')) {
-          Dados.apagarLog(alvo.getAttribute('data-id'));
-          desenhaLivro(livro);
-        }
-      }
-      if (acao === 'ver-spoiler') {
-        alvo.outerHTML = '<p class="entrada-resenha">' + esc(alvo.getAttribute('data-texto')) + '</p>';
-      }
+        else desenhaLivro(livro, abaAtiva);
+      },
+      'editar-log': function (a) {
+        var log = Dados.log(a.getAttribute('data-id'));
+        if (log) abrirFolhaRegistro(livroDe(log.chave), log.id);
+      },
+      'apagar-log': function (a) {
+        if (!confirm('Apagar este registro de leitura?')) return;
+        Dados.apagarLog(a.getAttribute('data-id'));
+        desenhaLivro(livro, abaAtiva);
+      },
+      'ver-spoiler': revelarSpoiler
     });
   }
 
-  function botaoAcao(acao, classe, ativa, glifo, rotulo) {
+  function acaoPainel(acao, classe, ativa, glifo, rotulo) {
     return '<button class="acao ' + classe + (ativa ? ' ativa' : '') + '" data-acao="' + acao + '"' +
            ' aria-pressed="' + (ativa ? 'true' : 'false') + '">' +
            '<span class="glifo" aria-hidden="true">' + glifo + '</span>' +
            '<span>' + esc(rotulo) + '</span></button>';
+  }
+
+  function revelarSpoiler(a) {
+    a.outerHTML = '<p class="resenha-texto">' + esc(a.getAttribute('data-texto')) + '</p>';
+  }
+
+  /* ============================================== diario em forma de tabela == */
+
+  /* comMes = true monta a tabela cheia do diario, com a celula do mes
+     atravessando as linhas daquele mes. false monta a versao curta que aparece
+     dentro da ficha do livro. */
+  function tabelaDiario(logs, comMes) {
+    if (!logs.length) return '';
+
+    /* Agrupa por mes preservando a ordem ja vinda de Dados.logs(). */
+    var grupos = [], atual = null;
+    logs.forEach(function (l) {
+      var mes = (l.lidoEm || '').slice(0, 7);
+      if (!atual || atual.mes !== mes) { atual = { mes: mes, itens: [] }; grupos.push(atual); }
+      atual.itens.push(l);
+    });
+
+    var cabecalho = '<thead><tr>' +
+      (comMes ? '<th>Mês</th><th>Dia</th><th></th>' : '<th>Dia</th>') +
+      '<th>Livro</th>' +
+      (comMes ? '<th>Publicado</th>' : '') +
+      '<th>Nota</th><th></th><th></th></tr></thead>';
+
+    var corpo = grupos.map(function (g) {
+      /* O rowspan precisa contar tambem as linhas extras de resenha. */
+      var alturaTotal = g.itens.reduce(function (n, l) { return n + (l.resenha ? 2 : 1); }, 0);
+      var p = g.mes.split('-');
+      var primeira = true;
+
+      return g.itens.map(function (l) {
+        var livro = livroDe(l.chave);
+        var celMes = '';
+        if (comMes && primeira) {
+          celMes = '<td class="cel-mes" rowspan="' + alturaTotal + '">' +
+                   '<b>' + (p.length === 2 ? MESES[Number(p[1]) - 1] : '—') + '</b>' +
+                   '<span>' + (p[0] || '') + '</span></td>';
+          primeira = false;
+        }
+        /* Colunas que a linha da resenha precisa atravessar. Nao contam a do
+           mes, que ja vem de um rowspan da primeira linha do grupo.
+           Com mes: dia, capa, livro, ano, nota, coracao, acoes = 7.
+           Sem mes: dia, livro, nota, coracao, acoes = 5. */
+        var colunas = (comMes ? 7 : 5);
+
+        var linha = '<tr>' + celMes +
+          '<td class="cel-dia">' + (l.lidoEm ? Number(l.lidoEm.slice(8, 10)) : '—') + '</td>' +
+          (comMes ? '<td class="cel-capa"><a href="' + rotaLivro(l.chave) + '">' +
+                    htmlCapa(livro) + '</a></td>' : '') +
+          '<td><a class="cel-livro" href="' + rotaLivro(l.chave) + '">' + esc(livro.titulo) + '</a>' +
+            (l.relido ? ' <span class="rotulo" style="font-size:9px">releitura</span>' : '') + '</td>' +
+          (comMes ? '<td class="cel-ano">' + (livro.ano || '') + '</td>' : '') +
+          '<td class="cel-nota"><span class="estrelas">' + estrelasTexto(l.nota) + '</span></td>' +
+          '<td class="cel-marca' + (Dados.curtido(l.chave) ? ' on' : '') + '">' +
+            (Dados.curtido(l.chave) ? '♥' : '') + '</td>' +
+          '<td class="cel-acoes">' +
+            '<button data-acao="editar-log" data-id="' + l.id + '">editar</button>' +
+            '<button data-acao="apagar-log" data-id="' + l.id + '">apagar</button>' +
+          '</td></tr>';
+
+        if (l.resenha) {
+          linha += '<tr class="linha-resenha"><td colspan="' + colunas + '">' +
+            (l.spoiler
+              ? '<button class="spoiler-aviso" data-acao="ver-spoiler" data-texto="' +
+                esc(l.resenha) + '">Esta resenha tem spoiler. Toque para ler.</button>'
+              : '<p class="resenha-texto">' + esc(l.resenha) + '</p>') +
+            '</td></tr>';
+        }
+        return linha;
+      }).join('');
+    }).join('');
+
+    /* A tabela rola dentro do proprio container: numa tela estreita ela pode
+       exceder a largura, e isso nunca deve virar rolagem horizontal da pagina. */
+    return '<div class="tabela-rolagem"><table class="tabela-diario">' +
+           cabecalho + '<tbody>' + corpo + '</tbody></table></div>';
+  }
+
+  function telaDiario() {
+    marcarAba('diario');
+    var logs = Dados.logs();
+
+    if (!logs.length) {
+      return pintar('<h1 class="titulo-pagina">Diário</h1>' +
+        htmlVazio('Nenhuma leitura registrada ainda',
+          'Cada livro que você terminar vira uma linha aqui, com data, nota e resenha.',
+          '<a class="botao destaque" href="#/inicio">Encontrar um livro</a>'));
+    }
+
+    pintar('<h1 class="titulo-pagina">Diário</h1>' +
+      '<p class="sub-pagina">' + plural(logs.length, 'leitura registrada', 'leituras registradas') + '.</p>' +
+      tabelaDiario(logs, true));
+
+    acoes({
+      'editar-log': function (a) {
+        var log = Dados.log(a.getAttribute('data-id'));
+        if (log) abrirFolhaRegistro(livroDe(log.chave), log.id);
+      },
+      'apagar-log': function (a) {
+        if (!confirm('Apagar este registro de leitura?')) return;
+        Dados.apagarLog(a.getAttribute('data-id'));
+        rotear();
+      },
+      'ver-spoiler': revelarSpoiler
+    });
+  }
+
+  /* ================================================================ TELA: estante */
+
+  function telaEstante() {
+    marcarAba('estante');
+    var d = Dados.estado();
+    var vistos = {}, lidos = [];
+    Dados.logs().forEach(function (l) {
+      if (vistos[l.chave]) return;
+      vistos[l.chave] = 1;
+      lidos.push(livroDe(l.chave));
+    });
+
+    pintar('<h1 class="titulo-pagina">Estante</h1>' +
+      '<p class="sub-pagina">O que você quer ler, o que já leu e o que amou.</p>' +
+      secaoEstante('Quero ler', d.querLer.map(livroDe),
+        'A fila está vazia. Marque “Quero ler” na ficha de um livro.') +
+      secaoEstante('Lidos', lidos, 'Nada por aqui ainda. Registre uma leitura.') +
+      secaoEstante('Curtidos', d.curtidas.map(livroDe), 'Você ainda não curtiu nenhum livro.') +
+      secaoEstante('Favoritos', d.favoritos.map(livroDe),
+        'Escolha até ' + Dados.MAX_FAVORITOS + ' favoritos na ficha de cada livro.'));
+  }
+
+  function secaoEstante(titulo, livros, vazio) {
+    return '<section class="secao"><h2>' + esc(titulo) +
+      '<span class="conta">' + livros.length + '</span></h2>' +
+      (livros.length ? htmlGrade(livros)
+                     : '<p style="color:var(--texto-3);font-size:13px;margin:0">' + esc(vazio) + '</p>') +
+      '</section>';
+  }
+
+  /* ================================================================= TELA: listas */
+
+  function telaListas() {
+    marcarAba('listas');
+    var listas = Dados.estado().listas;
+
+    var html = '<h1 class="titulo-pagina">Listas</h1>' +
+      '<p class="sub-pagina">Agrupe livros do jeito que fizer sentido: por tema, por ano, por vontade.</p>' +
+      '<div class="linha-botoes" style="margin-bottom:22px">' +
+        '<button class="botao destaque" data-acao="nova-lista">Criar uma lista</button></div>';
+
+    html += listas.length
+      ? listas.map(function (l) {
+          var capas = l.livros.slice(0, 6).map(function (c) { return htmlCapa(livroDe(c)); }).join('');
+          return '<a class="cartao-lista" href="#/lista/' + l.id + '">' +
+            '<h3>' + esc(l.nome) + '</h3>' +
+            (l.descricao ? '<p>' + esc(l.descricao) + '</p>' : '') +
+            (capas ? '<div class="pilha">' + capas + '</div>'
+                   : '<p style="color:var(--texto-3);margin:0">Lista vazia</p>') +
+            '<p style="margin:10px 0 0;color:var(--texto-3);font-size:12px">' +
+              plural(l.livros.length, 'livro', 'livros') + '</p></a>';
+        }).join('')
+      : htmlVazio('Nenhuma lista ainda',
+          'Uma lista pode ser “Li na praia”, “Para reler” ou “Presentes de 2027”.');
+
+    pintar(html);
+    acoes({
+      'nova-lista': function () {
+        var nome = prompt('Nome da lista:');
+        if (nome && nome.trim()) { Dados.criarLista(nome.trim()); telaListas(); }
+      }
+    });
+  }
+
+  function telaLista(idLista) {
+    marcarAba('listas');
+    var l = Dados.lista(idLista);
+    if (!l) return pintar('<p class="erro">Esta lista não existe mais.</p>');
+
+    pintar('<h1 class="titulo-pagina">' + esc(l.nome) + '</h1>' +
+      '<p class="sub-pagina">' + (l.descricao ? esc(l.descricao) + ' · ' : '') +
+        plural(l.livros.length, 'livro', 'livros') + '</p>' +
+      (l.livros.length ? htmlGrade(l.livros.map(livroDe))
+                       : htmlVazio('Lista vazia', 'Abra a ficha de um livro e use “Adicionar a uma lista”.')) +
+      '<div class="linha-botoes" style="margin-top:28px">' +
+        '<button class="botao" data-acao="renomear">Renomear</button>' +
+        '<button class="botao" data-acao="descrever">Editar descrição</button>' +
+        '<button class="botao perigo" data-acao="apagar-lista">Apagar lista</button></div>');
+
+    acoes({
+      renomear: function () {
+        var nome = prompt('Novo nome:', l.nome);
+        if (nome && nome.trim()) { Dados.editarLista(l.id, { nome: nome.trim() }); telaLista(l.id); }
+      },
+      descrever: function () {
+        var d = prompt('Descrição:', l.descricao || '');
+        if (d !== null) { Dados.editarLista(l.id, { descricao: d.trim() }); telaLista(l.id); }
+      },
+      'apagar-lista': function () {
+        if (confirm('Apagar a lista “' + l.nome + '”? Os livros continuam no seu diário.')) {
+          Dados.apagarLista(l.id);
+          ir('#/listas');
+        }
+      }
+    });
+  }
+
+  /* ================================================================= TELA: perfil */
+
+  function telaPerfil() {
+    marcarAba('perfil');
+    var d = Dados.estado();
+    var e = Dados.estatisticas();
+    var pct = e.meta ? Math.min(100, Math.round((e.noAno / e.meta) * 100)) : 0;
+    var inicial = (d.perfil.nome || '?').trim().charAt(0).toUpperCase();
+
+    var html =
+      '<div class="perfil-topo">' +
+        '<div class="avatar" aria-hidden="true">' + esc(inicial) + '</div>' +
+        '<div><h1 class="perfil-nome">' + esc(d.perfil.nome) + '</h1>' +
+        '<p class="perfil-bio">' + (d.perfil.bio ? esc(d.perfil.bio) : 'Sem descrição ainda.') + '</p></div>' +
+      '</div>' +
+
+      '<div class="numeros">' +
+        numero(e.lidos, 'leituras') +
+        numero(e.noAno, 'em ' + d.perfil.meta.ano) +
+        numero(e.obras, 'obras') +
+        numero(e.resenhas, 'resenhas') +
+        numero(e.paginas ? e.paginas.toLocaleString('pt-BR') : '—', 'páginas') +
+        numero(e.listas, 'listas') +
+      '</div>' +
+
+      '<section class="secao"><h2>Meta de ' + d.perfil.meta.ano + '</h2>' +
+        '<p style="margin:0 0 4px;color:var(--texto-2);font-size:13px">' +
+          e.noAno + ' de ' + e.meta + ' livros · ' + pct + '%</p>' +
+        '<div class="meta-barra"><i style="width:' + pct + '%"></i></div>' +
+        '<button class="botao" data-acao="editar-meta" style="margin-top:10px">Ajustar a meta</button>' +
+      '</section>';
+
+    if (e.media !== null) {
+      html += '<section class="secao"><h2>Como você avalia' +
+        '<span class="conta">média ' + mediaTexto(e.media) + '</span></h2>' +
+        '<div style="max-width:300px">' + htmlHistograma(e.faixas) + '</div></section>';
+    }
+
+    if (d.favoritos.length) {
+      html += '<section class="secao"><h2>Favoritos<span class="conta">' +
+        d.favoritos.length + ' de ' + Dados.MAX_FAVORITOS + '</span></h2>' +
+        htmlGrade(d.favoritos.map(livroDe)) + '</section>';
+    }
+
+    var ultimos = Dados.logs().slice(0, 8);
+    if (ultimos.length) {
+      html += '<section class="secao"><h2>Diário recente<a href="#/diario">ver tudo</a></h2>' +
+        tabelaDiario(ultimos, true) + '</section>';
+    }
+
+    html += '<section class="secao"><h2>Seus dados</h2>' +
+      '<p style="color:var(--texto-2);font-size:13px;margin:0 0 14px">' +
+        'Tudo fica guardado só neste navegador. Exporte um arquivo para levar seu diário ' +
+        'para outro aparelho — ou para não perder nada.</p>' +
+      '<div class="linha-botoes">' +
+        '<button class="botao" data-acao="editar-perfil">Editar perfil</button>' +
+        '<button class="botao" data-acao="exportar">Exportar diário</button>' +
+        '<button class="botao" data-acao="importar">Importar diário</button>' +
+        '<button class="botao perigo" data-acao="limpar">Apagar tudo</button></div>' +
+      '<input type="file" id="arquivo-importar" accept="application/json,.json" hidden>' +
+      '</section>';
+
+    pintar(html);
+
+    acoes({
+      'editar-perfil': function () {
+        var nome = prompt('Como você quer ser chamada?', d.perfil.nome);
+        if (nome === null) return;
+        var bio = prompt('Uma linha sobre você (opcional):', d.perfil.bio || '');
+        d.perfil.nome = nome.trim() || d.perfil.nome;
+        d.perfil.bio = (bio || '').trim();
+        Dados.salvar();
+        telaPerfil();
+      },
+      'editar-meta': function () {
+        var n = parseInt(prompt('Quantos livros você quer ler em ' + d.perfil.meta.ano + '?',
+                                d.perfil.meta.total), 10);
+        if (n > 0) { d.perfil.meta.total = n; Dados.salvar(); telaPerfil(); }
+      },
+      exportar: exportarArquivo,
+      importar: function () { document.getElementById('arquivo-importar').click(); },
+      limpar: function () {
+        if (!confirm('Isso apaga leituras, resenhas, listas e favoritos deste aparelho. ' +
+                     'Não dá para desfazer. Continuar?')) return;
+        Dados.limpar();
+        aviso('Tudo apagado.');
+        ir('#/inicio');
+        rotear();
+      },
+      'editar-log': function (a) {
+        var log = Dados.log(a.getAttribute('data-id'));
+        if (log) abrirFolhaRegistro(livroDe(log.chave), log.id);
+      },
+      'apagar-log': function (a) {
+        if (!confirm('Apagar este registro de leitura?')) return;
+        Dados.apagarLog(a.getAttribute('data-id'));
+        telaPerfil();
+      },
+      'ver-spoiler': revelarSpoiler
+    });
+
+    document.getElementById('arquivo-importar').addEventListener('change', function () {
+      var f = this.files[0];
+      if (!f) return;
+      var leitor = new FileReader();
+      leitor.onload = function () {
+        try {
+          Dados.importar(String(leitor.result));
+          aviso('Diário importado.');
+          telaPerfil();
+        } catch (err) {
+          alert('Não consegui ler este arquivo: ' + err.message);
+        }
+      };
+      leitor.readAsText(f);
+    });
+  }
+
+  function exportarArquivo() {
+    var blob = new Blob([Dados.exportar()], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'letterbooks-' + hoje() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   }
 
   /* ================================================== folha: registrar leitura */
@@ -383,21 +764,21 @@
     var reg = idLog ? Dados.log(idLog) : null;
     var nota = reg && typeof reg.nota === 'number' ? reg.nota : 0;
 
-    var html =
+    camada.innerHTML =
       '<div class="folha-fundo" data-fechar="fundo"><div class="folha" role="dialog" aria-modal="true" ' +
         'aria-label="Registrar leitura de ' + esc(livro.titulo) + '">' +
         '<h2>' + esc(livro.titulo) + '</h2>' +
         '<p class="folha-sub">' + esc(autoria(livro)) + (livro.ano ? ' · ' + livro.ano : '') + '</p>' +
 
-        '<label class="campo"><span>Sua nota</span></label>' +
+        '<span class="rotulo" style="display:block;margin-bottom:7px">Sua nota</span>' +
         '<div class="seletor-estrelas" id="seletor" role="slider" tabindex="0" ' +
              'aria-label="Nota de meia a cinco estrelas" aria-valuemin="0" aria-valuemax="5" ' +
              'aria-valuenow="' + nota + '" aria-valuetext="' + (nota ? nota + ' estrelas' : 'sem nota') + '">' +
-          '<div class="campo">' + estrelasBotoes(nota) + '</div>' +
+          '<div class="campo" style="margin:0">' + estrelasBotoes(nota) + '</div>' +
           '<button type="button" class="limpar" data-nota="0">limpar</button>' +
         '</div>' +
 
-        '<label class="campo" style="margin-top:18px"><span>Terminei de ler em</span>' +
+        '<label class="campo" style="margin-top:16px"><span>Terminei de ler em</span>' +
           '<input type="date" id="campo-data" max="' + hoje() + '" value="' +
           esc(reg ? reg.lidoEm : hoje()) + '"></label>' +
 
@@ -413,12 +794,11 @@
         '<div class="folha-rodape">' +
           '<button class="botao destaque" data-fechar="salvar">' +
             (reg ? 'Salvar alterações' : 'Registrar leitura') + '</button>' +
-          '<button class="botao discreto" data-fechar="cancelar">Cancelar</button>' +
+          '<button class="botao" data-fechar="cancelar">Cancelar</button>' +
           (reg ? '<button class="botao perigo espaco" data-fechar="apagar">Apagar</button>' : '') +
         '</div>' +
       '</div></div>';
 
-    camada.innerHTML = html;
     /* Os listeners vao no painel, nao na camada: o painel e descartado ao
        fechar, entao nao sobra nada ligado para a proxima abertura. */
     var painel = camada.firstElementChild;
@@ -437,9 +817,8 @@
       if (!b) return;
       if (b.classList.contains('limpar')) return repinta(0);
       var pos = Number(b.getAttribute('data-pos'));
-      /* metade esquerda da estrela vale meia nota, como no Letterboxd */
-      var meia = ev.offsetX < b.offsetWidth / 2;
-      repinta(meia ? pos - 0.5 : pos);
+      /* metade esquerda da estrela vale meia nota, como no original */
+      repinta(ev.offsetX < b.offsetWidth / 2 ? pos - 0.5 : pos);
     });
 
     seletor.addEventListener('keydown', function (ev) {
@@ -454,10 +833,7 @@
       document.removeEventListener('keydown', aoTeclar);
       camada.innerHTML = '';
     }
-
-    function aoTeclar(ev) {
-      if (ev.key === 'Escape') fechar();
-    }
+    function aoTeclar(ev) { if (ev.key === 'Escape') fechar(); }
     document.addEventListener('keydown', aoTeclar);
 
     painel.addEventListener('click', function (ev) {
@@ -501,32 +877,95 @@
     return s;
   }
 
+  /* ================================== folha: escolher o livro para registrar */
+  /* O que o "+ REGISTRAR" do topo abre: busca, escolhe o livro, e emenda
+     direto na folha de registro. */
+
+  function abrirFolhaEscolha() {
+    camada.innerHTML =
+      '<div class="folha-fundo" data-fechar="fundo"><div class="folha" role="dialog" aria-modal="true" ' +
+        'aria-label="Escolher um livro para registrar">' +
+        '<h2>Registrar uma leitura</h2>' +
+        '<p class="folha-sub">Qual livro você terminou?</p>' +
+        '<label class="campo"><span>Buscar</span>' +
+          '<input id="escolha-termo" placeholder="Título, autor ou ISBN" autocomplete="off"></label>' +
+        '<div id="escolha-resultados"></div>' +
+        '<div class="folha-rodape"><button class="botao" data-fechar="cancelar">Fechar</button></div>' +
+      '</div></div>';
+
+    var painel = camada.firstElementChild;
+    var campo = document.getElementById('escolha-termo');
+    var caixa = document.getElementById('escolha-resultados');
+    var espera = null;
+    campo.focus();
+
+    function buscar() {
+      var termo = campo.value.trim();
+      if (termo.length < 3) { caixa.innerHTML = ''; return; }
+      caixa.innerHTML = '<p class="carregando" style="padding:20px">Procurando…</p>';
+      API.buscar(termo, 1).then(function (r) {
+        if (campo.value.trim() !== termo) return;   /* chegou tarde, ja mudou */
+        r.livros.forEach(Dados.guardarLivro);
+        caixa.innerHTML = r.livros.length
+          ? '<div class="grade miuda">' + r.livros.slice(0, 12).map(function (l) {
+              return '<a class="cartao" href="#" data-escolher="' + esc(l.chave) + '" title="' +
+                     esc(l.titulo) + '">' + htmlCapa(l) + '</a>';
+            }).join('') + '</div>'
+          : '<p style="color:var(--texto-3);font-size:13px">Nada encontrado.</p>';
+      }).catch(function (err) {
+        caixa.innerHTML = '<p class="erro">' + esc(err.message) + '</p>';
+      });
+    }
+
+    campo.addEventListener('input', function () {
+      clearTimeout(espera);
+      espera = setTimeout(buscar, 350);   /* espera a pessoa parar de digitar */
+    });
+
+    function fechar() {
+      clearTimeout(espera);
+      document.removeEventListener('keydown', aoTeclar);
+      camada.innerHTML = '';
+    }
+    function aoTeclar(ev) { if (ev.key === 'Escape') fechar(); }
+    document.addEventListener('keydown', aoTeclar);
+
+    painel.addEventListener('click', function (ev) {
+      var escolha = ev.target.closest('[data-escolher]');
+      if (escolha) {
+        ev.preventDefault();
+        var livro = livroDe(escolha.getAttribute('data-escolher'));
+        fechar();
+        return abrirFolhaRegistro(livro, null);
+      }
+      var alvo = ev.target.closest('[data-fechar]');
+      if (!alvo) return;
+      if (alvo.getAttribute('data-fechar') === 'fundo' && ev.target !== alvo) return;
+      fechar();
+    });
+  }
+
   /* ============================================================ folha: listas */
 
   function abrirFolhaListas(livro) {
     var listas = Dados.estado().listas;
-
     var corpo = listas.length
       ? listas.map(function (l) {
-          var dentro = l.livros.indexOf(livro.chave) >= 0;
           return '<label class="marcador"><input type="checkbox" data-lista="' + l.id + '"' +
-                 (dentro ? ' checked' : '') + '> ' + esc(l.nome) +
-                 ' <span style="color:var(--texto-3)">· ' + plural(l.livros.length, 'livro', 'livros') +
-                 '</span></label>';
+            (l.livros.indexOf(livro.chave) >= 0 ? ' checked' : '') + '> ' + esc(l.nome) +
+            ' <span style="color:var(--texto-3)">· ' + plural(l.livros.length, 'livro', 'livros') +
+            '</span></label>';
         }).join('')
-      : '<p style="color:var(--texto-3);margin:0 0 16px">Você ainda não criou nenhuma lista.</p>';
+      : '<p style="color:var(--texto-3);margin:0 0 14px">Você ainda não criou nenhuma lista.</p>';
 
     camada.innerHTML =
       '<div class="folha-fundo" data-fechar="fundo"><div class="folha" role="dialog" aria-modal="true" ' +
         'aria-label="Adicionar a uma lista">' +
         '<h2>Adicionar a uma lista</h2>' +
-        '<p class="folha-sub">' + esc(livro.titulo) + '</p>' +
-        corpo +
-        '<label class="campo" style="margin-top:18px"><span>Criar uma lista nova</span>' +
+        '<p class="folha-sub">' + esc(livro.titulo) + '</p>' + corpo +
+        '<label class="campo" style="margin-top:16px"><span>Criar uma lista nova</span>' +
           '<input id="nova-lista" placeholder="Ex.: Para reler em 2027" autocomplete="off"></label>' +
-        '<div class="folha-rodape">' +
-          '<button class="botao destaque" data-fechar="ok">Pronto</button>' +
-        '</div>' +
+        '<div class="folha-rodape"><button class="botao destaque" data-fechar="ok">Pronto</button></div>' +
       '</div></div>';
 
     var painel = camada.firstElementChild;
@@ -538,8 +977,8 @@
     });
 
     painel.addEventListener('click', function (ev) {
-      if (!ev.target.closest('[data-fechar]')) return;
       var alvo = ev.target.closest('[data-fechar]');
+      if (!alvo) return;
       if (alvo.getAttribute('data-fechar') === 'fundo' && ev.target !== alvo) return;
 
       var nome = (document.getElementById('nova-lista') || {}).value;
@@ -550,364 +989,8 @@
         aviso('Lista “' + l.nome + '” criada.');
       }
       camada.innerHTML = '';
+      rotear();
     });
-  }
-
-  /* ================================================================= TELA: diario */
-
-  function htmlEntrada(log, comCapa) {
-    var livro = livroDe(log.chave);
-    var linha = [];
-    linha.push(dataBr(log.lidoEm));
-    if (log.relido) linha.push('releitura');
-    if (Dados.curtido(log.chave)) linha.push('<span style="color:var(--curtida)">♥</span>');
-
-    var resenha = '';
-    if (log.resenha) {
-      resenha = log.spoiler
-        ? '<button class="spoiler-aviso" data-acao="ver-spoiler" data-texto="' + esc(log.resenha) +
-          '">Esta resenha tem spoiler. Toque para ler.</button>'
-        : '<p class="entrada-resenha">' + esc(log.resenha) + '</p>';
-    }
-
-    return '<div class="entrada' + (comCapa ? '' : ' sem-capa') + '">' +
-      (comCapa
-        ? '<a href="' + rotaLivro(log.chave) + '">' + htmlCapa(livro) + '</a>'
-        : '<div>' + (typeof log.nota === 'number'
-            ? '<div class="estrelas" style="font-size:15px">' + estrelasTexto(log.nota) + '</div>'
-            : '<span style="color:var(--texto-3)">—</span>') + '</div>') +
-      '<div>' +
-        '<div class="entrada-topo">' +
-          (comCapa
-            ? '<a class="entrada-titulo" href="' + rotaLivro(log.chave) + '">' + esc(livro.titulo) + '</a>' +
-              (livro.ano ? '<span class="entrada-ano">' + livro.ano + '</span>' : '') +
-              (typeof log.nota === 'number'
-                ? '<span class="estrelas">' + estrelasTexto(log.nota) + '</span>' : '')
-            : '<span class="entrada-ano">' + dataBr(log.lidoEm) + '</span>') +
-        '</div>' +
-        (comCapa ? '<div class="entrada-linha">' + linha.join(' · ') + '</div>' : '') +
-        resenha +
-        '<div class="entrada-acoes">' +
-          '<button data-acao="editar-log" data-id="' + log.id + '">editar</button>' +
-          '<button data-acao="apagar-log" data-id="' + log.id + '">apagar</button>' +
-        '</div>' +
-      '</div>' +
-    '</div>';
-  }
-
-  function telaDiario() {
-    marcarAba('diario');
-    var logs = Dados.logs();
-
-    if (!logs.length) {
-      return pintar('<h1 class="titulo-pagina">Diário</h1>' +
-        htmlVazio('Nenhuma leitura registrada ainda',
-          'Cada livro que você terminar vira uma linha aqui, com data, nota e resenha.',
-          '<a class="botao destaque" href="#/inicio">Encontrar um livro</a>'));
-    }
-
-    /* Agrupa por mes, como o diario do Letterboxd. */
-    var grupos = [];
-    var atual = null;
-    logs.forEach(function (l) {
-      var chaveMes = (l.lidoEm || '').slice(0, 7);
-      if (!atual || atual.mes !== chaveMes) {
-        atual = { mes: chaveMes, itens: [] };
-        grupos.push(atual);
-      }
-      atual.itens.push(l);
-    });
-
-    var html = '<h1 class="titulo-pagina">Diário</h1>' +
-               '<p class="sub-pagina">' + plural(logs.length, 'leitura registrada', 'leituras registradas') +
-               '.</p>';
-
-    grupos.forEach(function (g) {
-      var p = g.mes.split('-');
-      var titulo = p.length === 2 ? MESES[Number(p[1]) - 1] + ' de ' + p[0] : 'Sem data';
-      html += '<section class="secao"><h2>' + esc(titulo) + '</h2>' +
-              g.itens.map(function (l) { return htmlEntrada(l, true); }).join('') +
-              '</section>';
-    });
-
-    pintar(html);
-    ligarAcoesDeEntrada();
-  }
-
-  function ligarAcoesDeEntrada() {
-    tela.addEventListener('click', function (ev) {
-      var alvo = ev.target.closest('[data-acao]');
-      if (!alvo) return;
-      var acao = alvo.getAttribute('data-acao');
-
-      if (acao === 'editar-log') {
-        var log = Dados.log(alvo.getAttribute('data-id'));
-        if (log) abrirFolhaRegistro(livroDe(log.chave), log.id);
-      }
-      if (acao === 'apagar-log') {
-        if (confirm('Apagar este registro de leitura?')) {
-          Dados.apagarLog(alvo.getAttribute('data-id'));
-          rotear();
-        }
-      }
-      if (acao === 'ver-spoiler') {
-        alvo.outerHTML = '<p class="entrada-resenha">' + esc(alvo.getAttribute('data-texto')) + '</p>';
-      }
-    });
-  }
-
-  /* ================================================================ TELA: estante */
-
-  function telaEstante() {
-    marcarAba('estante');
-    var d = Dados.estado();
-
-    /* obras distintas ja lidas, da leitura mais recente para a mais antiga */
-    var vistos = {};
-    var lidos = [];
-    Dados.logs().forEach(function (l) {
-      if (vistos[l.chave]) return;
-      vistos[l.chave] = 1;
-      lidos.push(livroDe(l.chave));
-    });
-
-    var html = '<h1 class="titulo-pagina">Estante</h1>' +
-               '<p class="sub-pagina">O que você quer ler, o que já leu e o que amou.</p>';
-
-    html += secaoEstante('Quero ler', d.querLer.map(livroDe),
-      'A fila está vazia. Marque “Quero ler” na ficha de um livro.');
-    html += secaoEstante('Lidos', lidos,
-      'Nada por aqui ainda. Registre uma leitura para ela aparecer.');
-    html += secaoEstante('Curtidos', d.curtidas.map(livroDe),
-      'Você ainda não curtiu nenhum livro.');
-    html += secaoEstante('Favoritos', d.favoritos.map(livroDe),
-      'Escolha até ' + Dados.MAX_FAVORITOS + ' livros favoritos na ficha de cada um.');
-
-    pintar(html);
-  }
-
-  function secaoEstante(titulo, livros, vazio) {
-    return '<section class="secao"><h2>' + esc(titulo) +
-           '<span style="margin-left:auto;color:var(--texto-3)">' + livros.length + '</span></h2>' +
-           (livros.length
-             ? htmlGrade(livros)
-             : '<p style="color:var(--texto-3);font-size:13.5px;margin:0">' + esc(vazio) + '</p>') +
-           '</section>';
-  }
-
-  /* ================================================================= TELA: listas */
-
-  function telaListas() {
-    marcarAba('listas');
-    var listas = Dados.estado().listas;
-
-    var html = '<h1 class="titulo-pagina">Listas</h1>' +
-      '<p class="sub-pagina">Agrupe livros do jeito que fizer sentido: por tema, por ano, por vontade.</p>' +
-      '<div class="linha-botoes" style="margin-bottom:26px">' +
-        '<button class="botao destaque" data-acao="nova-lista">Criar uma lista</button>' +
-      '</div>';
-
-    if (!listas.length) {
-      html += htmlVazio('Nenhuma lista ainda',
-        'Uma lista pode ser “Li na praia”, “Para reler” ou “Presentes de 2027”.');
-    } else {
-      html += listas.map(function (l) {
-        var capas = l.livros.slice(0, 5).map(function (c) { return htmlCapa(livroDe(c)); }).join('');
-        return '<a class="cartao-lista" href="#/lista/' + l.id + '">' +
-          '<h3>' + esc(l.nome) + '</h3>' +
-          (l.descricao ? '<p>' + esc(l.descricao) + '</p>' : '') +
-          (capas ? '<div class="pilha">' + capas + '</div>'
-                 : '<p style="color:var(--texto-3);margin:0">Lista vazia</p>') +
-          '<p style="margin:12px 0 0;color:var(--texto-3);font-size:12.5px">' +
-            plural(l.livros.length, 'livro', 'livros') + '</p>' +
-        '</a>';
-      }).join('');
-    }
-
-    pintar(html);
-
-    tela.addEventListener('click', function (ev) {
-      if (!ev.target.closest('[data-acao="nova-lista"]')) return;
-      var nome = prompt('Nome da lista:');
-      if (nome && nome.trim()) {
-        Dados.criarLista(nome.trim());
-        telaListas();
-      }
-    });
-  }
-
-  function telaLista(idLista) {
-    marcarAba('listas');
-    var l = Dados.lista(idLista);
-    if (!l) return pintar('<p class="erro">Esta lista não existe mais.</p>');
-
-    var html = '<h1 class="titulo-pagina">' + esc(l.nome) + '</h1>' +
-      '<p class="sub-pagina">' + (l.descricao ? esc(l.descricao) + ' · ' : '') +
-      plural(l.livros.length, 'livro', 'livros') + '</p>' +
-      (l.livros.length
-        ? htmlGrade(l.livros.map(livroDe))
-        : htmlVazio('Lista vazia',
-            'Abra a ficha de um livro e use “Adicionar a uma lista”.')) +
-      '<div class="linha-botoes" style="margin-top:30px">' +
-        '<button class="botao discreto" data-acao="renomear">Renomear</button>' +
-        '<button class="botao discreto" data-acao="descrever">Editar descrição</button>' +
-        '<button class="botao perigo" data-acao="apagar-lista">Apagar lista</button>' +
-      '</div>';
-
-    pintar(html);
-
-    tela.addEventListener('click', function (ev) {
-      var alvo = ev.target.closest('[data-acao]');
-      if (!alvo) return;
-      var acao = alvo.getAttribute('data-acao');
-
-      if (acao === 'renomear') {
-        var nome = prompt('Novo nome:', l.nome);
-        if (nome && nome.trim()) { Dados.editarLista(l.id, { nome: nome.trim() }); telaLista(l.id); }
-      }
-      if (acao === 'descrever') {
-        var d = prompt('Descrição:', l.descricao || '');
-        if (d !== null) { Dados.editarLista(l.id, { descricao: d.trim() }); telaLista(l.id); }
-      }
-      if (acao === 'apagar-lista') {
-        if (confirm('Apagar a lista “' + l.nome + '”? Os livros continuam no seu diário.')) {
-          Dados.apagarLista(l.id);
-          ir('#/listas');
-        }
-      }
-    });
-  }
-
-  /* ================================================================= TELA: perfil */
-
-  function telaPerfil() {
-    marcarAba('perfil');
-    var d = Dados.estado();
-    var e = Dados.estatisticas();
-    var pct = e.meta ? Math.min(100, Math.round((e.noAno / e.meta) * 100)) : 0;
-    var maior = Math.max.apply(null, e.faixas.map(function (f) { return f.qtd; }).concat([1]));
-
-    var html =
-      '<h1 class="titulo-pagina">' + esc(d.perfil.nome) + '</h1>' +
-      '<p class="sub-pagina">' + (d.perfil.bio ? esc(d.perfil.bio) : 'Sem descrição ainda.') + '</p>' +
-
-      '<div class="numeros">' +
-        numero(e.lidos, 'leituras') +
-        numero(e.obras, 'obras') +
-        numero(e.resenhas, 'resenhas') +
-        numero(e.media ? e.media.toFixed(1).replace('.', ',') : '—', 'nota média') +
-        numero(e.paginas ? e.paginas.toLocaleString('pt-BR') : '—', 'páginas') +
-        numero(e.listas, 'listas') +
-      '</div>' +
-
-      '<section class="secao"><h2>Meta de ' + d.perfil.meta.ano + '</h2>' +
-        '<p style="margin:0 0 4px;color:var(--texto-2)">' +
-          e.noAno + ' de ' + e.meta + ' livros · ' + pct + '%</p>' +
-        '<div class="meta-barra"><i style="width:' + pct + '%"></i></div>' +
-        '<button class="botao discreto" data-acao="editar-meta" style="margin-top:12px">' +
-          'Ajustar a meta</button>' +
-      '</section>';
-
-    if (e.media !== null) {
-      html += '<section class="secao"><h2>Como você avalia</h2>' +
-        '<div class="histograma">' +
-          e.faixas.map(function (f) {
-            return '<div class="col' + (f.qtd ? ' tem' : '') + '" title="' +
-                   String(f.nota).replace('.', ',') + ' — ' + plural(f.qtd, 'livro', 'livros') + '">' +
-                   '<i style="height:' + Math.round((f.qtd / maior) * 100) + '%"></i></div>';
-          }).join('') +
-        '</div>' +
-        '<div class="histograma-eixo"><span class="estrelas">★</span>' +
-        '<span class="estrelas">★★★★★</span></div>' +
-      '</section>';
-    }
-
-    if (d.favoritos.length) {
-      html += '<section class="secao"><h2>Favoritos</h2>' +
-              htmlGrade(d.favoritos.map(livroDe)) + '</section>';
-    }
-
-    html +=
-      '<section class="secao"><h2>Seus dados</h2>' +
-        '<p style="color:var(--texto-2);font-size:13.5px;margin:0 0 16px">' +
-          'Tudo fica guardado só neste navegador. Exporte um arquivo para levar ' +
-          'seu diário para outro aparelho — ou para não perder nada.</p>' +
-        '<div class="linha-botoes">' +
-          '<button class="botao" data-acao="editar-perfil">Editar perfil</button>' +
-          '<button class="botao discreto" data-acao="exportar">Exportar diário</button>' +
-          '<button class="botao discreto" data-acao="importar">Importar diário</button>' +
-          '<button class="botao perigo" data-acao="limpar">Apagar tudo</button>' +
-        '</div>' +
-        '<input type="file" id="arquivo-importar" accept="application/json,.json" hidden>' +
-      '</section>';
-
-    pintar(html);
-
-    tela.addEventListener('click', function (ev) {
-      var alvo = ev.target.closest('[data-acao]');
-      if (!alvo) return;
-      var acao = alvo.getAttribute('data-acao');
-
-      if (acao === 'editar-perfil') {
-        var nome = prompt('Como você quer ser chamada?', d.perfil.nome);
-        if (nome === null) return;
-        var bio = prompt('Uma linha sobre você (opcional):', d.perfil.bio || '');
-        d.perfil.nome = nome.trim() || d.perfil.nome;
-        d.perfil.bio = (bio || '').trim();
-        Dados.salvar();
-        telaPerfil();
-      }
-
-      if (acao === 'editar-meta') {
-        var alvoMeta = prompt('Quantos livros você quer ler em ' + d.perfil.meta.ano + '?',
-                              d.perfil.meta.total);
-        var n = parseInt(alvoMeta, 10);
-        if (n > 0) { d.perfil.meta.total = n; Dados.salvar(); telaPerfil(); }
-      }
-
-      if (acao === 'exportar') exportarArquivo();
-
-      if (acao === 'importar') document.getElementById('arquivo-importar').click();
-
-      if (acao === 'limpar') {
-        if (confirm('Isso apaga leituras, resenhas, listas e favoritos deste aparelho. ' +
-                    'Não dá para desfazer. Continuar?')) {
-          Dados.limpar();
-          aviso('Tudo apagado.');
-          ir('#/inicio');
-          rotear();
-        }
-      }
-    });
-
-    var campoArquivo = document.getElementById('arquivo-importar');
-    campoArquivo.addEventListener('change', function () {
-      var f = this.files[0];
-      if (!f) return;
-      var leitor = new FileReader();
-      leitor.onload = function () {
-        try {
-          Dados.importar(String(leitor.result));
-          aviso('Diário importado.');
-          telaPerfil();
-        } catch (err) {
-          alert('Não consegui ler este arquivo: ' + err.message);
-        }
-      };
-      leitor.readAsText(f);
-    });
-  }
-
-  function exportarArquivo() {
-    var blob = new Blob([Dados.exportar()], { type: 'application/json' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'letterbooks-' + hoje() + '.json';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   }
 
   /* ==================================================================== roteador */
@@ -919,9 +1002,8 @@
 
     if (rota === 'buscar') {
       var termo = decodeURIComponent(partes[1] || '');
-      var pagina = Math.max(1, parseInt(partes[2], 10) || 1);
       if (!termo) return ir('#/inicio');
-      return telaBusca(termo, pagina);
+      return telaBusca(termo, Math.max(1, parseInt(partes[2], 10) || 1));
     }
     if (rota === 'livro')   return telaLivro(decodeURIComponent(partes.slice(1).join('/')));
     if (rota === 'diario')  return telaDiario();
@@ -932,13 +1014,13 @@
     return telaInicio();
   }
 
-  /* A busca do topo leva sempre para a tela de resultados. */
   document.getElementById('forma-busca').addEventListener('submit', function (ev) {
     ev.preventDefault();
     var termo = document.getElementById('campo-busca').value.trim();
-    if (!termo) return;
-    ir('#/buscar/' + encodeURIComponent(termo) + '/1');
+    if (termo) ir('#/buscar/' + encodeURIComponent(termo) + '/1');
   });
+
+  document.getElementById('botao-registrar').addEventListener('click', abrirFolhaEscolha);
 
   window.addEventListener('hashchange', rotear);
   rotear();
