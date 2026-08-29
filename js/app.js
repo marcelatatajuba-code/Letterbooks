@@ -525,8 +525,16 @@
       var alturaTotal = g.itens.reduce(function (n, l) { return n + (l.resenha ? 2 : 1); }, 0);
       var p = g.mes.split('-');
       var primeira = true;
+      var nomeMes = p.length === 2 ? MESES[Number(p[1]) - 1] + ' de ' + p[0] : 'sem data';
 
-      return g.itens.map(function (l) {
+      /* No computador o mes e uma celula a esquerda, atravessando as linhas.
+         No celular vira uma faixa de largura inteira, como no original — as
+         duas estao no HTML e o CSS escolhe qual aparece. */
+      var faixa = comMes
+        ? '<tr class="faixa-mes"><td colspan="8">' + esc(nomeMes) + '</td></tr>'
+        : '';
+
+      return faixa + g.itens.map(function (l) {
         var livro = livroDe(l.chave);
         var celMes = '';
         if (comMes && primeira) {
@@ -549,8 +557,7 @@
             (l.relido ? ' <span class="rotulo" style="font-size:9px">releitura</span>' : '') + '</td>' +
           (comMes ? '<td class="cel-ano">' + (livro.ano || '') + '</td>' : '') +
           '<td class="cel-nota"><span class="estrelas">' + estrelasTexto(l.nota) + '</span></td>' +
-          '<td class="cel-marca' + (Dados.curtido(l.chave) ? ' on' : '') + '">' +
-            (Dados.curtido(l.chave) ? '♥' : '') + '</td>' +
+          '<td class="cel-marca">' + glifosDaLinha(l) + '</td>' +
           '<td class="cel-acoes">' +
             '<button data-acao="editar-log" data-id="' + l.id + '">editar</button>' +
             '<button data-acao="apagar-log" data-id="' + l.id + '">apagar</button>' +
@@ -572,6 +579,17 @@
        exceder a largura, e isso nunca deve virar rolagem horizontal da pagina. */
     return '<div class="tabela-rolagem"><table class="tabela-diario">' +
            cabecalho + '<tbody>' + corpo + '</tbody></table></div>';
+  }
+
+  /* Curtida, releitura e resenha, do jeito que o original marca cada entrada. */
+  function glifosDaLinha(log) {
+    var g = '';
+    if (Dados.curtido(log.chave)) g += '<i class="on" title="Curtido">♥</i>';
+    if (log.relido)               g += '<i title="Releitura">↺</i>';
+    if (log.resenha) {
+      g += '<a href="#/resenha/' + log.id + '" title="Tem resenha">≡</a>';
+    }
+    return g;
   }
 
   function telaDiario() {
@@ -600,6 +618,75 @@
         rotear();
       },
       'ver-spoiler': revelarSpoiler
+    });
+  }
+
+  /* =============================================================== TELA: resenha */
+  /* Uma resenha tem endereco proprio, como no original: da para abrir direto
+     nela em vez de cacar a linha no diario. */
+
+  function telaResenha(idLog) {
+    marcarAba('');
+    var log = Dados.log(idLog);
+    if (!log) return pintar('<p class="erro">Esta resenha não existe mais.</p>');
+
+    var livro = livroDe(log.chave);
+    var perfil = Dados.estado().perfil;
+    var fundo = livro.capaGrande || livro.capa;
+
+    pintar(
+      (fundo ? '<div class="heroi"><div class="heroi-imagem" style="background-image:url(' +
+               esc(fundo) + ')"></div></div>' : '') +
+      '<article class="resenha' + (fundo ? ' sobre-heroi' : '') + '">' +
+        '<div class="lista-autoria">' +
+          '<span class="avatar avatar-mini" aria-hidden="true">' +
+            esc((perfil.nome || '?').trim().charAt(0).toUpperCase()) + '</span>' +
+          '<span>' + esc(perfil.nome) + '</span>' +
+        '</div>' +
+
+        '<div class="resenha-topo">' +
+          '<div>' +
+            '<h1 class="resenha-titulo"><a href="' + rotaLivro(log.chave) + '">' +
+              esc(livro.titulo) + '</a>' +
+              (livro.ano ? ' <span class="ano">' + livro.ano + '</span>' : '') + '</h1>' +
+            '<p class="resenha-linha">' +
+              '<span class="estrelas">' + estrelasTexto(log.nota) + '</span>' +
+              (Dados.curtido(log.chave)
+                ? ' <span style="color:var(--curtida)">♥</span>' : '') +
+            '</p>' +
+            '<p class="resenha-data">Lido em ' + dataBr(log.lidoEm) +
+              (log.relido ? ' · releitura' : '') + '</p>' +
+          '</div>' +
+          '<a class="resenha-capa" href="' + rotaLivro(log.chave) + '" aria-label="' +
+            esc(livro.titulo) + '">' + htmlCapa(livro) + '</a>' +
+        '</div>' +
+
+        (log.resenha
+          ? '<div class="resenha-corpo">' +
+              (log.spoiler
+                ? '<p class="rotulo" style="color:var(--a1);margin-bottom:10px">' +
+                  'Contém spoiler</p>' : '') +
+              '<p class="resenha-texto">' + esc(log.resenha) + '</p>' +
+            '</div>'
+          : '<p class="resenha-corpo" style="color:var(--texto-3)">' +
+            'Esta leitura foi registrada sem resenha.</p>') +
+
+        '<div class="linha-botoes" style="margin-top:26px">' +
+          '<button class="botao" data-acao="editar-log" data-id="' + log.id + '">Editar</button>' +
+          '<a class="botao" href="' + rotaLivro(log.chave) + '">Ver o livro</a>' +
+          '<button class="botao perigo" data-acao="apagar-log" data-id="' + log.id + '">Apagar</button>' +
+        '</div>' +
+      '</article>');
+
+    acoes({
+      'editar-log': function (a) {
+        abrirFolhaRegistro(livroDe(log.chave), a.getAttribute('data-id'));
+      },
+      'apagar-log': function (a) {
+        if (!confirm('Apagar este registro de leitura?')) return;
+        Dados.apagarLog(a.getAttribute('data-id'));
+        ir('#/diario');
+      }
     });
   }
 
@@ -1302,7 +1389,8 @@
       if (!termo) return telaBuscaVazia();
       return telaBusca(termo, Math.max(1, parseInt(partes[2], 10) || 1));
     }
-    if (rota === 'autor') return telaAutor(decodeURIComponent(partes.slice(1).join('/')));
+    if (rota === 'autor')   return telaAutor(decodeURIComponent(partes.slice(1).join('/')));
+    if (rota === 'resenha') return telaResenha(partes[1]);
     if (rota === 'livro')   return telaLivro(decodeURIComponent(partes.slice(1).join('/')));
     if (rota === 'diario')  return telaDiario();
     if (rota === 'estante') return telaEstante();

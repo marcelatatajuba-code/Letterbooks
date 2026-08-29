@@ -400,8 +400,23 @@ img { display: block; max-width: 100%; }
 .cel-livro:hover { color: var(--a1); }
 .cel-ano { width: 60px; color: var(--texto-3); font-size: 13px; }
 .cel-nota { width: 96px; }
-.cel-marca { width: 30px; text-align: center; color: var(--texto-3); }
-.cel-marca.on { color: var(--curtida); }
+/* Os tres marcadores da linha, como no original: curtida, releitura, resenha. */
+.cel-marca { width: 62px; white-space: nowrap; color: var(--texto-3); }
+.cel-marca i, .cel-marca a {
+  font-style: normal; font-size: 13px; margin-right: 5px; color: var(--texto-3);
+}
+.cel-marca i.on { color: var(--curtida); }
+.cel-marca a:hover { color: var(--a1); }
+
+/* A faixa do mes: escondida no computador, onde o mes e a celula da esquerda. */
+.faixa-mes { display: none; }
+.faixa-mes td {
+  padding: 9px 8px !important;
+  background: var(--superficie);
+  font-size: 11px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--texto-2);
+  border-bottom: 1px solid var(--borda);
+}
 .cel-acoes { width: 96px; text-align: right; white-space: nowrap; }
 .cel-acoes button {
   background: none; border: 0; cursor: pointer; padding: 2px 4px;
@@ -497,6 +512,30 @@ img { display: block; max-width: 100%; }
   background: rgba(var(--fundo-rgb), .82);
   border-radius: 10px;
   font-size: 11px; font-weight: 700; color: var(--texto);
+}
+
+/* =========================================== resenha em pagina propria === */
+
+.resenha { max-width: 720px; }
+.resenha.sobre-heroi { margin-top: -190px; position: relative; z-index: 1; }
+.resenha-topo { display: flex; align-items: flex-start; gap: 20px; margin: 10px 0 0; }
+.resenha-topo > div:first-child { flex: 1; min-width: 0; }
+.resenha-titulo { margin: 0 0 6px; font-size: 27px; font-weight: 800; line-height: 1.15; }
+.resenha-titulo a:hover { color: var(--a1); }
+.resenha-titulo .ano { font-weight: 400; color: var(--texto-2); font-size: 20px; }
+.resenha-linha { margin: 0 0 4px; font-size: 17px; }
+.resenha-data { margin: 0; color: var(--texto-3); font-size: 13px; }
+.resenha-capa { width: 104px; flex: none; }
+.resenha-capa .capa { border-radius: var(--raio); }
+.resenha-corpo {
+  margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--borda);
+}
+.resenha-corpo .resenha-texto { font-size: 15.5px; line-height: 1.75; }
+
+@media (max-width: 520px) {
+  .resenha.sobre-heroi { margin-top: -140px; }
+  .resenha-titulo { font-size: 22px; }
+  .resenha-capa { width: 76px; }
 }
 
 /* ============================================== atalhos do perfil ======== */
@@ -627,16 +666,21 @@ img { display: block; max-width: 100%; }
   .topo-nav, .topo-fim { display: none; }
   .pagina { padding: 20px 14px 70px; }
 
-  /* Sem espaco para tudo, a tabela larga do que menos importa e aperta o resto. */
-  .cel-ano, .cel-marca { display: none; }
-  .tabela-diario td, .tabela-diario thead th { padding-left: 5px; padding-right: 5px; }
+  /* No celular o diario vira o que e no original: faixa de mes de largura
+     inteira e linhas enxutas. Some o cabecalho de colunas (nao ha colunas a
+     anunciar), some o ano, e somem editar/apagar — essas acoes vivem na
+     pagina da resenha, aberta pelo glifo. O que sobra e espaco para o
+     titulo, que antes quebrava em quatro linhas. */
+  .faixa-mes { display: table-row; }
+  .tabela-diario thead { display: none; }
+  .cel-mes, .cel-ano, .cel-acoes { display: none; }
+  .tabela-diario td { padding-left: 5px; padding-right: 5px; }
   .cel-dia { width: 26px; font-size: 14px; }
   .cel-capa { width: 32px; }
   .cel-capa .capa { width: 28px; }
   .cel-livro { font-size: 14px; }
-  .cel-nota { width: auto; }
-  .cel-acoes { width: 54px; }
-  .cel-acoes button:first-child { display: none; }
+  .cel-nota { width: 1%; white-space: nowrap; }
+  .cel-marca { width: 1%; }
   .numeros { gap: 20px; }
 }
 

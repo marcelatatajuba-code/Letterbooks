@@ -38,7 +38,8 @@ navegação por hash justamente para isso.
 | **Busca** | Título, autor ou ISBN, com paginação. Cola um ISBN de 10 ou 13 dígitos e ele busca pelo campo certo, não pelo texto livre. |
 | **Ficha do livro** | Três colunas: capa, conteúdo e painel de ações. O fundo atrás do título é a própria capa, ampliada e desfocada — o lugar que no original é do still do filme. O conteúdo tem abas de sinopse, detalhes e assuntos; o painel concentra lido, curtir, quero ler, registrar, listas, favoritar e o histograma das suas notas. |
 | **Registro de leitura** | Nota de meia a cinco estrelas, data em que terminou, resenha, marcação de releitura e aviso de spoiler. Um livro pode ter vários registros — cada releitura é uma linha nova. O botão da ponta do cabeçalho abre a busca e emenda direto aqui. |
-| **Diário** | Uma tabela: mês, dia, capa, livro, ano, nota, curtida. A célula do mês atravessa as linhas daquele mês. Resenhas com spoiler ficam cobertas até você tocar. |
+| **Diário** | No computador, uma tabela com a célula do mês atravessando as linhas daquele mês. No celular vira o que é no original: faixa de mês de largura inteira e linhas enxutas, com ♥ (curtida), ↺ (releitura) e ≡ (tem resenha) ao lado da nota. Spoiler fica coberto até você tocar. |
+| **Resenha** | Cada resenha tem endereço próprio: fundo, autoria, livro, nota, data e o texto inteiro. É onde ficam editar e apagar. Abre pelo ≡ do diário. |
 | **Autor** | O equivalente ao *cast & crew*: tocar no nome de quem escreveu abre a pessoa — retrato, datas, biografia e todas as obras dela no acervo, já marcadas com o que você leu. |
 | **Estante** | Quatro prateleiras: quero ler, lidos, curtidos e favoritos. |
 | **Listas** | Agrupamentos livres, com pôsteres **numerados** — a ordem importa. A capa do primeiro livro vira o fundo do cabeçalho. |
@@ -67,6 +68,10 @@ não oferece o compartilhamento nativo, o arquivo é baixado.
 
 No computador, tudo fica na barra do topo. No celular, a barra de baixo tem
 **Livros · Buscar · (+) · Diário · Perfil**, e o topo fica só com a marca.
+
+O diário no celular perde o cabeçalho de colunas, o ano e os botões de editar
+e apagar — essas ações vivem na página da resenha, que o ≡ abre. O que sobra é
+espaço para o título, que antes quebrava em quatro linhas.
 
 Estante e listas não aparecem na barra: elas vivem dentro do perfil, como no
 Letterboxd. O perfil traz uma fileira de atalhos para elas.
