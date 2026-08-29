@@ -19,7 +19,7 @@ var API = (function () {
   var BUSCA     = 'https://openlibrary.org/search.json';
   var TENDENCIA = 'https://openlibrary.org/trending/weekly.json';
   var CAPAS     = 'https://covers.openlibrary.org/b/id/';
-  var CAMPOS    = 'key,title,author_name,first_publish_year,cover_i,' +
+  var CAMPOS    = 'key,title,author_name,author_key,first_publish_year,cover_i,' +
                   'number_of_pages_median,edition_count,subject';
 
   /* Cache em memoria: a mesma busca repetida na sessao nao vai de novo a rede. */
@@ -57,6 +57,7 @@ var API = (function () {
       chave:      cru.key,
       titulo:     cru.title || 'Sem titulo',
       autores:    cru.author_name || cru.authors || [],
+      autoresIds: cru.author_key || [],
       ano:        cru.first_publish_year || null,
       capa:       capa(cru.cover_i, 'M'),
       capaGrande: capa(cru.cover_i, 'L'),
@@ -125,6 +126,58 @@ var API = (function () {
     });
   }
 
+  /* ------------------------------------------------------------------ autor */
+  /* O equivalente do "cast & crew" de um filme: quem escreveu, e o que mais
+     essa pessoa escreveu. A chave e do tipo "OL33810A" ou "/authors/OL33810A". */
+
+  function autor(chave) {
+    var id = String(chave).replace('/authors/', '');
+    return pegar('https://openlibrary.org/authors/' + id + '.json').then(function (d) {
+      return {
+        chave:   id,
+        nome:    d.name || 'Autoria desconhecida',
+        bio:     textoDe(d.bio),
+        nascimento: d.birth_date || null,
+        morte:      d.death_date || null,
+        retrato: (d.photos || []).filter(function (n) { return n > 0; })[0] || null
+      };
+    });
+  }
+
+  /* As obras da pessoa. Vem num formato diferente do da busca — capa em
+     "covers" e nao em "cover_i" — entao normaliza aqui tambem. */
+  function obrasDo(chave, limite) {
+    var id = String(chave).replace('/authors/', '');
+    return pegar(url('https://openlibrary.org/authors/' + id + '/works.json',
+                     { limit: limite || 48 })).then(function (d) {
+      return (d.entries || []).map(function (o) {
+        if (!o || !o.key) return null;
+        var idCapa = (o.covers || []).filter(function (n) { return n > 0; })[0] || null;
+        return {
+          chave:      o.key,
+          titulo:     o.title || 'Sem titulo',
+          autores:    [],
+          ano:        anoDe(o.first_publish_date),
+          capa:       capa(idCapa, 'M'),
+          capaGrande: capa(idCapa, 'L'),
+          paginas:    null,
+          edicoes:    null
+        };
+      }).filter(Boolean);
+    });
+  }
+
+  /* A data de publicacao vem livre: "1899", "May 1899", "1899-05-01". */
+  function anoDe(texto) {
+    var m = /\d{4}/.exec(String(texto || ''));
+    return m ? Number(m[0]) : null;
+  }
+
+  function retrato(idFoto, tamanho) {
+    if (!idFoto) return null;
+    return 'https://covers.openlibrary.org/a/id/' + idFoto + '-' + (tamanho || 'M') + '.jpg';
+  }
+
   /* A sinopse as vezes vem como string, as vezes como { type, value }. */
   function textoDe(d) {
     if (!d) return '';
@@ -138,7 +191,10 @@ var API = (function () {
     emAlta: emAlta,
     porAssunto: porAssunto,
     detalhe: detalhe,
+    autor: autor,
+    obrasDo: obrasDo,
     capa: capa,
+    retrato: retrato,
     normalizar: normalizar
   };
 })();

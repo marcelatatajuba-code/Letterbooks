@@ -34,6 +34,16 @@
   }
 
   function hoje() { return new Date().toISOString().slice(0, 10); }
+
+  /* As datas da Open Library vem soltas: "1839", "1839-06-21", "21 June 1839".
+     Formata as que sao ISO e devolve as outras como vieram. */
+  function dataLivre(texto) {
+    var t = String(texto || '').trim();
+    var m = /^(\d{4})-(\d{2})(?:-(\d{2}))?$/.exec(t);
+    if (!m) return t;
+    var mes = MESES[Number(m[2]) - 1];
+    return (m[3] ? Number(m[3]) + ' ' : '') + mes + ' ' + m[1];
+  }
   function plural(n, um, muitos) { return n + ' ' + (n === 1 ? um : muitos); }
 
   /* Estrelas em texto: 3,5 vira "★★★½". */
@@ -47,6 +57,19 @@
     if (!a.length) return 'Autoria desconhecida';
     if (a.length <= 2) return a.join(' e ');
     return a[0] + ' e mais ' + (a.length - 1);
+  }
+
+  /* A autoria com cada nome clicavel, quando a Open Library deu o id da pessoa.
+     E o equivalente de clicar num nome do elenco no original. */
+  function htmlAutoria(livro) {
+    var nomes = livro.autores || [];
+    var ids   = livro.autoresIds || [];
+    if (!nomes.length) return '<b>Autoria desconhecida</b>';
+    return nomes.slice(0, 3).map(function (nome, i) {
+      return ids[i]
+        ? '<a href="#/autor/' + encodeURIComponent(ids[i]) + '"><b>' + esc(nome) + '</b></a>'
+        : '<b>' + esc(nome) + '</b>';
+    }).join(', ') + (nomes.length > 3 ? ' e mais ' + (nomes.length - 3) : '');
   }
 
   function aviso(texto) {
@@ -117,7 +140,7 @@
 
   /* Um item da grade: so a capa, como as grades de posters do original. O que
      voce marcou naquele livro aparece na fita do pe. */
-  function htmlCartao(livro) {
+  function htmlCartao(livro, ordem) {
     var selos = '';
     if (Dados.jaLeu(livro.chave))   selos += '<i title="Lido" style="color:var(--a1)">◉</i>';
     if (Dados.curtido(livro.chave)) selos += '<i title="Curtido" style="color:var(--curtida)">♥</i>';
@@ -129,16 +152,22 @@
     /* A legenda vai sempre no HTML e quem decide se aparece e o CSS
        (.grade { --legenda }), para alternar entre a grade sem legenda do
        original e a grade com titulo sem mexer no JavaScript. */
+    /* Numa lista, a posicao importa: o original numera cada poster. */
+    var extra = (selos ? '<div class="selos">' + selos + '</div>' : '') +
+                (ordem ? '<span class="ordem">' + ordem + '</span>' : '');
+
     return '<a class="cartao" href="' + rotaLivro(livro.chave) + '" title="' + esc(dica) + '">' +
-           htmlCapa(livro, selos ? '<div class="selos">' + selos + '</div>' : '') +
+           htmlCapa(livro, extra) +
            '<div class="cartao-legenda">' + esc(livro.titulo) +
              (nota ? '<span class="estrelas">' + estrelasTexto(nota) + '</span>' : '') +
            '</div></a>';
   }
 
-  function htmlGrade(livros, classe) {
+  function htmlGrade(livros, classe, numerar) {
     if (!livros.length) return '';
-    return '<div class="grade ' + (classe || '') + '">' + livros.map(htmlCartao).join('') + '</div>';
+    return '<div class="grade ' + (classe || '') + '">' +
+      livros.map(function (l, i) { return htmlCartao(l, numerar ? i + 1 : 0); }).join('') +
+      '</div>';
   }
 
   function htmlVazio(titulo, texto, botao) {
@@ -209,7 +238,12 @@
 
     pintar(html);
 
-    API.emAlta(14).then(function (livros) {
+    preencherEmAlta(14);
+  }
+
+  /* Preenche a secao #secao-alta, usada tanto no inicio quanto na busca. */
+  function preencherEmAlta(quantos) {
+    API.emAlta(quantos).then(function (livros) {
       var s = document.getElementById('secao-alta');
       if (!s) return;
       livros.forEach(Dados.guardarLivro);
@@ -224,14 +258,42 @@
     });
   }
 
+  function atalho(rota, rotulo, conta) {
+    return '<a href="' + rota + '"><b>' + conta + '</b><span>' + esc(rotulo) + '</span></a>';
+  }
+
   function numero(valor, rotulo) {
     return '<div class="numero"><b>' + esc(valor) + '</b><span>' + esc(rotulo) + '</span></div>';
   }
 
   /* ================================================================== TELA: busca */
 
+  /* Sem termo, a busca e uma tela em si — o que o icone da lupa abre no
+     celular. Com termo, e a tela de resultados. */
+  function telaBuscaVazia() {
+    marcarAba('buscar');
+    pintar('<h1 class="titulo-pagina">Buscar</h1>' +
+      '<p class="sub-pagina">Título, autor ou ISBN. O acervo é o da Open Library.</p>' +
+      '<form class="busca-grande" id="busca-grande">' +
+        '<input id="busca-grande-campo" type="search" autocomplete="off" ' +
+               'placeholder="O que você está procurando?" aria-label="Buscar livros">' +
+        '<button type="submit" class="botao destaque">Buscar</button>' +
+      '</form>' +
+      '<section class="secao" id="secao-alta" style="margin-top:32px">' +
+        '<h2>Em alta esta semana</h2>' +
+        '<p class="carregando">Buscando na Open Library…</p></section>');
+
+    document.getElementById('busca-grande').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var t = document.getElementById('busca-grande-campo').value.trim();
+      if (t) ir('#/buscar/' + encodeURIComponent(t) + '/1');
+    });
+    document.getElementById('busca-grande-campo').focus();
+    preencherEmAlta(14);
+  }
+
   function telaBusca(termo, pagina) {
-    marcarAba('');
+    marcarAba('buscar');
     document.getElementById('campo-busca').value = termo;
     carregando('Procurando “' + termo + '” no acervo…');
 
@@ -356,6 +418,7 @@
         '<button class="painel-botao" data-acao="listas">Adicionar a uma lista</button>' +
         '<button class="painel-botao" data-acao="favorito">' +
           (fav ? '★ Nos favoritos' : '☆ Favoritar') + '</button>' +
+        '<button class="painel-botao" data-acao="compartilhar">Compartilhar</button>' +
         (e.media !== null
           ? '<div class="painel-bloco">' +
             '<div class="bloco-topo"><span class="rotulo">Como você avalia</span>' +
@@ -373,7 +436,7 @@
           '<h1 class="livro-titulo">' + esc(livro.titulo) + '</h1>' +
           '<div class="livro-linha">' +
             (livro.ano ? '<span class="ano">' + livro.ano + '</span>' : '') +
-            '<span class="autoria">de <b>' + esc(autoria(livro)) + '</b></span>' +
+            '<span class="autoria">de ' + htmlAutoria(livro) + '</span>' +
           '</div>' +
           '<div class="fichas">' + aba('sinopse', 'Sinopse') + aba('detalhes', 'Detalhes') +
             aba('assuntos', 'Assuntos') + '</div>' +
@@ -397,6 +460,15 @@
       quero:  function () { Dados.alternarQuerLer(livro.chave); desenhaLivro(livro, abaAtiva); },
       curtir: function () { Dados.alternarCurtida(livro.chave); desenhaLivro(livro, abaAtiva); },
       listas: function () { abrirFolhaListas(livro); },
+      compartilhar: function (b) {
+        b.disabled = true;
+        b.textContent = 'Montando…';
+        cartaoDeCompartilhar(livro, nota).then(function (msg) {
+          if (msg) aviso(msg);
+        }).catch(function (err) {
+          aviso('Não consegui montar a imagem: ' + err.message);
+        }).then(function () { desenhaLivro(livro, abaAtiva); });
+      },
       favorito: function () {
         var r = Dados.alternarFavorito(livro.chave);
         if (r.cheio) aviso('Os favoritos guardam ' + Dados.MAX_FAVORITOS + ' livros. Tire um antes.');
@@ -600,10 +672,26 @@
     var l = Dados.lista(idLista);
     if (!l) return pintar('<p class="erro">Esta lista não existe mais.</p>');
 
-    pintar('<h1 class="titulo-pagina">' + esc(l.nome) + '</h1>' +
-      '<p class="sub-pagina">' + (l.descricao ? esc(l.descricao) + ' · ' : '') +
-        plural(l.livros.length, 'livro', 'livros') + '</p>' +
-      (l.livros.length ? htmlGrade(l.livros.map(livroDe))
+    var livros = l.livros.map(livroDe);
+    var fundo = (livros.filter(function (b) { return b.capaGrande || b.capa; })[0] || {});
+    fundo = fundo.capaGrande || fundo.capa;
+    var perfil = Dados.estado().perfil;
+
+    pintar(
+      (fundo ? '<div class="heroi"><div class="heroi-imagem" style="background-image:url(' +
+               esc(fundo) + ')"></div></div>' : '') +
+      '<div class="lista-cabecalho' + (fundo ? ' sobre-heroi' : '') + '">' +
+        '<div class="lista-autoria">' +
+          '<span class="avatar avatar-mini" aria-hidden="true">' +
+            esc((perfil.nome || '?').trim().charAt(0).toUpperCase()) + '</span>' +
+          '<span>' + esc(perfil.nome) + '</span>' +
+        '</div>' +
+        '<h1 class="titulo-pagina">' + esc(l.nome) + '</h1>' +
+        (l.descricao ? '<p class="lista-descricao">' + esc(l.descricao) + '</p>' : '') +
+        '<p class="sub-pagina" style="margin:0">' +
+          plural(l.livros.length, 'livro', 'livros') + '</p>' +
+      '</div>' +
+      (l.livros.length ? htmlGrade(livros, '', true)
                        : htmlVazio('Lista vazia', 'Abra a ficha de um livro e use “Adicionar a uma lista”.')) +
       '<div class="linha-botoes" style="margin-top:28px">' +
         '<button class="botao" data-acao="renomear">Renomear</button>' +
@@ -625,6 +713,68 @@
           ir('#/listas');
         }
       }
+    });
+  }
+
+  /* ================================================================== TELA: autor */
+
+  function telaAutor(chave) {
+    marcarAba('');
+    carregando('Abrindo a página do autor…');
+
+    Promise.all([API.autor(chave), API.obrasDo(chave, 48)]).then(function (r) {
+      var a = r[0], obras = r[1];
+      obras.forEach(function (o) {
+        /* Nao deixa a obra sem autoria sobrescrever o que a busca ja sabia. */
+        var guardado = Dados.livro(o.chave);
+        if (!guardado) { o.autores = [a.nome]; o.autoresIds = [a.chave]; }
+        Dados.guardarLivro(o);
+      });
+
+      var vida = [a.nascimento, a.morte].filter(Boolean).map(dataLivre).join(' — ');
+      var retrato = API.retrato(a.retrato, 'M');
+      var lidas = obras.filter(function (o) { return Dados.jaLeu(o.chave); }).length;
+
+      var bio = a.bio || '';
+      var longa = bio.length > 460;
+
+      pintar(
+        '<div class="autor-topo">' +
+          (retrato
+            ? '<img class="autor-retrato" src="' + esc(retrato) + '" alt="Retrato de ' +
+              esc(a.nome) + '" loading="lazy">'
+            : '<div class="autor-retrato autor-retrato-vazio" aria-hidden="true">' +
+              esc(a.nome.trim().charAt(0).toUpperCase()) + '</div>') +
+          '<div>' +
+            '<h1 class="titulo-pagina" style="margin-bottom:2px">' + esc(a.nome) + '</h1>' +
+            (vida ? '<p class="sub-pagina" style="margin-bottom:10px">' + esc(vida) + '</p>' : '') +
+            '<div class="numeros" style="margin:0">' +
+              numero(obras.length, 'obras no acervo') +
+              numero(lidas, lidas === 1 ? 'você leu' : 'você leu') +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        (bio
+          ? '<p class="sinopse' + (longa ? ' recolhida' : '') + '" id="bio">' + esc(bio) + '</p>' +
+            (longa ? '<button class="mais" data-acao="expandir-bio">Ler a biografia inteira</button>' : '')
+          : '') +
+
+        '<section class="secao" style="margin-top:28px"><h2>Obras' +
+          '<span class="conta">' + obras.length + '</span></h2>' +
+          (obras.length ? htmlGrade(obras)
+                        : '<p style="color:var(--texto-3);font-size:13px;margin:0">' +
+                          'A Open Library não lista obras para esta pessoa.</p>') +
+        '</section>');
+
+      acoes({
+        'expandir-bio': function (b) {
+          document.getElementById('bio').classList.remove('recolhida');
+          b.remove();
+        }
+      });
+    }).catch(function (err) {
+      pintar('<p class="erro">Não consegui abrir esta página de autor. ' + esc(err.message) + '</p>');
     });
   }
 
@@ -650,8 +800,15 @@
         numero(e.obras, 'obras') +
         numero(e.resenhas, 'resenhas') +
         numero(e.paginas ? e.paginas.toLocaleString('pt-BR') : '—', 'páginas') +
-        numero(e.listas, 'listas') +
       '</div>' +
+
+      /* No original, estante e listas vivem dentro do perfil — nao na barra
+         principal. Esta fileira e a porta de entrada para elas. */
+      '<nav class="perfil-atalhos" aria-label="Suas coleções">' +
+        atalho('#/diario',  'Diário',   e.lidos) +
+        atalho('#/estante', 'Estante',  d.querLer.length + d.curtidas.length + d.favoritos.length) +
+        atalho('#/listas',  'Listas',   e.listas) +
+      '</nav>' +
 
       '<section class="secao"><h2>Meta de ' + d.perfil.meta.ano + '</h2>' +
         '<p style="margin:0 0 4px;color:var(--texto-2);font-size:13px">' +
@@ -877,6 +1034,146 @@
     return s;
   }
 
+  /* ====================================================== cartao para compartilhar */
+  /* Desenha, no proprio aparelho, uma imagem 1080x1920 com a capa, o titulo, a
+     autoria e a sua nota — para mandar no story ou em qualquer conversa.
+     Nada e enviado a servidor nenhum: o canvas vira arquivo e vai direto para
+     a folha de compartilhamento do sistema. */
+
+  function cartaoDeCompartilhar(livro, nota) {
+    var L = 1080, A = 1920;
+    var cv = document.createElement('canvas');
+    cv.width = L; cv.height = A;
+    var c = cv.getContext('2d');
+
+    /* As cores saem das variaveis do tema, para o cartao acompanhar a paleta. */
+    var raiz = getComputedStyle(document.documentElement);
+    function cor(nome) { return raiz.getPropertyValue(nome).trim(); }
+
+    c.fillStyle = cor('--fundo') || '#16110e';
+    c.fillRect(0, 0, L, A);
+
+    return carregarCapa(livro).then(function (img) {
+      var cL = 560, cA = 840, cX = (L - cL) / 2, cY = 300;
+
+      if (img) {
+        /* Fundo: a propria capa, ampliada, escurecida — como na ficha. */
+        c.save();
+        c.globalAlpha = 0.28;
+        c.filter = 'blur(60px)';
+        c.drawImage(img, -140, -120, L + 280, 1100);
+        c.restore();
+
+        c.save();
+        c.shadowColor = 'rgba(0,0,0,.55)'; c.shadowBlur = 60; c.shadowOffsetY = 18;
+        c.drawImage(img, cX, cY, cL, cA);
+        c.restore();
+      } else {
+        c.fillStyle = cor('--superficie') || '#271f19';
+        c.fillRect(cX, cY, cL, cA);
+        c.fillStyle = cor('--a1') || '#ff7a3d';
+        c.fillRect(cX, cY, 16, cA);
+      }
+
+      var y = cY + cA + 110;
+      c.textAlign = 'center';
+
+      /* Titulo, quebrado em ate tres linhas. */
+      c.fillStyle = cor('--texto') || '#f4ede4';
+      c.font = '700 60px -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+      y = escreverLinhas(c, livro.titulo, L / 2, y, 880, 74, 3);
+
+      /* Autoria. */
+      c.fillStyle = cor('--texto-2') || '#b3a595';
+      c.font = '400 38px -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+      c.fillText('de ' + autoria(livro), L / 2, y + 20);
+      y += 90;
+
+      /* A nota, se houver. */
+      if (nota) {
+        c.fillStyle = cor('--a1') || '#ff7a3d';
+        c.font = '400 66px -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+        c.fillText(estrelasTexto(nota), L / 2, y + 20);
+        y += 80;
+      }
+
+      /* Rodape com a marca. */
+      c.strokeStyle = cor('--borda') || '#43362b';
+      c.lineWidth = 2;
+      c.beginPath(); c.moveTo(L / 2 - 130, A - 190); c.lineTo(L / 2 + 130, A - 190); c.stroke();
+
+      c.fillStyle = cor('--texto-3') || '#82756a';
+      c.font = '700 26px -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+      c.fillText('N O   L E T T E R B O O K S', L / 2, A - 130);
+
+      return entregarCartao(cv, livro);
+    });
+  }
+
+  /* Quebra o texto em linhas que caibam na largura, com reticencias na ultima. */
+  function escreverLinhas(c, texto, x, y, largura, altura, maxLinhas) {
+    var palavras = String(texto).split(/\s+/);
+    var linha = '', linhas = [];
+    palavras.forEach(function (p) {
+      var tentativa = linha ? linha + ' ' + p : p;
+      if (c.measureText(tentativa).width > largura && linha) { linhas.push(linha); linha = p; }
+      else linha = tentativa;
+    });
+    if (linha) linhas.push(linha);
+
+    if (linhas.length > maxLinhas) {
+      linhas = linhas.slice(0, maxLinhas);
+      linhas[maxLinhas - 1] = linhas[maxLinhas - 1].replace(/\s*\S*$/, '…');
+    }
+    linhas.forEach(function (t, i) { c.fillText(t, x, y + i * altura); });
+    return y + linhas.length * altura;
+  }
+
+  /* A capa precisa vir com CORS liberado, senao o canvas fica "sujo" e o
+     navegador recusa a exportacao. Se falhar, o cartao sai sem capa. */
+  function carregarCapa(livro) {
+    var url = livro.capaGrande || livro.capa;
+    if (!url) return Promise.resolve(null);
+    return new Promise(function (ok) {
+      var img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload  = function () { ok(img); };
+      img.onerror = function () { ok(null); };
+      img.src = url;
+    });
+  }
+
+  function entregarCartao(cv, livro) {
+    return new Promise(function (ok, falha) {
+      var nome = 'letterbooks-' + (livro.titulo || 'livro')
+        .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) + '.png';
+
+      cv.toBlob(function (blob) {
+        if (!blob) return falha(new Error('o navegador não gerou a imagem'));
+        var arquivo = new File([blob], nome, { type: 'image/png' });
+
+        /* No celular, a folha de compartilhamento do sistema — que e onde o
+           Instagram, o WhatsApp e o resto aparecem. */
+        if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+          return navigator.share({ files: [arquivo], title: livro.titulo })
+            .then(function () { ok(''); })
+            .catch(function (e) { ok(e && e.name === 'AbortError' ? '' : baixar(blob, nome)); });
+        }
+        ok(baixar(blob, nome));
+      }, 'image/png');
+    });
+  }
+
+  function baixar(blob, nome) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = nome;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    return 'Imagem salva nos seus downloads.';
+  }
+
   /* ================================== folha: escolher o livro para registrar */
   /* O que o "+ REGISTRAR" do topo abre: busca, escolhe o livro, e emenda
      direto na folha de registro. */
@@ -1002,9 +1299,10 @@
 
     if (rota === 'buscar') {
       var termo = decodeURIComponent(partes[1] || '');
-      if (!termo) return ir('#/inicio');
+      if (!termo) return telaBuscaVazia();
       return telaBusca(termo, Math.max(1, parseInt(partes[2], 10) || 1));
     }
+    if (rota === 'autor') return telaAutor(decodeURIComponent(partes.slice(1).join('/')));
     if (rota === 'livro')   return telaLivro(decodeURIComponent(partes.slice(1).join('/')));
     if (rota === 'diario')  return telaDiario();
     if (rota === 'estante') return telaEstante();
@@ -1021,6 +1319,7 @@
   });
 
   document.getElementById('botao-registrar').addEventListener('click', abrirFolhaEscolha);
+  document.getElementById('aba-mais').addEventListener('click', abrirFolhaEscolha);
 
   window.addEventListener('hashchange', rotear);
   rotear();

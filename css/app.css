@@ -444,6 +444,81 @@ img { display: block; max-width: 100%; }
 .meta-barra { height: 5px; border-radius: 3px; background: var(--superficie-2); overflow: hidden; margin: 10px 0 6px; }
 .meta-barra i { display: block; height: 100%; background: var(--a1); }
 
+/* ====================================================== busca como tela === */
+
+.busca-grande { display: flex; gap: 10px; max-width: 560px; }
+.busca-grande input {
+  flex: 1; min-width: 0; padding: 12px 14px; font-size: 15px;
+  background: var(--fundo-2); border: 1px solid var(--borda);
+  border-radius: var(--raio); color: var(--texto);
+}
+.busca-grande input:focus { outline: none; border-color: var(--a1); }
+
+/* ============================================================== autor ==== */
+
+.autor-topo {
+  display: flex; align-items: center; gap: 20px;
+  padding-bottom: 20px; margin-bottom: 20px;
+  border-bottom: 1px solid var(--borda);
+}
+.autor-retrato {
+  width: 96px; height: 96px; flex: none;
+  border-radius: 50%; object-fit: cover;
+  background: var(--superficie-2);
+}
+.autor-retrato-vazio {
+  display: grid; place-items: center;
+  color: var(--a1); font-size: 38px; font-weight: 800;
+}
+
+/* ================================================================ listas == */
+
+/* Cabecalho da lista, no desenho do original: autoria, titulo e descricao
+   assentados sobre o fundo formado pela primeira capa. */
+.lista-cabecalho { margin-bottom: 22px; }
+.lista-cabecalho.sobre-heroi { margin-top: -200px; position: relative; z-index: 1; }
+.lista-autoria {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 10px; font-size: 13px; color: var(--texto-2);
+}
+.lista-descricao {
+  margin: 0 0 10px; max-width: 620px;
+  color: var(--texto-2); font-size: 14px; line-height: 1.6;
+}
+.avatar-mini {
+  width: 26px; height: 26px; font-size: 12px; font-weight: 700;
+}
+
+/* O numero da posicao, como nas listas ordenadas do original. */
+.ordem {
+  position: absolute; left: 4px; top: 4px;
+  min-width: 20px; height: 20px; padding: 0 5px;
+  display: grid; place-items: center;
+  background: rgba(var(--fundo-rgb), .82);
+  border-radius: 10px;
+  font-size: 11px; font-weight: 700; color: var(--texto);
+}
+
+/* ============================================== atalhos do perfil ======== */
+/* No original, estante e listas ficam dentro do perfil. */
+
+.perfil-atalhos {
+  display: flex; gap: 1px;
+  background: var(--borda); border-radius: var(--raio-g);
+  overflow: hidden; margin-bottom: 30px;
+}
+.perfil-atalhos a {
+  flex: 1; padding: 14px 10px; text-align: center;
+  background: var(--superficie);
+}
+.perfil-atalhos a:hover { background: var(--superficie-2); }
+.perfil-atalhos a b { display: block; font-size: 19px; font-weight: 700; }
+.perfil-atalhos a span {
+  display: block; margin-top: 3px;
+  font-size: 10px; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--texto-3);
+}
+
 /* ================================================================ listas == */
 
 .cartao-lista {
@@ -547,12 +622,9 @@ img { display: block; max-width: 100%; }
 
 @media (max-width: 720px) {
   .topo { gap: 12px; padding: 0 14px; }
-  .topo-nav { display: none; }
-  /* A busca passa a dividir o espaco que sobra, em vez de ter largura fixa:
-     com largura fixa o cabecalho transbordava e a pagina rolava de lado. */
-  .topo-fim { flex: 1 1 auto; min-width: 0; }
-  .topo-busca { width: auto; flex: 1 1 auto; min-width: 0; }
-  .botao-registrar { padding: 0 11px; }
+  /* No celular o topo fica so com a marca: navegacao, busca e o botao de
+     registrar passam todos para a barra de baixo, como no original. */
+  .topo-nav, .topo-fim { display: none; }
   .pagina { padding: 20px 14px 70px; }
 
   /* Sem espaco para tudo, a tabela larga do que menos importa e aperta o resto. */
@@ -568,11 +640,7 @@ img { display: block; max-width: 100%; }
   .numeros { gap: 20px; }
 }
 
-@media (max-width: 420px) {
-  /* So o "+" cabe; o rotulo sai e o aria-label continua dizendo o que e. */
-  .botao-registrar span { display: none; }
-  .botao-registrar { font-size: 16px; padding: 0 12px; }
-}
+
 
 @media (max-width: 520px) {
   .livro-colunas { grid-template-columns: 110px 1fr; gap: 16px; }
@@ -585,17 +653,42 @@ img { display: block; max-width: 100%; }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 
-/* As abas de baixo, que so aparecem quando a navegacao do topo se recolhe. */
+/* ============================================ barra do celular ============ */
+/* Quatro icones e o botao de registrar em destaque no meio, como no original.
+   So aparece quando a navegacao do topo se recolhe. */
+
 .abas-pe {
   display: none;
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  align-items: center;
   background: var(--fundo-2); border-top: 1px solid var(--borda);
   padding-bottom: env(safe-area-inset-bottom);
 }
 .abas-pe a {
-  flex: 1; padding: 9px 2px 8px; text-align: center;
-  font-size: 9.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 8px 2px 7px;
   color: var(--texto-3);
 }
+.abas-pe a svg { width: 21px; height: 21px; fill: currentColor; }
+.abas-pe a span {
+  font-size: 9px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+}
 .abas-pe a.ativa { color: var(--a1); }
-@media (max-width: 720px) { .abas-pe { display: flex; } }
+
+/* O "+" central: o unico elemento colorido da barra, como no original. */
+.aba-mais {
+  flex: none; width: 40px; height: 40px; margin: 0 4px;
+  display: grid; place-items: center;
+  background: var(--a1); border: 0; border-radius: 50%;
+  color: var(--sobre-a1); cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .4);
+}
+.aba-mais svg { width: 21px; height: 21px; }
+.aba-mais:active { transform: scale(.94); }
+
+@media (max-width: 720px) {
+  .abas-pe { display: flex; }
+  /* espaco para a barra nao cobrir o fim do conteudo */
+  .pagina { padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
+}

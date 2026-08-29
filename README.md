@@ -5,8 +5,9 @@ que você leu, dar estrelas, escrever resenha e montar listas.
 
 A arquitetura é a do original, seguida de perto — página do livro em três
 colunas com painel de ações à direita, diário em tabela com a célula do mês
-atravessando as linhas, navegação inline no cabeçalho, avaliação de meia em
-meia estrela. A paleta é própria: **coral sobre café**, um fundo marrom-tinta
+atravessando as linhas, listas com pôsteres numerados, e avaliação de meia em
+meia estrela. No celular, a barra de baixo repete o desenho do Letterboxd:
+quatro ícones e o botão de registrar em destaque no meio. A paleta é própria: **coral sobre café**, um fundo marrom-tinta
 com o trio **coral · oliva · rosa**, no lugar do azul-ardósia com verde-limão.
 A marca são três lombadas numa prateleira, e não os três pontos.
 
@@ -38,9 +39,10 @@ navegação por hash justamente para isso.
 | **Ficha do livro** | Três colunas: capa, conteúdo e painel de ações. O fundo atrás do título é a própria capa, ampliada e desfocada — o lugar que no original é do still do filme. O conteúdo tem abas de sinopse, detalhes e assuntos; o painel concentra lido, curtir, quero ler, registrar, listas, favoritar e o histograma das suas notas. |
 | **Registro de leitura** | Nota de meia a cinco estrelas, data em que terminou, resenha, marcação de releitura e aviso de spoiler. Um livro pode ter vários registros — cada releitura é uma linha nova. O botão da ponta do cabeçalho abre a busca e emenda direto aqui. |
 | **Diário** | Uma tabela: mês, dia, capa, livro, ano, nota, curtida. A célula do mês atravessa as linhas daquele mês. Resenhas com spoiler ficam cobertas até você tocar. |
+| **Autor** | O equivalente ao *cast & crew*: tocar no nome de quem escreveu abre a pessoa — retrato, datas, biografia e todas as obras dela no acervo, já marcadas com o que você leu. |
 | **Estante** | Quatro prateleiras: quero ler, lidos, curtidos e favoritos. |
-| **Listas** | Agrupamentos livres — "li na praia", "para reler", "presentes". |
-| **Perfil** | Fileira de números do seu ano, meta de leitura com barra de progresso, histograma de como você avalia, favoritos e prévia do diário. |
+| **Listas** | Agrupamentos livres, com pôsteres **numerados** — a ordem importa. A capa do primeiro livro vira o fundo do cabeçalho. |
+| **Perfil** | É o eixo: fileira de números, atalhos para diário, estante e listas, meta de leitura, histograma de como você avalia, favoritos e prévia do diário. |
 
 ## A avaliação em meia-estrela
 
@@ -51,6 +53,23 @@ metade direita vale a estrela inteira. Pelo teclado, as setas sobem e descem de
 A nota que aparece na capa e na ficha é sempre a da **leitura mais recente**.
 As notas antigas continuam no diário, e é a distribuição delas que alimenta o
 histograma do perfil e do painel.
+
+## Compartilhar
+
+Na ficha de cada livro há **Compartilhar**, que monta uma imagem 1080×1920 com a
+capa, o título, a autoria e a sua nota — para o story ou para qualquer conversa.
+
+A imagem é desenhada no próprio aparelho, num `canvas`, e entregue à folha de
+compartilhamento do sistema. Nada é enviado a servidor nenhum. Onde o navegador
+não oferece o compartilhamento nativo, o arquivo é baixado.
+
+## Navegação
+
+No computador, tudo fica na barra do topo. No celular, a barra de baixo tem
+**Livros · Buscar · (+) · Diário · Perfil**, e o topo fica só com a marca.
+
+Estante e listas não aparecem na barra: elas vivem dentro do perfil, como no
+Letterboxd. O perfil traz uma fileira de atalhos para elas.
 
 ## Duas escolhas que fogem do original
 
