@@ -295,6 +295,14 @@ def rodar():
         checa('mostra o @ e o lugar', '@bia' in pg.inner_text('.perfil-bio'))
         # inner_text respeita o text-transform do CSS, e .botao e caixa alta:
         # o texto volta "SEGUIR". Compara sem ligar para a caixa.
+        # As contagens sao <span> (nao levam a lugar nenhum). Ja saíram uma vez
+        # sem formatacao nenhuma, coladas num texto so — "Leituras2Seguidores0".
+        pg.wait_for_selector('#leitor-numeros > *', timeout=8000)
+        alt = pg.eval_on_selector('#leitor-numeros > *', 'e => e.getBoundingClientRect().height')
+        checa('as contagens viram linhas de verdade (%.0fpx)' % alt, alt > 30)
+        checa('com rotulo e valor separados',
+              pg.locator('#leitor-numeros .valor').count() == 3)
+
         checa('o botao comeca em "Seguir"',
               pg.inner_text('#botao-seguir').strip().lower() == 'seguir',
               pg.inner_text('#botao-seguir'))

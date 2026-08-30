@@ -313,7 +313,8 @@ img { display: block; max-width: 100%; }
 }
 /* Nas capas miniatura (tabela do diario, pilha das listas) nao cabe texto:
    sobra so a lombada colorida, que ja distingue o livro sem capa. */
-.cel-capa .capa-vazia span, .pilha .capa-vazia span { display: none; }
+.cel-capa .capa-vazia span, .pilha .capa-vazia span,
+.feed-capa .capa-vazia span, .resultado-capa .capa-vazia span { display: none; }
 
 /* fita de selos no pe da capa */
 .selos {
@@ -1150,7 +1151,7 @@ img { display: block; max-width: 100%; }
    alta, que eram o que mais fazia a tela parecer formulario de sistema. */
 
 .linhas { margin: 0 -18px; }
-.linhas button, .linhas a {
+.linhas button, .linhas a, .linhas > span {
   width: 100%; display: flex; align-items: center; gap: 10px;
   padding: 13px 18px; text-align: left;
   background: none; border: 0; border-bottom: 1px solid var(--borda);
@@ -1165,7 +1166,7 @@ img { display: block; max-width: 100%; }
 
 @media (min-width: 721px) {
   .linhas { margin: 0; max-width: 460px; }
-  .linhas button, .linhas a { padding-left: 0; padding-right: 2px; }
+  .linhas button, .linhas a, .linhas > span { padding-left: 0; padding-right: 2px; }
 }
 
 /* A lista de contagens do perfil. O <i> guarda o recorte do ano, mais apagado
