@@ -63,6 +63,19 @@ var Dados = (function () {
     return estado;
   }
 
+  /* Quem quiser saber que algo mudou aqui. E por onde a sincronizacao com a
+     nuvem escuta: o Dados nao conhece a nuvem, so anuncia o que aconteceu, e
+     quem se importa que se vire. Sem isso a sincronizacao teria que ser
+     chamada em cada ponto do app.js que escreve — e um deles ia ficar de
+     fora, cedo ou tarde. */
+  var ouvintes = [];
+  function aoMudar(f) { ouvintes.push(f); return f; }
+  function anunciar(tipo, dado) {
+    for (var i = 0; i < ouvintes.length; i++) {
+      try { ouvintes[i](tipo, dado); } catch (e) { console.warn('ouvinte:', e); }
+    }
+  }
+
   function clonar(o) { return JSON.parse(JSON.stringify(o)); }
   function id() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
   function hoje() { return new Date().toISOString().slice(0, 10); }
@@ -104,16 +117,31 @@ var Dados = (function () {
     reg.relido  = !!entrada.relido;
     reg.spoiler = !!entrada.spoiler;
     salvar();
+    anunciar('leitura', reg);
     return reg;
   }
 
   function apagarLog(idLog) {
+    var saindo = log(idLog);
     estado.logs = estado.logs.filter(function (l) { return l.id !== idLog; });
-    return salvar();
+    salvar();
+    if (saindo) anunciar('leitura-apagada', saindo);
+    return estado;
   }
 
   function log(idLog) {
     return estado.logs.filter(function (l) { return l.id === idLog; })[0] || null;
+  }
+
+  /* O id que o banco deu para esta leitura. E o que liga a linha daqui a
+     linha de la — sem ele, editar uma resenha no aparelho criaria uma
+     segunda leitura no servidor em vez de corrigir a primeira. */
+  function marcarRemoto(idLog, idRemoto) {
+    var l = log(idLog);
+    if (!l) return null;
+    l.remoto = idRemoto;
+    salvar();
+    return l;
   }
 
   /* Do mais recente para o mais antigo, pela data de leitura. */
@@ -146,7 +174,9 @@ var Dados = (function () {
       estado[colecao].unshift(chave);
     }
     salvar();
-    return { ok: true, ativo: estado[colecao].indexOf(chave) >= 0 };
+    var ativo = estado[colecao].indexOf(chave) >= 0;
+    anunciar('marcador', { colecao: colecao, chave: chave, ativo: ativo });
+    return { ok: true, ativo: ativo };
   }
 
   function tem(colecao, chave) { return estado[colecao].indexOf(chave) >= 0; }
@@ -268,6 +298,8 @@ var Dados = (function () {
 
   return {
     estado:     function () { return estado; },
+    aoMudar:    aoMudar,
+    marcarRemoto: marcarRemoto,
     salvar:     salvar,
     guardarLivro: guardarLivro,
     livro:      livro,

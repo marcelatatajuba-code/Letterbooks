@@ -447,6 +447,7 @@
   /* Duas pilulas de escopo, como "Films | Cast, Crew or Studios" do app. */
   function htmlEscopos(termo, escopo) {
     var abas = [['', 'Livros'], ['autores', 'Autores']];
+    if (Nuvem.ligada()) abas.push(['leitores', 'Leitores']);
     return '<nav class="escopos" aria-label="O que buscar">' + abas.map(function (a) {
       var alvo = '#/buscar/' + encodeURIComponent(termo) + '/1' + (a[0] ? '/' + a[0] : '');
       return '<a href="' + alvo + '"' + (a[0] === escopo ? ' class="ativa"' : '') + '>' +
@@ -475,7 +476,8 @@
     document.getElementById('campo-busca').value = termo;
     carregando('Procurando “' + termo + '” no acervo…');
 
-    if (escopo === 'autores') return buscaDeAutores(termo, pagina);
+    if (escopo === 'autores')  return buscaDeAutores(termo, pagina);
+    if (escopo === 'leitores') return buscaDeLeitores(termo);
 
     API.buscar(termo, pagina).then(function (r) {
       r.livros.forEach(Dados.guardarLivro);
@@ -527,6 +529,40 @@
     }).catch(function (err) {
       pintar('<h1 class="titulo-pagina">' + esc(termo) + '</h1>' + htmlEscopos(termo, 'autores') +
              '<p class="erro">Não foi possível buscar agora. ' + esc(err.message) + '</p>');
+    });
+  }
+
+  /* Procurar gente. Sem isto ninguem acha ninguem para seguir, e o feed de
+     "Seguindo" nasce vazio para sempre. */
+  function buscaDeLeitores(termo) {
+    Nuvem.procurarLeitores(termo).then(function (gente) {
+      var eu = Nuvem.entrou() ? Nuvem.quemSou() : null;
+      var outros = (gente || []).filter(function (p) { return !eu || p.id !== eu.id; });
+      var html = '<h1 class="titulo-pagina">' + esc(termo) + '</h1>' +
+                 htmlEscopos(termo, 'leitores');
+
+      if (!outros.length) {
+        return pintar(html + htmlVazio('Ninguém com esse nome',
+          'Procure pelo @ da pessoa, ou pelo nome que ela usa no perfil.'));
+      }
+
+      html += '<p class="sub-pagina">' + plural(outros.length, 'leitor', 'leitores') +
+              ' no Letterbooks.</p>' +
+              '<div class="resultados">' + outros.map(function (p) {
+                var nome = p.nome || p.usuario;
+                return '<a class="resultado" href="#/leitor/' + encodeURIComponent(p.usuario) + '">' +
+                  '<div class="resultado-inicial" aria-hidden="true">' +
+                    esc(nome.trim().charAt(0).toUpperCase()) + '</div>' +
+                  '<div class="resultado-texto"><b>' + esc(nome) + '</b>' +
+                    '<span>@' + esc(p.usuario) +
+                    (p.bio ? ' · ' + esc(p.bio) : '') + '</span></div></a>';
+              }).join('') + '</div>';
+      pintar(html);
+      window.scrollTo(0, 0);
+    }, function (err) {
+      pintar('<h1 class="titulo-pagina">' + esc(termo) + '</h1>' +
+             htmlEscopos(termo, 'leitores') +
+             '<p class="erro">' + esc(err.message) + '</p>');
     });
   }
 
@@ -1890,6 +1926,415 @@
 
   /* ==================================================================== roteador */
 
+  /* ============================================================ atividade ==
+
+     A aba do raio: o que as pessoas que voce segue andaram lendo. No app cada
+     linha e uma frase — "esther curtiu e avaliou Burning ★★★★" — e nao um
+     cartao. Frase ocupa uma linha e cabem dez na tela; cartao ocupa cinco e
+     cabem duas. */
+
+  function telaAtividade(aba) {
+    marcarAba('atividade');
+    aba = aba || 'seguindo';
+
+    if (!Nuvem.ligada()) {
+      return pintar('<div class="conta"><h1>Atividade</h1>' +
+        '<p class="conta-texto">Esta aba mostra o que as pessoas que você segue ' +
+        'andaram lendo. Ela precisa da nuvem ligada — hoje o Letterbooks está ' +
+        'em modo local, e um feed de uma pessoa só não é um feed.</p></div>');
+    }
+    if (!Nuvem.entrou()) {
+      return pintar('<div class="conta"><h1>Atividade</h1>' +
+        '<p class="conta-texto">Entre na sua conta para ver o que quem você segue ' +
+        'anda lendo — e para aparecer no diário de quem te segue.</p>' +
+        '<div class="linha-botoes">' +
+          '<a class="botao destaque" href="#/conta">Entrar ou criar conta</a></div></div>');
+    }
+
+    var abas = [['seguindo', 'Seguindo'], ['todos', 'Todo mundo']];
+    pintar(
+      '<nav class="segmentos" aria-label="Atividade">' + abas.map(function (a) {
+        return '<a href="#/atividade/' + a[0] + '"' +
+               (a[0] === aba ? ' class="ativa"' : '') + '>' + a[1] + '</a>';
+      }).join('') + '</nav>' +
+      '<div id="feed"><p class="carregando">Carregando…</p></div>');
+
+    acoes({
+      'curtir-leitura': alternarCurtida,
+      'ver-spoiler': revelarSpoiler
+    });
+
+    var alvo = document.getElementById('feed');
+    var busca = aba === 'todos' ? Nuvem.feedGeral(0) : Nuvem.feed(0);
+
+    busca.then(function (linhas) {
+      if (!tela.contains(alvo)) return;
+      if (!linhas.length) {
+        alvo.innerHTML = aba === 'todos'
+          ? htmlVazio('Ainda não há nada aqui',
+              'Ninguém registrou leitura ainda. Seja a primeira: busque um livro e registre.')
+          : htmlVazio('Você ainda não segue ninguém',
+              'Procure leitores na busca, ou veja o que todo mundo anda lendo.',
+              '<div class="linha-botoes" style="justify-content:center;margin-top:14px">' +
+              '<a class="botao destaque" href="#/atividade/todos">Ver todo mundo</a></div>');
+        return;
+      }
+      alvo.innerHTML = linhas.map(htmlLinhaFeed).join('');
+      ligarCurtidas(alvo);
+    }, function (err) {
+      if (tela.contains(alvo)) {
+        alvo.innerHTML = '<p class="erro">' + esc(err.message) + '</p>';
+      }
+    });
+  }
+
+  /* Uma entrada do feed. A frase muda conforme o que a pessoa fez: so
+     registrou, avaliou, releu, escreveu. Montar a frase certa e o que faz a
+     lista parecer gente conversando em vez de tabela de banco. */
+  function htmlLinhaFeed(l) {
+    var nome = l.perfil_nome || l.usuario;
+    var verbo = l.relido ? 'releu' : 'leu';
+    var nota = typeof l.nota === 'number'
+      ? ' <span class="estrelas">' + estrelasTexto(l.nota) + '</span>' : '';
+    var livro = '<a class="alvo" href="' + rotaLivro(l.livro) + '">' + esc(l.titulo) + '</a>';
+
+    var resenha = '';
+    if (l.resenha) {
+      resenha = l.spoiler
+        ? '<button class="spoiler-aviso" data-acao="ver-spoiler" data-texto="' +
+          esc(l.resenha) + '">Esta resenha tem spoiler. Tocar para ler.</button>'
+        : '<p class="feed-resenha">' + esc(recortar(l.resenha, 240)) + '</p>';
+    }
+
+    return '<article class="feed-linha" data-leitura="' + esc(l.id) + '">' +
+      '<a class="feed-quem" href="#/leitor/' + encodeURIComponent(l.usuario) + '"' +
+        ' aria-label="Perfil de ' + esc(nome) + '">' +
+        '<span class="feed-avatar" aria-hidden="true">' +
+          esc((nome || '?').trim().charAt(0).toUpperCase()) + '</span></a>' +
+      '<div class="feed-corpo">' +
+        '<p class="feed-frase">' +
+          '<a class="alvo" href="#/leitor/' + encodeURIComponent(l.usuario) + '">' +
+            esc(nome) + '</a> ' + verbo + ' ' + livro + nota +
+        '</p>' +
+        resenha +
+        '<div class="feed-acoes">' +
+          '<button class="feed-curtir" data-acao="curtir-leitura" data-id="' + esc(l.id) + '"' +
+            ' aria-pressed="false"><span class="glifo">♡</span>' +
+            '<span class="conta-curtidas">' + (l.curtidas || 0) + '</span></button>' +
+          '<a class="feed-comentar" href="#/leitura/' + encodeURIComponent(l.id) + '">' +
+            '<span class="glifo">💬</span>' + (l.comentarios || 0) + '</a>' +
+          '<time>' + esc(quandoFoi(l.criado_em)) + '</time>' +
+        '</div>' +
+      '</div>' +
+      (l.capa ? '<a class="feed-capa" href="' + rotaLivro(l.livro) + '">' +
+                htmlCapa({ chave: l.livro, titulo: l.titulo, capa: l.capa }) + '</a>' : '') +
+    '</article>';
+  }
+
+  function recortar(t, n) {
+    t = String(t || '');
+    return t.length > n ? t.slice(0, n - 1).replace(/\s+\S*$/, '') + '…' : t;
+  }
+
+  /* "22h", "3d", "2sem" — como o original. Data cheia so quando passa do mes,
+     porque ali a distancia ja importa mais que o dia exato. */
+  function quandoFoi(iso) {
+    var t = new Date(iso).getTime();
+    if (isNaN(t)) return '';
+    var s = Math.max(0, (Date.now() - t) / 1000);
+    if (s < 60) return 'agora';
+    if (s < 3600) return Math.floor(s / 60) + 'min';
+    if (s < 86400) return Math.floor(s / 3600) + 'h';
+    if (s < 604800) return Math.floor(s / 86400) + 'd';
+    if (s < 2592000) return Math.floor(s / 604800) + 'sem';
+    return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+  }
+
+  /* O estado de "curti" nao vem no feed: seria uma subconsulta por linha. Vem
+     numa consulta so, depois, e os corações acendem juntos. */
+  function ligarCurtidas(raiz) {
+    var botoes = Array.prototype.slice.call(raiz.querySelectorAll('[data-acao=curtir-leitura]'));
+    if (!botoes.length) return;
+
+    Nuvem.tabela('curtidas', '?select=leitura&perfil=eq.' + Nuvem.quemSou().id)
+      .then(function (minhas) {
+        var meu = {};
+        (minhas || []).forEach(function (c) { meu[c.leitura] = 1; });
+        botoes.forEach(function (b) {
+          if (meu[b.getAttribute('data-id')]) marcarCurtido(b, true);
+        });
+      }).catch(function () { /* sem isso os corações ficam apagados, e tudo bem */ });
+  }
+
+  function marcarCurtido(botao, sim) {
+    botao.classList.toggle('curtido', sim);
+    botao.setAttribute('aria-pressed', sim ? 'true' : 'false');
+    botao.querySelector('.glifo').textContent = sim ? '♥' : '♡';
+  }
+
+  /* Curtir e otimista: o coração acende na hora e a rede confirma depois. Se
+     falhar, volta atras e avisa — melhor do que um botao que parece morto
+     enquanto a rede pensa. */
+  function alternarCurtida(botao) {
+    if (!Nuvem.entrou()) { aviso('Entre na sua conta para curtir.'); return; }
+    var id = botao.getAttribute('data-id');
+    var eraCurtido = botao.classList.contains('curtido');
+    var conta = botao.querySelector('.conta-curtidas');
+    var antes = parseInt(conta.textContent, 10) || 0;
+
+    marcarCurtido(botao, !eraCurtido);
+    conta.textContent = Math.max(0, antes + (eraCurtido ? -1 : 1));
+
+    (eraCurtido ? Nuvem.descurtir(id) : Nuvem.curtir(id)).catch(function (e) {
+      marcarCurtido(botao, eraCurtido);
+      conta.textContent = antes;
+      aviso(e.message);
+    });
+  }
+
+  /* ========================================================= perfil alheio ==
+
+     O perfil de outra pessoa, no endereco #/leitor/usuario. E publico de
+     proposito — foi a decisao que voce tomou quando escolheu "perfil publico,
+     diario publico" — entao quem chega por um link ve a pagina sem precisar
+     criar conta antes. Sem isso, compartilhar um perfil so serviria para
+     mandar gente para uma tela de cadastro. */
+
+  function telaLeitor(usuario) {
+    marcarAba('');
+    if (!Nuvem.ligada()) return pintar('<p class="erro">A nuvem não está ligada.</p>');
+    carregando('Abrindo o perfil…');
+
+    var eu = Nuvem.quemSou();
+
+    Promise.all([
+      Nuvem.perfilDe(usuario),
+      Nuvem.leiturasDe(usuario, 40)
+    ]).then(function (r) {
+      var p = r[0], leituras = r[1] || [];
+      if (!p) {
+        return pintar(htmlVazio('Não achei esse leitor',
+          'O endereço pode estar errado, ou a pessoa mudou de @.'));
+      }
+      /* Se sou eu mesma, isto e o meu perfil — vai para a tela que tem os
+         botoes de editar, em vez de me mostrar a mim como visitante. */
+      if (eu && eu.id === p.id) return ir('#/perfil');
+
+      desenhaLeitor(p, leituras);
+      /* Contagens e o estado do "seguir" chegam depois: a pagina ja e util
+         sem eles, e sao duas idas a mais na rede. */
+      Nuvem.contagemSocial(p.id).then(function (c) {
+        var s = document.getElementById('leitor-numeros');
+        if (s) {
+          s.innerHTML = linhaAjuste('span', 'class="sem-link"', 'Leituras', String(leituras.length)) +
+            linhaAjuste('span', 'class="sem-link"', 'Seguidores', String(c.seguidores)) +
+            linhaAjuste('span', 'class="sem-link"', 'Seguindo', String(c.seguindo));
+        }
+      }).catch(function () {});
+      if (eu) atualizarBotaoSeguir(p.id);
+    }, function (err) {
+      pintar('<p class="erro">' + esc(err.message) + '</p>');
+    });
+  }
+
+  function desenhaLeitor(p, leituras) {
+    var nome = p.nome || p.usuario;
+    var comResenha = leituras.filter(function (l) { return l.resenha; });
+
+    pintar(
+      '<div class="perfil-topo">' +
+        '<div class="avatar" aria-hidden="true">' +
+          esc(nome.trim().charAt(0).toUpperCase()) + '</div>' +
+        '<h1 class="perfil-nome">' + esc(nome) + '</h1>' +
+        '<p class="perfil-bio">@' + esc(p.usuario) +
+          (p.local ? ' · ' + esc(p.local) : '') + '</p>' +
+        (p.bio ? '<p class="perfil-bio">' + esc(p.bio) + '</p>' : '') +
+        (Nuvem.entrou()
+          ? '<div class="linha-botoes" style="justify-content:center;margin-top:14px">' +
+            '<button class="botao" id="botao-seguir" data-acao="seguir" disabled>…</button>' +
+            '</div>'
+          : '') +
+      '</div>' +
+
+      '<div class="linhas linhas-conta" id="leitor-numeros"></div>' +
+
+      (comResenha.length
+        ? '<section class="secao"><h2>Resenhas</h2>' +
+          comResenha.slice(0, 10).map(htmlLinhaFeed).join('') + '</section>'
+        : '') +
+
+      (leituras.length
+        ? '<section class="secao"><h2>Leu recentemente</h2>' +
+          htmlTrilho(leituras.slice(0, 16).map(function (l) {
+            return { chave: l.livro, titulo: l.titulo, capa: l.capa, ano: l.ano };
+          })) + '</section>'
+        : htmlVazio('Ainda sem leituras registradas',
+                    'Quando ' + esc(nome) + ' registrar a primeira, ela aparece aqui.'))
+    );
+
+    acoes({
+      seguir: function (b) { alternarSeguir(p.id, b); },
+      'curtir-leitura': alternarCurtida,
+      'ver-spoiler': revelarSpoiler
+    });
+    ligarCurtidas(tela);
+  }
+
+  function atualizarBotaoSeguir(id) {
+    var b = document.getElementById('botao-seguir');
+    if (!b) return;
+    Nuvem.sigo(id).then(function (sim) {
+      if (!document.body.contains(b)) return;
+      b.disabled = false;
+      b.classList.toggle('destaque', !sim);
+      b.textContent = sim ? 'Seguindo' : 'Seguir';
+      b.setAttribute('data-sigo', sim ? '1' : '');
+    }).catch(function () {
+      b.disabled = false; b.textContent = 'Seguir';
+    });
+  }
+
+  function alternarSeguir(id, botao) {
+    var sigo = !!botao.getAttribute('data-sigo');
+    botao.disabled = true;
+    (sigo ? Nuvem.deixarDeSeguir(id) : Nuvem.seguir(id)).then(function () {
+      atualizarBotaoSeguir(id);
+      aviso(sigo ? 'Deixou de seguir.' : 'Seguindo.');
+    }, function (e) {
+      botao.disabled = false;
+      aviso(e.message);
+    });
+  }
+
+  /* ====================================================== uma leitura ======
+
+     A pagina de uma leitura do feed, com os comentarios. E o endereco que da
+     para mandar para alguem — por isso ela carrega sem conta, e o campo de
+     comentario e que aparece só para quem entrou. */
+
+  function telaLeitura(id) {
+    marcarAba('');
+    if (!Nuvem.ligada()) return pintar('<p class="erro">A nuvem não está ligada.</p>');
+    carregando('Abrindo…');
+
+    Promise.all([
+      Nuvem.publico('feed', '?select=*&id=eq.' + encodeURIComponent(id)),
+      Nuvem.comentarios(id)
+    ]).then(function (r) {
+      var l = (r[0] || [])[0];
+      var cs = r[1] || [];
+      if (!l) return pintar(htmlVazio('Não achei esta leitura', 'Ela pode ter sido apagada.'));
+      desenhaLeitura(l, cs);
+    }, function (err) {
+      pintar('<p class="erro">' + esc(err.message) + '</p>');
+    });
+  }
+
+  function desenhaLeitura(l, comentarios) {
+    var eu = Nuvem.entrou() ? Nuvem.quemSou() : null;
+    var nome = l.perfil_nome || l.usuario;
+
+    pintar(
+      htmlHeroi(l.capa) +
+      '<article class="resenha' + (l.capa ? ' sobre-heroi' : '') + '">' +
+        '<a class="resenha-quem" href="#/leitor/' + encodeURIComponent(l.usuario) + '">' +
+          '<span class="feed-avatar" aria-hidden="true">' +
+            esc(nome.trim().charAt(0).toUpperCase()) + '</span>' +
+          '<b>' + esc(nome) + '</b><span>@' + esc(l.usuario) + '</span></a>' +
+        '<h1><a href="' + rotaLivro(l.livro) + '">' + esc(l.titulo) + '</a></h1>' +
+        '<p class="resenha-meta">' +
+          (typeof l.nota === 'number'
+            ? '<span class="estrelas">' + estrelasTexto(l.nota) + '</span> · ' : '') +
+          (l.relido ? 'releitura · ' : '') +
+          esc(dataLonga(l.lido_em)) + '</p>' +
+        (l.resenha
+          ? (l.spoiler
+              ? '<button class="spoiler-aviso" data-acao="ver-spoiler" data-texto="' +
+                esc(l.resenha) + '">Esta resenha tem spoiler. Tocar para ler.</button>'
+              : '<p class="resenha-texto">' + esc(l.resenha) + '</p>')
+          : '') +
+        '<div class="feed-acoes" style="margin-top:16px">' +
+          '<button class="feed-curtir" data-acao="curtir-leitura" data-id="' + esc(l.id) + '"' +
+            ' aria-pressed="false"><span class="glifo">♡</span>' +
+            '<span class="conta-curtidas">' + (l.curtidas || 0) + '</span></button>' +
+        '</div>' +
+      '</article>' +
+
+      '<section class="secao" style="margin-top:26px">' +
+        '<h2>' + plural(comentarios.length, 'comentário', 'comentários') + '</h2>' +
+        '<div id="comentarios">' + comentarios.map(htmlComentario).join('') + '</div>' +
+        (eu
+          ? '<form id="forma-comentario" style="margin-top:14px">' +
+              '<label class="campo"><span>Seu comentário</span>' +
+              '<textarea id="campo-comentario" maxlength="2000" style="min-height:74px" ' +
+              'placeholder="O que você achou?"></textarea></label>' +
+              '<div class="linha-botoes">' +
+              '<button class="botao destaque" type="submit">Comentar</button></div>' +
+            '</form>'
+          : '<p class="conta-texto" style="margin-top:14px">' +
+            '<a class="alvo" href="#/conta">Entre na sua conta</a> para comentar.</p>') +
+      '</section>'
+    );
+
+    acoes({
+      'curtir-leitura': alternarCurtida,
+      'ver-spoiler': revelarSpoiler,
+      'apagar-comentario': function (b) {
+        if (!confirm('Apagar este comentário?')) return;
+        var linha = b.closest('.comentario');
+        Nuvem.apagarComentario(b.getAttribute('data-id')).then(function () {
+          linha.remove();
+        }, function (e) { aviso(e.message); });
+      }
+    });
+    ligarCurtidas(tela);
+
+    var forma = document.getElementById('forma-comentario');
+    if (!forma) return;
+    forma.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var campo = document.getElementById('campo-comentario');
+      var texto = campo.value.trim();
+      if (!texto) return;
+      var b = forma.querySelector('button');
+      b.disabled = true; b.textContent = 'Enviando…';
+      Nuvem.comentar(l.id, texto).then(function (novo) {
+        campo.value = '';
+        b.disabled = false; b.textContent = 'Comentar';
+        document.getElementById('comentarios').insertAdjacentHTML('beforeend',
+          htmlComentario({ id: novo.id, texto: texto, criado_em: novo.criado_em,
+                           perfil: eu.id, perfis: { usuario: 'você', nome: 'Você' } }));
+      }, function (e) {
+        b.disabled = false; b.textContent = 'Comentar';
+        aviso(e.message);
+      });
+    });
+  }
+
+  function htmlComentario(c) {
+    var p = c.perfis || {};
+    var nome = p.nome || p.usuario || 'alguém';
+    var eu = Nuvem.entrou() ? Nuvem.quemSou() : null;
+    var meu = eu && eu.id === c.perfil;
+    return '<div class="comentario">' +
+      '<span class="feed-avatar" aria-hidden="true">' +
+        esc(nome.trim().charAt(0).toUpperCase()) + '</span>' +
+      '<div>' +
+        '<p class="comentario-quem"><b>' + esc(nome) + '</b>' +
+          '<time>' + esc(quandoFoi(c.criado_em)) + '</time></p>' +
+        '<p class="comentario-texto">' + esc(c.texto) + '</p>' +
+      '</div>' +
+      (meu ? '<button class="comentario-apagar" data-acao="apagar-comentario" data-id="' +
+             esc(c.id) + '" aria-label="Apagar comentário">×</button>' : '') +
+    '</div>';
+  }
+
+  function dataLonga(iso) {
+    var d = new Date(iso + 'T12:00:00');
+    return isNaN(d.getTime()) ? String(iso)
+      : d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
   /* ================================================================ conta == */
 
   /* A tela de conta e a unica que muda de cara conforme a nuvem esteja
@@ -2192,6 +2637,9 @@
     if (rota === 'lista')   return telaLista(partes[1]);
     if (rota === 'perfil')  return telaPerfil();
     if (rota === 'conta')   return telaConta();
+    if (rota === 'atividade') return telaAtividade(partes[1]);
+    if (rota === 'leitor')  return telaLeitor(decodeURIComponent(partes[1] || ''));
+    if (rota === 'leitura') return telaLeitura(decodeURIComponent(partes[1] || ''));
     return telaInicio();
   }
 
@@ -2212,5 +2660,6 @@
   });
 
   window.addEventListener('hashchange', rotear);
+  Sinc.ligar();
   rotear();
 })();

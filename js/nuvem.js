@@ -240,6 +240,195 @@ var Nuvem = (function () {
     }).then(function (l) { return (l && l[0]) || null; });
   }
 
+  /* ============================================================= escrita ==
+
+     O que o Sinc chama para espelhar o diario do aparelho no banco. Tudo aqui
+     e "upsert por estado": manda como a coisa E agora, nao o movimento que a
+     levou ate aqui. Assim reenviar o mesmo item duas vezes nao duplica nada,
+     que e o que uma fila com repeticao exige. */
+
+  function salvarLivro(b) {
+    return tabela('livros', '', {
+      metodo: 'POST', corpo: [linhaLivro(b)],
+      cabecalhos: { Prefer: 'return=minimal,resolution=merge-duplicates' }
+    });
+  }
+
+  /* Com id remoto e correcao (PATCH); sem, e leitura nova (POST). A releitura
+     do mesmo livro e uma linha NOVA, como no original — por isso a chave nao
+     e (perfil, livro). */
+  function salvarLeitura(log) {
+    var corpo = {
+      perfil:  sessao.id,
+      livro:   log.chave,
+      nota:    typeof log.nota === 'number' ? log.nota : null,
+      resenha: log.resenha || null,
+      lido_em: log.lidoEm,
+      relido:  !!log.relido,
+      spoiler: !!log.spoiler
+    };
+    var cab = { Prefer: 'return=representation' };
+    if (log.remoto) {
+      return tabela('leituras', '?id=eq.' + log.remoto,
+                    { metodo: 'PATCH', corpo: corpo, cabecalhos: cab })
+        .then(function (l) {
+          /* A linha pode ter sumido (apagada em outro aparelho). Aí o PATCH
+             volta vazio e o certo e recriar, nao perder a resenha. */
+          if (l && l[0]) return l[0];
+          return tabela('leituras', '', { metodo: 'POST', corpo: corpo, cabecalhos: cab })
+            .then(function (n) { return (n && n[0]) || null; });
+        });
+    }
+    return tabela('leituras', '', { metodo: 'POST', corpo: corpo, cabecalhos: cab })
+      .then(function (l) { return (l && l[0]) || null; });
+  }
+
+  function apagarLeitura(idRemoto) {
+    return tabela('leituras', '?id=eq.' + idRemoto, { metodo: 'DELETE' });
+  }
+
+  function porMarcador(livro, tipo) {
+    return tabela('marcadores', '', {
+      metodo: 'POST', corpo: { perfil: sessao.id, livro: livro, tipo: tipo },
+      cabecalhos: { Prefer: 'return=minimal,resolution=ignore-duplicates' }
+    });
+  }
+
+  function tirarMarcador(livro, tipo) {
+    return tabela('marcadores',
+      '?perfil=eq.' + sessao.id + '&livro=eq.' + encodeURIComponent(livro) +
+      '&tipo=eq.' + tipo, { metodo: 'DELETE' });
+  }
+
+  /* ============================================================== social ==
+
+     Ler o feed, seguir gente, curtir e comentar resenha. Tudo passa por
+     "publico()" quando da para ler sem conta: perfil e diario sao publicos,
+     e quem chega por um link compartilhado tem que ver a pagina sem precisar
+     se cadastrar antes. */
+
+  var CAMPOS_FEED = 'id,perfil,livro,nota,resenha,lido_em,relido,spoiler,criado_em,' +
+                    'usuario,perfil_nome,titulo,autores,ano,capa,curtidas,comentarios';
+
+  /* O feed de quem eu sigo, mais o meu. Duas consultas em vez de uma: o
+     PostgREST nao faz subconsulta em "in", entao a lista de quem eu sigo vem
+     primeiro. E ainda e melhor do que parece — a lista e pequena e fica em
+     cache do navegador entre as aberturas. */
+  function feed(pagina, limite) {
+    limite = limite || 20;
+    var de = (pagina || 0) * limite;
+    return quemEuSigo().then(function (ids) {
+      var todos = ids.concat([sessao.id]);
+      var lista = todos.map(function (x) { return '"' + x + '"'; }).join(',');
+      return tabela('feed', '?select=' + CAMPOS_FEED +
+        '&perfil=in.(' + lista + ')' +
+        '&order=criado_em.desc&offset=' + de + '&limit=' + limite);
+    });
+  }
+
+  /* O feed geral, de todo mundo — o que a pessoa ve antes de seguir alguem.
+     Sem ele, quem acabou de criar conta abre a aba de atividade e encontra
+     uma tela vazia, sem nada para fazer. */
+  function feedGeral(pagina, limite) {
+    limite = limite || 20;
+    return publico('feed', '?select=' + CAMPOS_FEED +
+      '&order=criado_em.desc&offset=' + ((pagina || 0) * limite) + '&limit=' + limite);
+  }
+
+  function leiturasDe(usuario, limite) {
+    return publico('feed', '?select=' + CAMPOS_FEED +
+      '&usuario=eq.' + encodeURIComponent(usuario) +
+      '&order=lido_em.desc&limit=' + (limite || 40));
+  }
+
+  function perfilDe(usuario) {
+    return publico('perfis', '?select=*&usuario=eq.' + encodeURIComponent(usuario))
+      .then(function (l) { return (l && l[0]) || null; });
+  }
+
+  function procurarLeitores(termo) {
+    var t = encodeURIComponent('*' + termo + '*');
+    return publico('perfis',
+      '?select=id,usuario,nome,bio&or=(usuario.ilike.' + t + ',nome.ilike.' + t + ')&limit=20');
+  }
+
+  /* ------------------------------------------------------------- seguir --- */
+
+  function quemEuSigo() {
+    return tabela('seguidores', '?select=seguido&seguidor=eq.' + sessao.id)
+      .then(function (l) { return (l || []).map(function (x) { return x.seguido; }); });
+  }
+
+  function sigo(id) {
+    return tabela('seguidores',
+      '?select=seguido&seguidor=eq.' + sessao.id + '&seguido=eq.' + id)
+      .then(function (l) { return !!(l && l.length); });
+  }
+
+  function seguir(id) {
+    return tabela('seguidores', '', {
+      metodo: 'POST', corpo: { seguidor: sessao.id, seguido: id },
+      cabecalhos: { Prefer: 'return=minimal,resolution=ignore-duplicates' }
+    });
+  }
+
+  function deixarDeSeguir(id) {
+    return tabela('seguidores',
+      '?seguidor=eq.' + sessao.id + '&seguido=eq.' + id, { metodo: 'DELETE' });
+  }
+
+  function contagemSocial(id) {
+    return Promise.all([
+      publico('seguidores', '?select=seguidor&seguido=eq.' + id),
+      publico('seguidores', '?select=seguido&seguidor=eq.' + id)
+    ]).then(function (r) {
+      return { seguidores: (r[0] || []).length, seguindo: (r[1] || []).length };
+    });
+  }
+
+  /* ------------------------------------------------------ curtir e comentar */
+
+  function curti(leitura) {
+    return tabela('curtidas',
+      '?select=leitura&perfil=eq.' + sessao.id + '&leitura=eq.' + leitura)
+      .then(function (l) { return !!(l && l.length); });
+  }
+
+  function curtir(leitura) {
+    return tabela('curtidas', '', {
+      metodo: 'POST', corpo: { perfil: sessao.id, leitura: leitura },
+      cabecalhos: { Prefer: 'return=minimal,resolution=ignore-duplicates' }
+    });
+  }
+
+  function descurtir(leitura) {
+    return tabela('curtidas',
+      '?perfil=eq.' + sessao.id + '&leitura=eq.' + leitura, { metodo: 'DELETE' });
+  }
+
+  function comentarios(leitura) {
+    return publico('comentarios',
+      '?select=id,texto,criado_em,perfil,perfis(usuario,nome)' +
+      '&leitura=eq.' + leitura + '&order=criado_em.asc');
+  }
+
+  function comentar(leitura, texto) {
+    return tabela('comentarios', '', {
+      metodo: 'POST', corpo: { leitura: leitura, perfil: sessao.id, texto: texto },
+      cabecalhos: { Prefer: 'return=representation' }
+    }).then(function (l) { return (l && l[0]) || null; });
+  }
+
+  function apagarComentario(id) {
+    return tabela('comentarios', '?id=eq.' + id, { metodo: 'DELETE' });
+  }
+
+  function denunciar(alvo, motivo) {
+    var corpo = { autor: sessao.id, motivo: motivo };
+    corpo[alvo.tipo] = alvo.id;      /* 'leitura' ou 'comentario' */
+    return tabela('denuncias', '', { metodo: 'POST', corpo: corpo });
+  }
+
   /* ------------------------------------------------------------- migracao */
 
   function chaveMigrado() { return 'letterbooks:migrado:' + (sessao ? sessao.id : ''); }
@@ -378,6 +567,32 @@ var Nuvem = (function () {
     publico:   publico,
     meuPerfil: meuPerfil,
     salvarPerfil: salvarPerfil,
+
+    salvarLivro:    salvarLivro,
+    salvarLeitura:  salvarLeitura,
+    apagarLeitura:  apagarLeitura,
+    porMarcador:    porMarcador,
+    tirarMarcador:  tirarMarcador,
+
+    feed:           feed,
+    feedGeral:      feedGeral,
+    leiturasDe:     leiturasDe,
+    perfilDe:       perfilDe,
+    procurarLeitores: procurarLeitores,
+
+    quemEuSigo:     quemEuSigo,
+    sigo:           sigo,
+    seguir:         seguir,
+    deixarDeSeguir: deixarDeSeguir,
+    contagemSocial: contagemSocial,
+
+    curti:          curti,
+    curtir:         curtir,
+    descurtir:      descurtir,
+    comentarios:    comentarios,
+    comentar:       comentar,
+    apagarComentario: apagarComentario,
+    denunciar:      denunciar,
 
     migrar:    migrar,
     jaMigrou:  jaMigrou

@@ -1226,3 +1226,90 @@ img { display: block; max-width: 100%; }
   .resultados { margin: 0; max-width: 620px; }
   .resultado { padding-left: 0; padding-right: 0; }
 }
+
+/* ============================================================ atividade === */
+/* No app cada linha do feed e uma FRASE, nao um cartao: "esther leu Burning
+   ★★★★". Frase ocupa uma linha e cabem dez na tela; cartao ocupa cinco e
+   cabem duas. A capa fica pequena na direita, so como ancora visual. */
+
+.feed-linha {
+  display: grid; grid-template-columns: 34px 1fr auto;
+  gap: 11px; align-items: start;
+  padding: 14px 0; border-bottom: 1px solid var(--borda);
+}
+.feed-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--superficie-2); color: var(--a2);
+  font-size: 14px; font-weight: 700;
+}
+.feed-corpo { min-width: 0; }
+.feed-frase { margin: 0; font-size: 14.5px; line-height: 1.45; color: var(--texto-2); }
+.feed-frase .alvo { color: var(--texto); font-weight: 700; }
+.feed-frase .alvo:hover { color: var(--a2); }
+.feed-frase .estrelas { font-size: 13px; }
+
+.feed-resenha {
+  margin: 6px 0 0; font-size: 13.5px; line-height: 1.55; color: var(--texto-2);
+  padding: 9px 11px; background: var(--superficie);
+  border-radius: var(--raio);
+}
+.feed-linha .spoiler-aviso { margin-top: 6px; }
+
+.feed-acoes {
+  display: flex; align-items: center; gap: 16px;
+  margin-top: 8px; font-size: 12.5px; color: var(--texto-3);
+}
+.feed-acoes button, .feed-acoes a {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: none; border: 0; padding: 0; cursor: pointer;
+  color: var(--texto-3); font: inherit;
+}
+.feed-acoes .glifo { font-size: 14px; line-height: 1; }
+.feed-acoes button:hover, .feed-acoes a:hover { color: var(--texto-2); }
+.feed-curtir.curtido { color: var(--curtida); }
+.feed-acoes time { margin-left: auto; }
+
+.feed-capa { width: 42px; flex: none; }
+.feed-capa .capa { border-radius: 3px; }
+
+@media (max-width: 720px) {
+  .feed-linha { grid-template-columns: 30px 1fr auto; gap: 9px; }
+  .feed-avatar { width: 30px; height: 30px; font-size: 13px; }
+  .feed-capa { width: 36px; }
+}
+
+/* ================================================ comentários e leitor === */
+
+.resenha-quem {
+  display: flex; align-items: center; gap: 9px; margin-bottom: 14px;
+  font-size: 13.5px; color: var(--texto-3);
+}
+.resenha-quem b { color: var(--texto); font-weight: 700; }
+.resenha-quem:hover b { color: var(--a2); }
+
+.comentario {
+  display: grid; grid-template-columns: 30px 1fr auto; gap: 10px;
+  padding: 12px 0; border-bottom: 1px solid var(--borda);
+}
+.comentario .feed-avatar { width: 30px; height: 30px; font-size: 13px; }
+.comentario-quem {
+  display: flex; align-items: baseline; gap: 9px;
+  margin: 0 0 3px; font-size: 13px; color: var(--texto-3);
+}
+.comentario-quem b { color: var(--texto); font-weight: 700; font-size: 13.5px; }
+.comentario-texto { margin: 0; font-size: 14px; line-height: 1.55; color: var(--texto-2);
+                    white-space: pre-wrap; }
+.comentario-apagar {
+  background: none; border: 0; cursor: pointer; align-self: start;
+  color: var(--texto-3); font-size: 18px; line-height: 1; padding: 2px 4px;
+}
+.comentario-apagar:hover { color: var(--a3); }
+
+/* A fila de envio, quando tem coisa esperando rede. */
+.fila-aviso {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 14px; padding: 9px 12px;
+  background: var(--superficie); border-radius: var(--raio);
+  color: var(--texto-3); font-size: 13px;
+}
