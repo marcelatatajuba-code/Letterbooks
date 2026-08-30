@@ -103,7 +103,13 @@ JS_SAUDE = """
   // getBoundingClientRect NAO enxerga. Entao a medida honesta e sondar:
   // dispara elementFromPoint em volta do centro e ve ate onde o toque ainda
   // cai no controle. Medir so a caixa acusaria de miudo um alvo ja consertado.
+  // E preciso tirar o elemento de baixo das barras FIXAS (.abas-pe, 64px, e a
+  // .barra-acao da ficha) antes de sondar: la embaixo o elementFromPoint devolve
+  // a barra, a sonda falha no primeiro passo e QUALQUER controle e acusado de
+  // miudo. Foi assim que o ♥ das resenhas apareceu como 25x19 tendo os 44 do
+  // ::after. Medir onde o dedo alcanca, e nao onde a rolagem por acaso parou.
   const alcance = el => {
+    el.scrollIntoView({ block: 'center' });
     const r = el.getBoundingClientRect();
     const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
     const pega = (x, y) => { const t = document.elementFromPoint(x, y);

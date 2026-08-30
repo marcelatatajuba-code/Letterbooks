@@ -68,17 +68,17 @@
    "nome": "Nota média e histograma da comunidade na ficha",
    "area": "Livros",
    "noOriginal": "A ficha mostra a distribuição de notas de TODOS os membros e a média da comunidade. É o motivo principal de abrir a ficha.",
-   "noLetterbooks": "A seção 'Avaliações' de desenhaLivro usa `var e = Dados.estatisticas()` (js/app.js:683) e monta blocoNotas com e.faixas/e.media (app.js:707) — ou seja, o SEU histograma global, idêntico em todo livro, rotulado como se fosse do livro. O dado da comunidade existe no banco (leituras.nota, select público por RLS) e não é consultado.",
-   "estado": "parcial",
-   "evidencia": "js/app.js:683 e js/app.js:707 desenhaLivro; servidor/esquema.sql:197 política \"diário é público\""
+   "noLetterbooks": "htmlRede (js/app.js) monta o bloco a partir de Nuvem.leiturasDoLivro (js/nuvem.js), com média e distribuição somadas no cliente sobre as leituras DAQUELE livro. Até V3 o bloco desenhava Dados.estatisticas() — as notas da própria leitora, iguais em toda ficha.",
+   "estado": "completo",
+   "evidencia": "js/app.js htmlRede / js/nuvem.js leiturasDoLivro / docs/testar_social.py \"ficha do livro\""
   },
   {
    "nome": "Quem você segue leu / resenhas do livro na ficha",
    "area": "Livros",
    "noOriginal": "A ficha traz resenhas populares, resenhas de amigos e quem da sua rede assistiu.",
-   "noLetterbooks": "Não existe. telaLivro (js/app.js:620) e desenhaLivro não fazem nenhuma chamada à Nuvem; a ficha é uma ilha 100% local.",
-   "estado": "ausente",
-   "evidencia": "js/app.js:620 telaLivro — só API.detalhe e Dados"
+   "noLetterbooks": "Mesma consulta do histograma alimenta as duas seções: a interseção com Nuvem.quemEuSigo() vira \"Quem você segue leu\" (linhas .resultado) e as leituras com resenha viram .feed-linha, três por vez, com ♥ e 💬 no lugar.",
+   "estado": "completo",
+   "evidencia": "js/app.js htmlLeitorDoLivro / htmlResenhaDoLivro"
   },
   {
    "nome": "Folha de ação (barra Avaliar, registrar, resenhar)",

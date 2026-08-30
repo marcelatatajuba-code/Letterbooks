@@ -5,7 +5,7 @@ O que importa aqui nao e "a tela desenha": e que NADA se perca. O diario e da
 pessoa; se a rede cair no meio de um envio, a leitura tem que continuar no
 aparelho e voltar para a fila, nao sumir.
 """
-import os, sys, json, time
+import os, sys, json, time, urllib.parse
 from urllib.parse import urlparse, parse_qs
 from playwright.sync_api import sync_playwright
 
@@ -93,6 +93,15 @@ def servir(rota, estado):
             if 'perfil' in q and q['perfil'][0].startswith('in.'):
                 dentro = q['perfil'][0][4:-1].replace('"', '').split(',')
                 saida = [x for x in saida if x['perfil'] in dentro]
+            # A ficha do livro filtra por livro=eq.<chave>. Este ramo ignorava
+            # qualquer filtro que não fosse usuario/id/perfil e devolvia a
+            # tabela INTEIRA — o teste passaria verde mostrando o histograma de
+            # todos os livros do acervo como se fosse o daquele livro. É a
+            # quarta vez que este mock precisa aprender um filtro antes de o
+            # teste valer alguma coisa.
+            if 'livro' in q and q['livro'][0].startswith('eq.'):
+                alvo = urllib.parse.unquote(q['livro'][0][3:])
+                saida = [x for x in saida if x['livro'] == alvo]
             return j(saida)
         saida = linhas
         for campo, v in q.items():
@@ -384,6 +393,148 @@ def rodar():
         checa('o comentario foi para o banco', len(BANCO['comentarios']) == 1)
         checa('e apareceu na tela sem recarregar',
               'Também achei.' in pg.inner_text('#comentarios'))
+        nav.close()
+
+        # ====================== a comunidade na ficha do livro ===============
+        # O defeito que este bloco tranca: a ficha desenhava Dados.estatisticas()
+        # — as notas da PROPRIA leitora, de todos os livros — sob o rotulo
+        # "Avaliacoes", igual em toda ficha do acervo. A nota local dela aqui e
+        # 2,0 de proposito, e a comunidade da 4,0: sao numeros que nao podem ser
+        # confundidos um com o outro.
+        print('\nficha do livro: as notas sao do LIVRO, nao da leitora')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        BANCO['livros'].append({'chave': '/works/OL2W', 'titulo': 'A Hora da Estrela',
+                                'autores': ['Clarice Lispector'], 'ano': 1977})
+        BANCO['perfis'].append({'id': 'uid-3', 'usuario': 'ana', 'nome': 'Ana Prado',
+                                'bio': '', 'local': ''})
+        BANCO['perfis'].append({'id': 'uid-4', 'usuario': 'rui', 'nome': 'Rui', 'bio': '', 'local': ''})
+        # tres leituras DESTE livro: 5,0 + 4,0 + 3,0 = media 4,0
+        BANCO['leituras'] += [
+            {'id': 'L1', 'perfil': 'uid-2', 'livro': '/works/OL1W', 'nota': 5.0,
+             'resenha': 'Capitu me pegou.', 'lido_em': '2026-08-20', 'relido': False,
+             'spoiler': False, 'criado_em': '2026-08-29T22:00:00Z'},
+            {'id': 'L2', 'perfil': 'uid-3', 'livro': '/works/OL1W', 'nota': 4.0,
+             'resenha': 'O narrador nao merece confianca.', 'lido_em': '2026-08-21',
+             'relido': False, 'spoiler': False, 'criado_em': '2026-08-28T22:00:00Z'},
+            {'id': 'L3', 'perfil': 'uid-4', 'livro': '/works/OL1W', 'nota': 3.0,
+             'resenha': 'Nao terminei convencido.', 'lido_em': '2026-08-22', 'relido': False,
+             'spoiler': False, 'criado_em': '2026-08-27T22:00:00Z'},
+            # resenha SEM nota: entra na lista de resenhas e nao entra na media
+            {'id': 'L5', 'perfil': 'uid-3', 'livro': '/works/OL1W', 'nota': None,
+             'resenha': 'Reli sem avaliar.', 'lido_em': '2026-08-24', 'relido': True,
+             'spoiler': False, 'criado_em': '2026-08-25T22:00:00Z'},
+            # de OUTRO livro, com nota que destoa: se vazar, a media muda
+            {'id': 'L4', 'perfil': 'uid-2', 'livro': '/works/OL2W', 'nota': 1.0,
+             'resenha': '', 'lido_em': '2026-08-23', 'relido': False,
+             'spoiler': False, 'criado_em': '2026-08-26T22:00:00Z'}]
+        BANCO['seguidores'].append({'seguidor': 'uid-1', 'seguido': 'uid-2'})
+
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg, logs=[{'id': 'meu', 'chave': '/works/OL1W', 'nota': 2.0, 'resenha': '',
+                          'lidoEm': '2026-08-01', 'relido': False, 'spoiler': False,
+                          'criadoEm': '2026-08-01T10:00:00Z'}])
+        # Recarregar ANTES de abrir a ficha, e nao depois: telaLivro chama
+        # Dados.guardarLivro, que grava o estado em memoria — ainda vazio —
+        # por cima do localStorage recem-semeado, e a nota local sumiria.
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/livro/' + urllib.parse.quote('/works/OL1W', safe=''),
+                wait_until='networkidle')
+        pg.wait_for_selector('.avaliacoes-media', timeout=10000)
+
+        media = pg.inner_text('.avaliacoes-media').strip()
+        checa('a media e a da COMUNIDADE (5+4+3)/3 = 4,0, nao a nota 2,0 dela',
+              media == '4,0', media)
+        checa('tres colunas preenchidas, uma por avaliacao',
+              pg.locator('.avaliacoes .histograma .col.tem').count() == 3)
+        titulo = pg.locator('.avaliacoes .histograma .col.tem').first.get_attribute('title')
+        checa('o title conta avaliacoes, nao livros',
+              'avalia' in titulo and 'livro' not in titulo, titulo)
+        # A marca .minha: 2,0 e a quarta faixa (0,5 1,0 1,5 2,0)
+        idx = pg.evaluate("() => [...document.querySelectorAll('.avaliacoes .histograma .col')]"
+                          ".findIndex(c => c.classList.contains('minha'))")
+        checa('a sua nota fica marcada dentro da distribuicao, na faixa de 2,0',
+              idx == 3, 'indice %s' % idx)
+        checa('e o eixo diz o que a marca significa',
+              'sua nota' in pg.inner_text('.histograma-eixo'))
+        # o pedido saiu filtrado — sem isso o mock devolveria a tabela inteira
+        pedido = [x for x in pedidos if x[1].endswith('/feed') and 'livro=eq.' in x[2]]
+        checa('a consulta foi filtrada por livro no servidor', len(pedido) >= 1)
+
+        checa('quem voce segue e leu aparece',
+              pg.locator('.resultado').count() == 1)
+        checa('e e a Bia, a unica que a Marcela segue',
+              'Bia' in pg.inner_text('.resultado-texto'))
+        checa('a ficha abre com tres resenhas, nao com as quatro',
+              pg.locator('.avaliacoes ~ .secao .feed-linha').count() == 3)
+        checa('a resenha leva para a pagina dela',
+              pg.locator('a.feed-resenha').first.get_attribute('href') == '#/leitura/L1')
+        checa('e ha o botao de ver mais', pg.locator('.rede-mais').count() == 1)
+        antes_mais = len([x for x in pedidos if 'livro=eq.' in x[2]])
+        pg.click('.rede-mais')
+        pg.wait_for_timeout(400)
+        checa('ver mais mostra a quarta',
+              pg.locator('.avaliacoes ~ .secao .feed-linha').count() == 4)
+        checa('sem ir ao servidor de novo — as linhas ja estavam em maos',
+              len([x for x in pedidos if 'livro=eq.' in x[2]]) == antes_mais)
+        checa('o sumico do botao e o sinal de fim', pg.locator('.rede-mais').count() == 0)
+        checa('a resenha sem nota tambem tem lugar',
+              'Reli sem avaliar' in pg.inner_text('#livro-rede'))
+        checa('e a media continua sendo a das TRES notas',
+              pg.inner_text('.avaliacoes-media').strip() == '4,0')
+        # A linha nao repete o titulo do livro: o livro E a pagina.
+        frase = pg.inner_text('.feed-frase')
+        checa('a frase nao repete o titulo do livro', 'Dom Casmurro' not in frase, frase)
+
+        # O outro livro tem a media DELE, nao a deste.
+        pg.goto(BASE + '#/livro/' + urllib.parse.quote('/works/OL2W', safe=''),
+                wait_until='networkidle')
+        pg.wait_for_selector('.avaliacoes-media', timeout=10000)
+        m2 = pg.inner_text('.avaliacoes-media').strip()
+        checa('o outro livro mostra a media dele (1,0), nao a do anterior', m2 == '1,0', m2)
+        checa('e nenhuma marca de nota sua, que nele nao existe',
+              pg.locator('.avaliacoes .histograma .col.minha').count() == 0)
+
+        # Repintura: tocar no coracao redesenha a ficha inteira. As linhas ja em
+        # maos tem que voltar sem UMA requisicao nova — senao cada toque bate no
+        # servidor e a lista de resenhas pisca.
+        pg.goto(BASE + '#/livro/' + urllib.parse.quote('/works/OL1W', safe=''),
+                wait_until='networkidle')
+        pg.wait_for_selector('.avaliacoes-media', timeout=10000)
+        antes = len([x for x in pedidos if 'livro=eq.' in x[2]])
+        pg.set_viewport_size({'width': 1180, 'height': 900})   # o ♥ vive no painel
+        pg.click('[data-acao=curtir]')
+        pg.wait_for_timeout(700)
+        depois = len([x for x in pedidos if 'livro=eq.' in x[2]])
+        checa('curtir o livro nao refaz a consulta da comunidade',
+              depois == antes, '%d -> %d' % (antes, depois))
+        checa('e a media continua na tela depois da repintura',
+              pg.inner_text('.avaliacoes-media').strip() == '4,0')
+        checa('as resenhas tambem sobrevivem ao toque',
+              pg.locator('.avaliacoes ~ .secao .feed-linha').count() == 3)
+        nav.close()
+
+        # Sem conta o histograma TEM que aparecer: e a parte da ficha que existe
+        # justamente para quem ainda nao tem conta. Se as duas consultas fossem
+        # um Promise.all, quemEuSigo (que rejeita sem sessao) derrubaria as duas.
+        print('\nficha do livro sem conta: o histograma continua, a rede nao')
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg, logs=[{'id': 'meu', 'chave': '/works/OL1W', 'nota': 2.0, 'resenha': '',
+                          'lidoEm': '2026-08-01', 'relido': False, 'spoiler': False,
+                          'criadoEm': '2026-08-01T10:00:00Z'}], sessao=None)
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/livro/' + urllib.parse.quote('/works/OL1W', safe=''),
+                wait_until='networkidle')
+        pg.wait_for_selector('.avaliacoes-media', timeout=10000)
+        checa('sem conta, a media da comunidade aparece igual',
+              pg.inner_text('.avaliacoes-media').strip() == '4,0')
+        checa('mas nao ha secao de quem voce segue', pg.locator('.resultado').count() == 0)
+        checa('e o app avisa que a nota local nao entra na media',
+              'so neste aparelho' in pg.inner_text('.fila-aviso')
+              .replace('só', 'so').replace('ó', 'o'),
+              pg.inner_text('.avaliacoes'))
         nav.close()
 
         # ============================================ sem conta =============

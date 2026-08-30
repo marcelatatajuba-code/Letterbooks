@@ -45,6 +45,10 @@ with sync_playwright() as pw:
     ctx = nav.new_context(viewport={'width': 1180, 'height': 900}, locale='pt-BR',
                           accept_downloads=True)
     ctx.route('**openlibrary.org/**', responder)
+    # A ficha do livro agora consulta a comunidade. Esta suite e a do app
+    # LOCAL: o servidor cai de proposito, e a secao 8b afirma o que a tela faz
+    # quando ele cai. Sem esta rota o teste dependeria do tempo do proxy.
+    ctx.route('**supabase.co/**', lambda rt: rt.abort())
     pg = ctx.new_page()
     pg.on('console', lambda m: erros.append((m.type, m.text)) if m.type in ('error', 'warning') else None)
     pg.on('pageerror', lambda e: erros.append(('pageerror', str(e))))
@@ -68,8 +72,14 @@ with sync_playwright() as pw:
     pg.wait_for_selector('#secao-alta .cartao', timeout=20000)
     ok(pg.locator('#secao-alta .cartao').count() == 12, 'sugestoes carregam na busca vazia')
 
-    # o recorte leva a uma seleção de verdade
+    # o recorte leva a uma seleção de verdade.
+    # Esperar por '.grade .cartao' NAO serve de sinal: a propria tela de busca
+    # ja desenha #secao-alta com data-forma="grade" (js/app.js:470), entao o
+    # seletor casa com a tela ANTERIOR e a assercao corre contra a repintura.
+    # E a segunda vez que uma espera casa com a tela de tras neste projeto — o
+    # sinal tem que ser algo que so o destino tem.
     pg.click('.linha-diretorio')
+    pg.wait_for_selector('.titulo-pagina:has-text("Mais lidos")', timeout=20000)
     pg.wait_for_selector('.grade .cartao', timeout=20000)
     ok(pg.locator('.titulo-pagina').inner_text() == 'Mais lidos', 'o recorte abre com seu nome')
     ok(pg.locator('.grade .cartao').count() > 0, 'o recorte traz livros')
@@ -200,13 +210,47 @@ with sync_playwright() as pw:
     pg.wait_for_timeout(700)
     ok(pg.locator('.titulo-pagina').inner_text() == 'Estante', 'atalho leva à estante')
 
-    print('8b. avaliações no corpo da ficha')
+    print('8b. o bloco Avaliações é da comunidade, e cala quando não sabe')
+    # Ate aqui a ficha desenhava Dados.estatisticas() — as notas da PROPRIA
+    # leitora, de todos os livros do acervo, iguais em toda ficha, sob o rotulo
+    # "Avaliacoes". Nao era ausencia, era rotulo mentindo. O bloco agora vem da
+    # nuvem, e aqui a nuvem esta abortada de proposito: o que se afirma e que
+    # ele NAO inventa nada no lugar.
     pg.goto(BASE + '#/livro/' + fixtures.LIVROS[0][0].replace('/', '%2F'),
             wait_until='networkidle')
     pg.wait_for_selector('.livro-titulo', timeout=20000)
-    pg.wait_for_timeout(600)
-    ok(pg.locator('.avaliacoes-media').count() == 1, 'a média sai grande ao lado do histograma')
-    ok(pg.locator('.painel .histograma').count() == 0, 'o histograma saiu do painel lateral')
+    pg.wait_for_selector('.avaliacoes-nota', timeout=15000)
+    ok(pg.locator('.avaliacoes').count() == 1, 'o bloco Avaliações continua no corpo da ficha')
+    # A REGRESSAO que este item conserta, travada por assercao: a leitora tem
+    # nota 4,5 em Dom Casmurro registrada na secao 5 e o perfil dela desenha um
+    # histograma com ela. Se ele voltar a aparecer AQUI, e a mentira de volta.
+    ok(pg.locator('.avaliacoes .histograma').count() == 0,
+       'sem resposta do servidor, nenhum histograma é desenhado')
+    ok(pg.locator('.avaliacoes-media').count() == 0,
+       'e nenhuma média é inventada com a nota da própria leitora')
+    ok('comunidade' in pg.locator('.avaliacoes-nota').inner_text(),
+       'a tela diz, em português, que não conseguiu trazer as notas')
+    ok(pg.locator('.painel .histograma').count() == 0, 'o histograma segue fora do painel lateral')
+    # O que e da pessoa continua sendo dela: a nota local nao sumiu junto.
+    ok('★★★★½' in pg.locator('.painel-nota .estrelas').inner_text(),
+       'a nota dela continua no painel, onde sempre esteve')
+    # "Tentar de novo" refaz so esta consulta, sem repintar a ficha inteira.
+    titulo_antes = pg.locator('.livro-titulo').inner_text()
+    pg.locator('.avaliacoes-nota .mais').click()
+    pg.wait_for_timeout(900)
+    ok(pg.locator('.livro-titulo').inner_text() == titulo_antes,
+       'tentar de novo não repinta a ficha')
+    ok(pg.locator('.avaliacoes-nota').count() == 1, 'e volta a dizer o mesmo, sem quebrar')
+    # O bloco e o unico controle do bloco tem alvo de dedo de verdade.
+    alvo = pg.locator('.avaliacoes-nota .mais').first.evaluate(
+        "e => { const r = e.getBoundingClientRect();"
+        "       const p = getComputedStyle(e, '::after');"
+        "       const i = Math.abs(parseFloat(p.inset || p.top || '0'));"
+        "       return [r.width + 2*i, r.height + 2*i]; }")
+    ok(alvo[1] >= 40, 'o botão de repetir tem %.0fpx de altura de toque' % alvo[1])
+    ok(pg.evaluate("() => document.documentElement.scrollWidth <= "
+                   "document.documentElement.clientWidth + 1"),
+       'e a área de toque não cria rolagem lateral')
 
     print('8c. abas do topo e tela de resenhas')
     pg.goto(BASE + '#/inicio', wait_until='networkidle')

@@ -8,7 +8,8 @@
    "resumo": "Criar em js/nuvem.js as funções que hoje não existem — ler as PRÓPRIAS leituras, marcadores e listas — e um passo de descida na abertura da sessão, que funde com o que já está no localStorage sem duplicar. Junto, trocar a trava jaMigrou (hoje por aparelho, js/nuvem.js:436) por uma marca na conta, no servidor, para o segundo aparelho nunca mais ser convidado a 'Trazer o diário deste aparelho' (js/app.js:2611) e subir um diário vazio por cima do que já está lá. Verificado: Nuvem só exporta feed, feedGeral, leiturasDe e perfilDe (js/nuvem.js:555-596) — nenhuma leitura do próprio diário.",
    "valor": "Para quem instala o PWA no iPhone depois de criar a conta no computador. Hoje ela entra e encontra um diário vazio, com um botão que pode duplicar ou apagar o que ela já tinha. É a diferença entre 'tenho conta' e 'não tenho conta nenhuma', e é o único item da fila que estraga dado enquanto espera.",
    "esforco": "G",
-   "depende": "nada"
+   "depende": "nada",
+   "entregue": "eeb6206 — V1: a sincronização passa a ter volta"
   },
   {
    "ordem": 2,
@@ -17,7 +18,8 @@
    "resumo": "Substituir Dados.estatisticas() (js/app.js:683) por um agregado sobre leituras.nota daquele livro, lido da nuvem. O bloco 'Avaliações' (js/app.js:707) passa a mostrar a distribuição de todo mundo e a média da comunidade; a sua nota continua no painel lateral, onde já está. O dado é público por RLS ('diário é público', servidor/esquema.sql:197) — falta só a consulta agregada por livro.",
    "valor": "Para qualquer pessoa abrindo a ficha de um livro que não leu. Hoje ela vê o SEU histograma geral, idêntico em todo livro do acervo, rotulado como se fosse do livro. Não é uma ausência, é um rótulo que mente — e é a promessa central do original (saber o que o mundo achou antes de ler) invertida em ruído.",
    "esforco": "M",
-   "depende": "nada"
+   "depende": "nada",
+   "entregue": "V3 — avaliações da comunidade na ficha"
   },
   {
    "ordem": 3,
@@ -26,7 +28,8 @@
    "resumo": "telaLivro (js/app.js:620) hoje só chama API.detalhe e lê o Dados local — zero chamadas à Nuvem. Acrescentar duas consultas por livro: quem você segue que já leu, e as resenhas escritas sobre ele (populares e de quem você segue), cada linha levando à página da resenha. Reaproveita htmlLinhaFeed (js/app.js:2017) e o mesmo select do item 2.",
    "valor": "Para quem já segue gente e abre um livro que a rede leu. No original é o principal motivo de abrir a ficha. Hoje o social do Letterbooks vive todo preso dentro de #/atividade e nunca encosta no livro — a ficha é uma ilha 100% local.",
    "esforco": "M",
-   "depende": "item 2 (mesma consulta sobre leituras por livro)"
+   "depende": "item 2 (mesma consulta sobre leituras por livro)",
+   "entregue": "V3 — a rede na ficha (quem você segue, resenhas)"
   },
   {
    "ordem": 4,
@@ -132,5 +135,6 @@
   "Formato da leitura (papel, e-book, audiolivro) — NOVA. É o item com a melhor fonte de todo o conjunto (Retratos da Leitura no Brasil, 6ª edição, metodologia declarada), mas o impacto é um campo a mais no registro. Se couber, entra como acessório do item 7, não como item próprio.",
   "Estante física (tenho, empresto, emprestei) — NOVA e barata (um valor a mais no CHECK de marcadores.tipo, servidor/esquema.sql:76). Cortei porque é o Skoob, não o original, e a dor não se compara com nenhum dos 12 — ninguém abandona o app por não conseguir registrar um empréstimo.",
   "Releitura comparada (como você mudou de ideia) — NOVA e a mais barata da lista: o dado já está gravado (múltiplos logs com nota e o campo relido, verificado em js/dados.js e em servidor/esquema.sql:54-64), falta só ler e desenhar. Cortei por alcance: só existe para quem tem anos de diário, e num app novo isso é ninguém. Guardar para quando houver histórico."
- ]
+ ],
+ "nota_entregue": "O campo \"entregue\" marca o que já está no ar. Sem ele o portões.py contava para sempre os mesmos itens de fidelidade e o portão 1 nunca poderia fechar — um medidor que não sabe o que foi feito não mede nada."
 }

@@ -38,7 +38,10 @@ criterio(1, 'paridade de features', '%.0f%% (%d/%d)' % (paridade, c['completo'],
          'parcial conta como não-feito: %d parciais, %d ausentes' % (c['parcial'], c['ausente']))
 
 back = json.load(open(caminho('docs/kb/backlog.json'), encoding='utf-8'))
-fid_abertos = [x for x in back['backlog'] if x['tipo'] == 'fidelidade']
+# "entregue" e o que ja esta no ar. Sem esse filtro o portao contava para
+# sempre os mesmos itens e nunca poderia fechar.
+fid_abertos = [x for x in back['backlog']
+               if x['tipo'] == 'fidelidade' and not x.get('entregue')]
 criterio(1, 'itens de fidelidade em aberto', str(len(fid_abertos)), '0', len(fid_abertos) == 0,
          'o primeiro é: ' + (fid_abertos[0]['titulo'] if fid_abertos else '—'))
 

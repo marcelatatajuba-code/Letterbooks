@@ -55,6 +55,17 @@ Depois de mexer em CSS ou JS, suba a versão do cache em `sw.js`
 
 ## Regras que vieram de errar
 
+**Um rótulo que mente é pior que um espaço vazio.** A ficha do livro mostrou
+por um dia inteiro o histograma das notas da PRÓPRIA leitora — igual em todo
+livro do acervo — sob o título "Avaliações". Ninguém viu, porque a tela estava
+cheia e bonita. Quando o dado da tela não é o dado que o rótulo promete, o
+conserto vem antes de qualquer coisa que falte.
+
+**Espera de teste tem que casar só com o destino.** Duas vezes uma
+`wait_for_selector` casou com a tela ANTERIOR (`.conta h1`, depois
+`.grade .cartao` — que a busca também desenha) e o teste virou moeda. O sinal
+de espera tem que ser algo que só o destino tem.
+
 **Meça, não olhe.** Três vezes seguidas o layout foi ajustado no olho e errou
 do mesmo jeito: peça grande demais, densidade de site num aplicativo. O que
 resolveu foi medir os quadros do vídeo do app original. As ferramentas estão
@@ -138,7 +149,10 @@ completa, use a skill `/ciclo`. Para só verificar, `/verificar`.
 **Quando parar de dar voltas:** não é quando o backlog acabar — ele sempre
 volta a encher. É quando `python3 docs/processo/portoes.py` fechar os dois
 portões que ele mede (fidelidade e solidez). Hoje: fidelidade **aberto** em
-52% de paridade, solidez **fechado**.
+56% de paridade e 7 itens, solidez **fechado**.
+
+Marque o item do backlog com `entregue` ao publicá-lo. Sem isso o portão conta
+para sempre os mesmos itens e não pode fechar nunca.
 
 O terceiro portão — mercado — não é medível daqui e não se fecha com volta de
 agente nenhuma. Precisa de gente usando.

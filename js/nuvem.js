@@ -365,6 +365,20 @@ var Nuvem = (function () {
       '&order=lido_em.desc&limit=' + (limite || 40));
   }
 
+  /* As leituras que a comunidade registrou DESTE livro. É a consulta de onde
+     saem três coisas na ficha: a distribuição de notas, quem você segue que já
+     leu, e as resenhas escritas sobre ele.
+
+     A média e a distribuição são somadas no cliente, e não por função de
+     agregação do PostgREST (`nota.avg()`): o Supabase desliga a agregação por
+     padrão, a consulta voltaria 400, e a mensagem crua do servidor apareceria
+     na tela de quem está lendo. */
+  function leiturasDoLivro(chave, limite) {
+    return publico('feed', '?select=' + CAMPOS_FEED +
+      '&livro=eq.' + encodeURIComponent(chave) +
+      '&order=criado_em.desc&limit=' + (limite || 60));
+  }
+
   function perfilDe(usuario) {
     return publico('perfis', '?select=*&usuario=eq.' + encodeURIComponent(usuario))
       .then(function (l) { return (l && l[0]) || null; });
@@ -621,6 +635,7 @@ var Nuvem = (function () {
     feed:           feed,
     feedGeral:      feedGeral,
     leiturasDe:     leiturasDe,
+    leiturasDoLivro: leiturasDoLivro,
     perfilDe:       perfilDe,
     procurarLeitores: procurarLeitores,
 

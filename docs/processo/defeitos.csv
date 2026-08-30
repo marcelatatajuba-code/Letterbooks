@@ -31,3 +31,10 @@ D29,time-hibrido,30/08 06:11,"Suíte de 100 verificações vivia só no rascunho
 D30,time-hibrido,30/08 15:39,"Mock ignorava on_conflict: teste passaria verde e produção duplicaria",alta,eu (avisado pelo tech lead),<10min,—
 D31,time-hibrido,30/08 15:39,"Mock devolvia lista vazia: migração parecia funcionar deixando tudo órfão",média,suíte de nuvem,<10min,—
 D32,time-hibrido,30/08 15:39,"Asserção media a ordem de todos os pedidos, não só das escritas",baixa,suíte social,<5min,—
+D33,time-hibrido,30/08 19:00,"Mock ignorava livro=eq.: o teste passaria mostrando o histograma de todo o acervo",alta,tech lead (na revisão do plano),<10min,—
+D34,time-hibrido,30/08 19:00,"Histograma da ficha era o da leitora, não do livro, sob o rótulo Avaliações",alta,agente de produto,~20h,—
+D35,time-hibrido,30/08 19:00,"Espera casava com a tela anterior (.grade da busca): teste falhava 2 em 3",média,suíte local,~15min,—
+D36,time-hibrido,30/08 19:00,"Semear e navegar antes de recarregar: guardarLivro grava por cima da semeadura",média,suíte social,~10min,—
+D37,time-hibrido,30/08 19:00,"Sonda de alvo media sob as barras fixas e acusava de miúdo controle já consertado",média,rastreador,~10min,—
+D38,time-hibrido,30/08 19:00,"Retrato do feed é link de 30x30 e nunca esteve na lista de alvos",média,rastreador,~14h,—
+D39,time-hibrido,30/08 19:00,"Rota 'leitura' fora da lista de imersivas: herói de 300px sob a barra do topo",média,agente de design,~14h,—

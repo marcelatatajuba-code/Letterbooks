@@ -221,7 +221,7 @@ img { display: block; max-width: 100%; }
   margin: 0 0 10px;
   font-size: 16px; font-weight: 700; letter-spacing: -.022em; color: var(--texto);
 }
-.secao > h2 a, .secao > h2 .conta {
+.secao > h2 a, .secao > h2 .contador {
   margin-left: auto; color: var(--texto-3); font-size: 13px; font-weight: 400;
 }
 .secao > h2 a::after { content: " ›"; }
@@ -486,6 +486,20 @@ img { display: block; max-width: 100%; }
   background: var(--superficie-2); border-radius: 1px;
 }
 .histograma .col.tem i { background: var(--a1); }
+
+/* NOVO — nao existe no Letterboxd. Marca onde a SUA nota cai dentro da
+   distribuicao da comunidade. O traco vai na .col (46px, sempre presente) e
+   nao no <i>, para continuar visivel quando a sua nota ainda tem qtd 0 no
+   agregado — que e exatamente o instante em que ela mais importa. Verde
+   continua sendo "o que a comunidade fez"; a marca usa --texto, que ja e o
+   token de destaque, e nao um quarto acento. Para voltar ao histograma puro do
+   original, apague estas tres regras e o terceiro item do .histograma-eixo. */
+.histograma .col.minha { box-shadow: inset 0 -2px 0 var(--texto); }
+.histograma-eixo .marca-minha { color: var(--texto-2); }
+.histograma-eixo .marca-minha i {
+  display: inline-block; width: 12px; height: 2px; margin-right: 5px;
+  background: var(--texto); vertical-align: middle;
+}
 .histograma-eixo {
   display: flex; justify-content: space-between; align-items: center;
   margin-top: 6px; color: var(--texto-3); font-size: 10px;
@@ -537,9 +551,39 @@ img { display: block; max-width: 100%; }
 .avaliacoes-linha { display: flex; align-items: flex-end; gap: 18px; }
 .avaliacoes-grafico { flex: 1; max-width: 320px; }
 .avaliacoes-media {
-  font-size: 34px; font-weight: 300; line-height: 1; color: var(--texto);
+  /* 400 e nao 300: os dois @font-face declaram `font-weight: 400 800`, entao
+     300 era declaracao morta que o navegador ja travava em 400. Trocar nao
+     move um pixel — e a diferenca entre uma regra que mente e uma que
+     descreve. */
+  font-size: 34px; font-weight: 400; line-height: 1; color: var(--texto);
   padding-bottom: 14px;
 }
+
+/* A linha unica de texto que substitui o grafico nos estados vazio, erro e
+   offline. Cor --texto-2 e nao --texto-3 de proposito: aqui o texto CARREGA o
+   significado do bloco, e --texto-3 da ~3,9:1 sobre o fundo, abaixo do minimo
+   de 4,5:1. */
+.avaliacoes-nota { margin: 0; color: var(--texto-2); font-size: 13px; line-height: 1.6; }
+.avaliacoes-nota .mais, .avaliacoes-nota a.mais {
+  display: inline-block; margin-top: 10px; position: relative;
+}
+.avaliacoes-nota .mais::after { content: ""; position: absolute; inset: -13px; }
+.avaliacoes .fila-aviso { margin: 14px 0 0; }
+
+/* Carregando. Reserva a altura EXATA do estado cheio para a pagina nao pular
+   quando a resposta chega — a ficha tem .heroi com margin-top negativo, e
+   salto aqui empurra o heroi. Sem anel girando: spinner no meio de uma pagina
+   ja pintada le como quebra. Reusa o @keyframes brilho que ja existe. */
+.avaliacoes.esperando .avaliacoes-grafico,
+.avaliacoes.esperando .avaliacoes-media {
+  border-radius: var(--raio);
+  background: linear-gradient(100deg, var(--superficie) 30%, var(--superficie-2) 50%,
+                              var(--superficie) 70%);
+  background-size: 300% 100%;
+  animation: brilho 1.1s linear infinite;
+}
+.avaliacoes.esperando .avaliacoes-grafico { height: 64px; }   /* 46 + 6 + 12 do eixo */
+.avaliacoes.esperando .avaliacoes-media   { width: 52px; height: 34px; }
 
 /* ========================================= barra de acao do celular ====== */
 /* Some no computador, onde as acoes vivem no painel lateral. */
@@ -1265,6 +1309,10 @@ img { display: block; max-width: 100%; }
   border-radius: var(--raio);
 }
 .feed-linha .spoiler-aviso { margin-top: 6px; }
+/* Na ficha do livro o trecho e um link para a pagina da resenha: a linha
+   inteira nao pode ser o alvo porque ja carrega o ♥ e o 💬 dentro dela. */
+a.feed-resenha { display: block; }
+a.feed-resenha:hover { background: var(--superficie-2); color: var(--texto); }
 
 .feed-acoes {
   display: flex; align-items: center; gap: 16px;
@@ -1339,12 +1387,21 @@ img { display: block; max-width: 100%; }
 .secao > h2 a.seta,
 .feed-acoes button, .feed-acoes a,
 .comentario-apagar,
+/* O retrato do feed e um link para o perfil de quem escreveu, e mede 30x30. Ele
+   nunca esteve nesta lista; o rastreador so o encontrou quando a ficha do livro
+   passou a ter resenhas. Vale no feed inteiro, nao so aqui. */
+.feed-quem,
 .voltar,
 .aba-mais { position: relative; }
+/* O .mais dos estados de Avaliacoes ("Tentar de novo", "Avaliar este livro")
+   cresce por inset como todo o resto — nunca com largura fixa de 44px, que na
+   margem de 18px vazaria e criaria rolagem lateral. Ele fica sozinho na linha,
+   entao a folga de 24px entre alvos vizinhos nao e violada. */
 
 .secao > h2 a.seta::after,
 .feed-acoes button::after, .feed-acoes a::after,
 .comentario-apagar::after,
+.feed-quem::after,
 .voltar::after {
   content: ""; position: absolute; inset: -13px;
 }

@@ -42,6 +42,18 @@ var Sinc = (function () {
   }
 
   function pendentes() { return fila.length; }
+
+  /* Tem alguma LEITURA deste livro esperando rede? A ficha do livro usa isto
+     para dizer "sua nota entra quando a fila subir" e para refazer a consulta
+     da comunidade exatamente quando ela sobe. Sem esta pergunta so restava
+     pendentes(), e ai curtir ou marcar "quero ler" — que tambem passam pela
+     fila e nao mudam avaliacao nenhuma — disparavam uma ida a rede por toque. */
+  function esperandoLeitura(chave) {
+    for (var i = 0; i < fila.length; i++) {
+      if (fila[i].tipo === 'leitura' && fila[i].dado && fila[i].dado.chave === chave) return true;
+    }
+    return false;
+  }
   function aoMudar(f) { ouvintes.push(f); return f; }
   function avisar() {
     for (var i = 0; i < ouvintes.length; i++) {
@@ -240,6 +252,7 @@ var Sinc = (function () {
     descer:     descer,
     empurrar:   empurrar,
     pendentes:  pendentes,
+    esperandoLeitura: esperandoLeitura,
     aoMudar:    aoMudar,
     enfileirar: enfileirar
   };

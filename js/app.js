@@ -231,22 +231,63 @@
            (botao || '') + '</div>';
   }
 
+  /* Distribuição em meias-estrelas, de 0,5 a 5, a partir de uma lista de
+     notas. O Dados calcula o mesmo para o SEU diário; aqui a lista vem da
+     comunidade, e a soma é no cliente porque a agregação do PostgREST vem
+     desligada no Supabase. */
+  function faixasDe(notas) {
+    var f = [];
+    for (var i = 1; i <= 10; i++) {
+      var v = i / 2;
+      f.push({ nota: v, qtd: notas.filter(function (n) { return n === v; }).length });
+    }
+    return f;
+  }
+
   function livroDe(chave) {
     return Dados.livro(chave) || { chave: chave, titulo: 'Livro', autores: [], capa: null };
   }
 
-  /* Histograma de notas, usado no painel do livro e no perfil. */
-  function htmlHistograma(faixas) {
+  /* Histograma de notas. Na ficha do livro conta AVALIAÇÕES daquele livro; no
+     perfil conta LIVROS que você avaliou. Eram a mesma palavra até aqui, e o
+     mesmo dado — que é o defeito que este item conserta.
+
+     minhaNota, quando vem, marca a coluna onde a SUA nota cai dentro da
+     distribuição da comunidade. É NOVO: o original não faz isso. A marca vai
+     na .col e não no <i>, para continuar visível enquanto a barra tem 2px
+     porque a sua nota ainda não subiu — que é o instante em que ela importa
+     mais. O perfil chama sem os dois argumentos e não muda um pixel.
+
+     Os dez <div> vazios com title não diziam nada a um leitor de tela: o
+     gráfico inteiro passa a ser uma imagem com legenda, e o eixo de estrelas
+     (que sairia como "estrela preta" cinco vezes) fica calado. */
+  function htmlHistograma(faixas, substantivo, minhaNota) {
+    var uni = substantivo || 'livro';
+    var plu = uni === 'avaliação' ? 'avaliações' : uni + 's';
     var maior = Math.max.apply(null, faixas.map(function (f) { return f.qtd; }).concat([1]));
-    return '<div class="histograma">' +
+    var total = faixas.reduce(function (s, f) { return s + f.qtd; }, 0);
+    var soma  = faixas.reduce(function (s, f) { return s + f.nota * f.qtd; }, 0);
+    var pico  = faixas.reduce(function (a, f) { return f.qtd > a.qtd ? f : a; },
+                             { nota: 0, qtd: 0 });
+    var legenda = 'Distribuição de ' + plural(total, uni, plu) +
+      (total ? ': média ' + mediaTexto(soma / total) + ' de 5. Nota mais dada: ' +
+               nota1(pico.nota) + ', ' + plural(pico.qtd, uni, plu) + '.' : '.');
+    return '<div class="histograma" role="img" aria-label="' + esc(legenda) + '">' +
       faixas.map(function (f) {
-        return '<div class="col' + (f.qtd ? ' tem' : '') + '" title="' +
-               String(f.nota).replace('.', ',') + ' — ' + plural(f.qtd, 'livro', 'livros') + '">' +
+        var minha = minhaNota === f.nota;
+        return '<div class="col' + (f.qtd ? ' tem' : '') + (minha ? ' minha' : '') +
+               '" title="' + nota1(f.nota) + ' — ' + plural(f.qtd, uni, plu) +
+               (minha ? ' — sua nota' : '') + '">' +
                '<i style="height:' + Math.round((f.qtd / maior) * 100) + '%"></i></div>';
       }).join('') +
-    '</div><div class="histograma-eixo"><span class="estrelas">★</span>' +
-    '<span class="estrelas">★★★★★</span></div>';
+    '</div><div class="histograma-eixo">' +
+      '<span class="estrelas" aria-hidden="true">★</span>' +
+      (minhaNota ? '<span class="marca-minha"><i aria-hidden="true"></i>sua nota</span>' : '') +
+      '<span class="estrelas" aria-hidden="true">★★★★★</span>' +
+    '</div>';
   }
+
+  function nota1(n) { return String(n).replace('.', ','); }
 
   /* Um item da fileira de atividade: capa com nota e marcadores embaixo —
      como o original resume cada leitura recente no perfil. */
@@ -684,7 +725,6 @@
       }).join('') + '</tbody></table></div>';
 
     /* ---- painel lateral ---- */
-    var e = Dados.estatisticas();
     var painel =
       '<aside class="painel">' +
         '<div class="painel-acoes">' +
@@ -706,15 +746,11 @@
         '<button class="painel-botao" data-acao="compartilhar">Compartilhar</button>' +
       '</aside>';
 
-    /* O histograma sai do painel e vai para o corpo, com a media grande ao
-       lado — e assim continua visivel no celular, onde o painel nao aparece. */
-    var blocoNotas = e.media === null ? '' :
-      '<section class="avaliacoes"><span class="rotulo">Avaliações</span>' +
-        '<div class="avaliacoes-linha">' +
-          '<div class="avaliacoes-grafico">' + htmlHistograma(e.faixas) + '</div>' +
-          '<div class="avaliacoes-media">' + mediaTexto(e.media) + '</div>' +
-        '</div>' +
-      '</section>';
+    /* Aqui ficava um histograma de Dados.estatisticas() — as SUAS notas de
+       todos os livros, idêntico em toda ficha do acervo, sob o rótulo
+       "Avaliações". Não era ausência, era rótulo mentindo. Agora este é o
+       lugar onde a comunidade entra, e ela chega depois da tela pintar: a
+       ficha nunca espera a rede para existir. */
 
     var html =
       htmlHeroi(fundo) +
@@ -735,9 +771,10 @@
             '</div>' +
           '</div>' +
           miolo +
-          blocoNotas +
+          '<div id="livro-rede" aria-live="polite" aria-busy="true">' +
+            htmlRede(livro) + '</div>' +
           (logs.length ? '<section class="secao" style="margin-top:30px">' +
-            '<h2>Suas leituras<span class="conta">' + logs.length + '</span></h2>' +
+            '<h2>Suas leituras<span class="contador">' + logs.length + '</span></h2>' +
             tabelaDiario(logs, false) + '</section>' : '') +
         '</div>' +
         painel +
@@ -752,11 +789,23 @@
       '</button></div>';
 
     pintar(html);
+    ligarCurtidas(tela);
+    carregarRede(livro.chave);
 
     acoes({
       expandir: function (a) {
         document.getElementById('sinopse').classList.remove('recolhida');
         a.remove();
+      },
+      'curtir-leitura': alternarCurtida,
+      'rede-mais': function () {
+        rede.mostrando += RESENHAS_POR_VEZ;
+        repintarRede(livro.chave);
+      },
+      'rede-de-novo': function () {
+        rede.chave = null;                 /* força a consulta a acontecer de novo */
+        carregarRede(livro.chave);
+        repintarRede(livro.chave);
       },
       registrar: function () { abrirFolhaRegistro(livro, null); },
       rapida: function () { abrirFolhaRapida(livro); },
@@ -800,6 +849,247 @@
   function revelarSpoiler(a) {
     a.outerHTML = '<p class="resenha-texto">' + esc(a.getAttribute('data-texto')) + '</p>';
   }
+
+  /* ======================================= a comunidade dentro da ficha ==== */
+
+  /* desenhaLivro se redesenha INTEIRO a cada ♥/◷/★ do próprio livro. Se as
+     seções da comunidade fossem montadas lá dentro, tocar no coração apagaria
+     a lista de resenhas e bateria no servidor de novo, por toque. Elas vivem
+     neste cache de módulo, indexado pela chave — e não numa variável de
+     telaLivro, porque desenhaLivro é função de módulo e não enxerga aquele
+     escopo. A repintura reinjeta o que já está em mãos, sem requisição. */
+  var rede = { chave: null, leituras: null, sigo: null, falhou: false, mostrando: 0 };
+  var RESENHAS_POR_VEZ = 3;
+  /* O recorte da consulta. Acima disto a média sairia truncada sem dizer — por
+     isso, quando a resposta vem cheia, o bloco declara o corte em vez de
+     chamar de "a média" a média das mais recentes. */
+  var TETO_LEITURAS = 200;
+
+  function carregarRede(chave) {
+    if (!Nuvem.ligada()) return;
+    if (rede.chave === chave && (rede.leituras || rede.falhou)) return;  /* já em mãos */
+    rede.chave = chave;
+    rede.leituras = null;
+    rede.sigo = null;
+    rede.falhou = false;
+    rede.mostrando = RESENHAS_POR_VEZ;
+
+    if (navigator.onLine === false) { rede.falhou = 'offline'; return repintarRede(chave); }
+
+    /* Duas promessas independentes, e NUNCA um Promise.all: quemEuSigo passa
+       por comSessao, que rejeita sem sessão. Juntas, quem chega sem conta
+       perderia também o histograma — que é justamente o que a ficha precisa
+       mostrar a quem ainda não tem conta. Cada uma pinta a sua parte. */
+    Nuvem.leiturasDoLivro(chave, TETO_LEITURAS).then(function (l) {
+      if (rede.chave !== chave) return;
+      rede.leituras = l || [];
+      repintarRede(chave);
+    }, function () {
+      if (rede.chave !== chave) return;
+      rede.falhou = 'erro';
+      repintarRede(chave);
+    });
+
+    if (!Nuvem.entrou()) return;
+    Nuvem.quemEuSigo().then(function (ids) {
+      if (rede.chave !== chave) return;
+      rede.sigo = ids || [];
+      if (rede.leituras) repintarRede(chave);
+    }, function () { /* sem a lista some a seção de gente; o resto do bloco fica */ });
+  }
+
+  function repintarRede(chave) {
+    var caixa = document.getElementById('livro-rede');
+    if (!caixa || rede.chave !== chave) return;
+    caixa.innerHTML = htmlRede(livroDe(chave));
+    caixa.setAttribute('aria-busy', (rede.leituras || rede.falhou) ? 'false' : 'true');
+    ligarCurtidas(caixa);
+  }
+
+  function htmlRede(livro) {
+    /* Sem nuvem não existe comunidade, e "0 avaliações" seria mentira de
+       interface: a seção simplesmente não nasce. */
+    if (!Nuvem.ligada()) return '';
+    var minha = Dados.notaDe(livro.chave) || null;
+
+    if (rede.chave !== livro.chave || (!rede.leituras && !rede.falhou)) {
+      /* Esqueleto com a altura exata do estado cheio. A ficha já está pintada
+         com o que é local: um anel girando no meio dela leria como quebra, e
+         um bloco que cresce depois empurraria o herói de margem negativa. */
+      return '<section class="avaliacoes esperando"><span class="rotulo">Avaliações</span>' +
+        '<div class="avaliacoes-linha">' +
+          '<div class="avaliacoes-grafico"></div><div class="avaliacoes-media"></div>' +
+        '</div></section>';
+    }
+
+    if (rede.falhou) {
+      /* De propósito não é a caixa .erro vermelha: o resto da página carregou,
+         o livro está lá, e alarme de página inteira para um bloco secundário é
+         desproporcional. */
+      return '<section class="avaliacoes"><span class="rotulo">Avaliações</span>' +
+        '<p class="avaliacoes-nota">' +
+        (rede.falhou === 'offline'
+          ? 'Você está sem conexão. As notas da comunidade voltam quando a rede voltar.'
+          : 'Não consegui trazer as notas da comunidade agora.' +
+            '<button class="mais" data-acao="rede-de-novo">Tentar de novo</button>') +
+        '</p></section>';
+    }
+
+    var notas = rede.leituras
+      .filter(function (l) { return typeof l.nota === 'number' && l.nota > 0; })
+      .map(function (l) { return l.nota; });
+
+    var html = '<section class="avaliacoes"><span class="rotulo">Avaliações</span>';
+    if (!notas.length) {
+      /* Dez colunas zeradas leem como "todo mundo deu zero", que é mentira. */
+      html += '<p class="avaliacoes-nota">Ninguém avaliou este livro por aqui ainda.' +
+        (Nuvem.entrou()
+          ? (minha ? '' : '<button class="mais" data-acao="rapida">Avaliar este livro</button>')
+          : '<a class="mais" href="#/conta">Criar conta para avaliar</a>') +
+        '</p>';
+    } else {
+      var media = notas.reduce(function (a, b) { return a + b; }, 0) / notas.length;
+      html += '<div class="avaliacoes-linha">' +
+          '<div class="avaliacoes-grafico">' +
+            htmlHistograma(faixasDe(notas), 'avaliação', minha) + '</div>' +
+          '<div class="avaliacoes-media">' + mediaTexto(media) + '</div>' +
+        '</div>' +
+        (rede.leituras.length >= TETO_LEITURAS
+          ? '<p class="avaliacoes-nota">Somando as ' + TETO_LEITURAS +
+            ' leituras mais recentes deste livro.</p>' : '');
+    }
+    html += htmlAvisoDaMinhaNota(livro.chave, minha) + '</section>';
+
+    /* ---- quem você segue leu ---- */
+    var seguidos = rede.sigo || [];
+    if (seguidos.length) {
+      var vistos = {}, gente = [];
+      rede.leituras.forEach(function (l) {
+        if (seguidos.indexOf(l.perfil) < 0 || vistos[l.perfil]) return;
+        vistos[l.perfil] = 1;
+        gente.push(l);
+      });
+      if (gente.length) {
+        html += '<section class="secao"><h2>Quem você segue leu' +
+          '<span class="contador">' + gente.length + '</span></h2>' +
+          '<div class="resultados">' + gente.map(htmlLeitorDoLivro).join('') +
+          '</div></section>';
+      }
+    }
+
+    /* ---- as resenhas escritas sobre este livro ---- */
+    var resenhas = rede.leituras.filter(function (l) { return l.resenha; });
+    if (resenhas.length) {
+      var mostra = resenhas.slice(0, rede.mostrando);
+      /* Sem contagem e sem chevron no título: não há contagem exata sem
+         count=exact, e não existe rota "todas as resenhas deste livro" — seta
+         que não leva a lugar nenhum é o que o próprio app já proíbe. */
+      html += '<section class="secao"><h2>Resenhas</h2>' +
+        mostra.map(htmlResenhaDoLivro).join('') +
+        (resenhas.length > mostra.length
+          ? '<div class="linha-botoes"><button class="botao rede-mais" ' +
+            'data-acao="rede-mais">Ver mais resenhas</button></div>'
+          : '') +
+      '</section>';
+    }
+
+    return html;
+  }
+
+  /* A sua nota está no aparelho mas ainda não está na média — e o bloco diz
+     qual dos dois motivos é, em vez de deixar a pessoa achar que o agregado
+     está errado. */
+  function htmlAvisoDaMinhaNota(chave, minha) {
+    if (!minha) return '';
+    if (!Nuvem.entrou()) {
+      return '<p class="fila-aviso">Sua nota fica só neste aparelho. ' +
+             '<a href="#/conta">Crie uma conta</a> para ela entrar na média.</p>';
+    }
+    if (Sinc.esperandoLeitura(chave)) {
+      return '<p class="fila-aviso">Sua nota entra na conta quando a fila ' +
+             'terminar de subir.</p>';
+    }
+    return '';
+  }
+
+  /* Mesma linha da busca de leitores (t061): a linha inteira é o alvo, 64px de
+     altura, sem alvo aninhado dentro dela. */
+  function htmlLeitorDoLivro(l) {
+    var nome = l.perfil_nome || l.usuario || 'alguém';
+    return '<a class="resultado" href="#/leitor/' + encodeURIComponent(l.usuario) + '">' +
+      '<div class="resultado-inicial" aria-hidden="true">' +
+        esc(nome.trim().charAt(0).toUpperCase()) + '</div>' +
+      '<div class="resultado-texto"><b>' + esc(nome) + '</b><span>@' + esc(l.usuario) +
+        (typeof l.nota === 'number' && l.nota > 0
+          ? ' · <span class="estrelas" role="img" aria-label="' + esc(nota1(l.nota)) +
+            ' de 5 estrelas">' + estrelasTexto(l.nota) + '</span>'
+          : '') +
+        ' · ' + esc(quandoFoi(l.criado_em)) +
+      '</span></div></a>';
+  }
+
+  /* A linha do feed, com a terceira coluna vazia: a capa não se repete porque
+     o livro É a página. E sem o verbo e sem o título — "Ana leu Dom Casmurro
+     ★★★★" repetido em toda linha é o ruído que a regra da frase existe para
+     evitar. */
+  function htmlResenhaDoLivro(l) {
+    var nome = l.perfil_nome || l.usuario || 'alguém';
+    var corpo = l.spoiler
+      ? '<button class="spoiler-aviso" data-acao="ver-spoiler" data-texto="' +
+        esc(l.resenha) + '">Esta resenha tem spoiler. Tocar para ler.</button>'
+      : '<a class="feed-resenha" href="#/leitura/' + encodeURIComponent(l.id) + '">' +
+        esc(recortar(l.resenha, 240)) + '</a>';
+
+    return '<article class="feed-linha" data-leitura="' + esc(l.id) + '">' +
+      '<a class="feed-quem" href="#/leitor/' + encodeURIComponent(l.usuario) + '"' +
+        ' aria-label="Perfil de ' + esc(nome) + '">' +
+        '<span class="feed-avatar" aria-hidden="true">' +
+          esc(nome.trim().charAt(0).toUpperCase()) + '</span></a>' +
+      '<div class="feed-corpo">' +
+        '<p class="feed-frase">' +
+          '<a class="alvo" href="#/leitor/' + encodeURIComponent(l.usuario) + '">' +
+            esc(nome) + '</a>' +
+          (typeof l.nota === 'number' && l.nota > 0
+            ? ' <span class="estrelas">' + estrelasTexto(l.nota) + '</span>' : '') +
+          (l.relido ? ' · releitura' : '') +
+        '</p>' +
+        corpo +
+        '<div class="feed-acoes">' +
+          '<button class="feed-curtir" data-acao="curtir-leitura" data-id="' + esc(l.id) + '"' +
+            ' aria-pressed="false" aria-label="Curtir a resenha de ' + esc(nome) + '">' +
+            '<span class="glifo" aria-hidden="true">♡</span>' +
+            '<span class="conta-curtidas">' + (l.curtidas || 0) + '</span></button>' +
+          '<a class="feed-comentar" href="#/leitura/' + encodeURIComponent(l.id) + '"' +
+            ' aria-label="Comentar a resenha de ' + esc(nome) + '">' +
+            '<span class="glifo" aria-hidden="true">💬</span>' + (l.comentarios || 0) + '</a>' +
+          '<time>' + esc(quandoFoi(l.criado_em)) + '</time>' +
+        '</div>' +
+      '</div>' +
+    '</article>';
+  }
+
+  /* Dois gatilhos de recarga, registrados UMA vez: aoMudar não tem como tirar
+     um ouvinte, então inscrever por pintura acumularia um por visita à ficha.
+     Quando a rede volta, ou quando a fila esvazia e a sua nota finalmente
+     entra na média, o bloco se refaz sozinho — sem recarregar a página. */
+  function refazerRede() {
+    var chave = rede.chave;
+    if (!chave || !document.getElementById('livro-rede')) return;
+    rede.chave = null;
+    carregarRede(chave);
+    repintarRede(chave);
+  }
+  window.addEventListener('online', refazerRede);
+  /* Só na BORDA: a leitura deste livro estava na fila e acabou de subir. Sem a
+     borda, qualquer mexida na fila — um ♥, um "quero ler" — refaria a consulta,
+     uma ida à rede por toque e a lista de resenhas piscando junto. */
+  var esperavaMinhaNota = false;
+  Sinc.aoMudar(function () {
+    var agora = !!(rede.chave && Sinc.esperandoLeitura(rede.chave));
+    if (esperavaMinhaNota && !agora) refazerRede();
+    esperavaMinhaNota = agora;
+  });
+
 
   /* ============================================== diario em forma de tabela == */
 
@@ -1067,7 +1357,7 @@
 
   function secaoEstante(titulo, livros, vazio) {
     return '<section class="secao"><h2>' + esc(titulo) +
-      '<span class="conta">' + livros.length + '</span></h2>' +
+      '<span class="contador">' + livros.length + '</span></h2>' +
       (livros.length ? htmlGrade(livros)
                      : '<p style="color:var(--texto-3);font-size:13px;margin:0">' + esc(vazio) + '</p>') +
       '</section>';
@@ -1201,7 +1491,7 @@
           : '') +
 
         '<section class="secao" style="margin-top:28px"><h2>Obras' +
-          '<span class="conta">' + obras.length + '</span></h2>' +
+          '<span class="contador">' + obras.length + '</span></h2>' +
           (obras.length ? htmlGrade(obras)
                         : '<p style="color:var(--texto-3);font-size:13px;margin:0">' +
                           'A Open Library não lista obras para esta pessoa.</p>') +
@@ -2738,7 +3028,11 @@
        o cabecalho com a marca sai e sobra o chevron, sobre a foto. */
     var raiz = (location.hash || '').replace(/^#\/?/, '').split('/')[0];
     document.body.classList.toggle('imersiva',
-      raiz === 'livro' || raiz === 'resenha' || raiz === 'lista');
+      raiz === 'livro' || raiz === 'resenha' || raiz === 'lista' ||
+      /* 'leitura' ficou de fora quando a camada social nasceu: em 390px a
+         página pintava um herói de 300px COM a barra do topo por cima e puxava
+         o conteúdo −190 por baixo dela. A ficha do livro agora leva para cá. */
+      raiz === 'leitura');
     var partes = (location.hash || '#/inicio').replace(/^#\/?/, '').split('/');
     var rota = partes[0] || 'inicio';
 

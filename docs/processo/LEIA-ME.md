@@ -17,7 +17,7 @@ aparece num burndown:
 |---|---|
 | **Ponto cego** | o ambiente não alcança a Open Library nem o Supabase. Três rodadas de retrabalho de layout saíram daí, e três defeitos só apareceram num print do celular. |
 | **Colisão de arquivo** | `js/app.js` tem ~3.000 linhas e quase toda tela passa por ele. Isso limita o paralelismo mais do que qualquer capacidade de time. |
-| **Capacidade de detecção** | defeito existe desde que foi escrito; o que muda é quando alguém consegue vê-lo. Cinco dos nove defeitos da última fase foram **injetados nas fases anteriores** e ficaram latentes por horas. |
+| **Capacidade de detecção** | defeito existe desde que foi escrito; o que muda é quando alguém consegue vê-lo. **Nove dos dezesseis** defeitos da última fase foram injetados antes dela e ficaram latentes de 1h20 a 20h. |
 
 Então as métricas aqui medem **essas três coisas**, e não esforço:
 
@@ -54,9 +54,14 @@ o paralelismo rende.
 | linhas de app | 3.447 | 2.861 | 252 |
 | linhas de verificação | **0** | 1.465 | 1.187 |
 | linhas de conhecimento | 173 | 203 | 2.279 |
-| defeitos registrados | 10 | 13 | 9 |
-| **achados pela usuária** | **3 de 10** | **4 de 13** | **0 de 9** |
+| defeitos registrados | 10 | 13 | 16 |
+| **achados pela usuária** | **3 de 10** | **4 de 13** | **0 de 16** |
 | graves achados por ferramenta | 1 | 4 | 6 |
+
+As colunas por fase acima são um retrato do commit `dee44a2`, quando a
+comparação foi escrita; só a de defeitos segue viva, porque `conferir.py` a lê
+do `defeitos.csv`. Os totais do projeto — asserções, razão, defeitos — são os
+de hoje e estão conferidos contra a fonte mais abaixo.
 
 ### Como ler isto sem se enganar
 
@@ -64,10 +69,12 @@ o paralelismo rende.
 primeiro commit tem 2.420 linhas. A última é endurecimento e correção. Linha
 por hora não compara.
 
-**2. "Defeitos por fase" mede DETECÇÃO, não injeção.** Cinco dos nove
-defeitos da última fase nasceram nas duas primeiras e ficaram latentes de 1h20
-a 5h30. O time híbrido não os evitou — ele os **tornou visíveis**. Ler a
-tabela como "a última fase teve menos defeitos" é ler ao contrário.
+**2. "Defeitos por fase" mede DETECÇÃO, não injeção.** **Nove dos dezesseis**
+defeitos da última fase nasceram antes dela e ficaram latentes de 1h20 a 20h —
+o mais antigo é o histograma da ficha, que mostrava as notas da leitora sob o
+rótulo "Avaliações" desde o primeiro dia. O time híbrido não os evitou: ele os
+**tornou visíveis**. Ler a tabela como "a última fase teve menos defeitos" é
+ler ao contrário.
 
 **3. Hora de parede não é esforço.** A última fase mostra 9,5 horas porque
 inclui 73 minutos de agentes rodando e um intervalo longo sem trabalho nenhum.
@@ -92,11 +99,12 @@ Asserções ao longo do projeto, ditas pelos próprios commits:
 30/08 05:41   —    jornada de ponta a ponta nasce
 30/08 05:59   —    rastreador autônomo nasce
 30/08 15:39  103   suíte local hoje
+30/08 19:__  111   V3: o bloco de avaliações da comunidade
 ```
 
-Hoje: **239 asserções** em quatro suítes, mais o rastreador (que não assere:
-mede e relata) e a prova em Postgres. **2.426 linhas de verificação para 6.017
-de app** — razão de 0,40.
+Hoje: **272 asserções** em quatro suítes, mais o rastreador (que não assere:
+mede e relata) e a prova em Postgres. **2.627 linhas de verificação para 6.395
+de app** — razão de 0,41.
 
 Os três números acima foram conferidos contra a fonte depois de escritos, e os
 três estavam errados na primeira versão deste arquivo: 251 contava os achados
@@ -137,7 +145,7 @@ Hoje há 14 parciais e 12 ausentes.
 
 | critério | hoje | meta |
 |---|---|---|
-| asserções nas suítes | 239 | ≥ 200 |
+| asserções nas suítes | 272 | ≥ 200 |
 | achados graves do rastreador | 0 | 0 |
 | defeitos de corrupção em aberto | 0 | 0 |
 | RLS provado em Postgres real | sim | sim |
@@ -174,7 +182,7 @@ daqui com o que decide a coisa.
 
 | arquivo | o que é |
 |---|---|
-| `defeitos.csv` | os 32 defeitos, com fase, gravidade, **quem detectou** e latência |
+| `defeitos.csv` | os 39 defeitos, com fase, gravidade, **quem detectou** e latência |
 | `portoes.py` | mede os portões 1 e 2, e diz que o 3 não é medível daqui |
 | `conferir.py` | confere os números deste arquivo contra a fonte |
 | `../kb/` | a saída de uma volta do ciclo SDD |
