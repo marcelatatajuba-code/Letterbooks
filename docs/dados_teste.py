@@ -470,18 +470,18 @@ CASOS = [
     },
     {
         'nome': 'visitante-sem-conta-numa-resenha',
-        'defeitos': ['D25', 'D39'],
+        'defeitos': ['D25', 'D39', 'D44', 'D45'],
         'porque': 'Quem abre um link recebido não tem sessão. ligarCurtidas lia '
                   'quemSou().id — null — e o TypeError nascia DENTRO do callback de '
                   'sucesso, onde o tratamento de erro do Promise não alcança: a página '
-                  'não mostra nada, só para. E a rota ficou fora da lista de imersivas, '
-                  'então em 390px o herói de 300px pintava sob a barra do topo.',
+                  'não mostra nada, só para. Desde a V4 este é o endereço único da '
+                  'resenha, e é por ele que todo link compartilhado entra.',
         'banco': {'livros': [ACERVO[CASMURRO]], 'perfis': perfil('marcela', 'bia'),
                   'leituras': [leitura('V1', 'bia', CASMURRO, nota=5.0, dia=2,
                                        resenha='Vale cada página.')]},
         'diario': diario(),
         'sessao': None,
-        'rota': '#/leitura/V1',
+        'rota': '#/resenha/V1',
         'esperar': '.resenha',
         'largura': 390,
         'sem_estouro': True,
@@ -548,6 +548,8 @@ SO_DE_TELA = {
     'D36': 'defeito da semeadura de um teste, não do app',
     'D37': 'defeito da sonda do rastreador, não do app',
     'D38': 'área de toque — medida pelo rastreador',
+    'D46': 'token de cor — medido em testar.py, seção 9b',
+    'D47': 'defeito da sonda do rastreador, não do app',
     'D42': 'defeito do runner desta suíte, não do app',
     'D43': 'defeito de nomenclatura entre suítes, não do app',
 }

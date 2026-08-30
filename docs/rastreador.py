@@ -288,6 +288,24 @@ def rastrear():
                     achado('media', 'clique-falhou', onde,
                            '"%s": %s' % (d['nome'][:40] or d['acao'], str(e).split('\n')[0][:90]))
                     continue
+                # Folha aberta cobre a tela inteira (.folha-fundo e fixed inset 0,
+                # z 60): sem fechar, TODO clique seguinte falha por timeout e o
+                # rastreador acusa de quebrado o que so estava atras do modal.
+                # Foi assim que o "Apagar" da resenha — que virou folha no lugar
+                # do confirm() do navegador — derrubou o comentario da mesma
+                # tela. Fechar tambem e o unico jeito de descobrir modal SEM
+                # saida, que e defeito de verdade e ai vira achado.
+                if pg.locator('.folha-fundo').count():
+                    saidas = pg.locator('.folha [data-fechar], .folha .botao:not(.perigo)')
+                    if not saidas.count():
+                        achado('alta', 'modal-sem-saida', onde,
+                               'a folha aberta por "%s" nao tem nenhum jeito de fechar'
+                               % (d['nome'][:40] or d['acao']))
+                        pg.goto(BASE + onde, wait_until='domcontentloaded')
+                    else:
+                        saidas.first.click(timeout=3000)
+                    pg.wait_for_timeout(400)
+
                 novos = erros_console[marca:]
                 for tipo, txt in novos[:2]:
                     achado('alta', 'erro-js', onde + ' → ' + (d['nome'][:30] or d['acao']), txt)

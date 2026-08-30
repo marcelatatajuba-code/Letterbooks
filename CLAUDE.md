@@ -75,6 +75,11 @@ e nenhuma linha de código no runner. Se o defeito não for alcançável por dad
 `conferir.py` falha de propósito quando um defeito não tem nem caso nem
 motivo. Foi assim que a suíte nasceu já achando dois defeitos vivos.
 
+**Um acento tem um trabalho só, e destruir não é acento.** `--a3` pintava
+curtida, favorito, o botão "Apagar" e a caixa de erro — quatro significados num
+token. `--perigo` existe só para o que vai sumir, e não aparece por decoração
+em lugar nenhum.
+
 **Meça, não olhe.** Três vezes seguidas o layout foi ajustado no olho e errou
 do mesmo jeito: peça grande demais, densidade de site num aplicativo. O que
 resolveu foi medir os quadros do vídeo do app original. As ferramentas estão
@@ -158,7 +163,7 @@ completa, use a skill `/ciclo`. Para só verificar, `/verificar`.
 **Quando parar de dar voltas:** não é quando o backlog acabar — ele sempre
 volta a encher. É quando `python3 docs/processo/portoes.py` fechar os dois
 portões que ele mede (fidelidade e solidez). Hoje: fidelidade **aberto** em
-56% de paridade e 7 itens, solidez **fechado**.
+57% de paridade e 6 itens, solidez **fechado**.
 
 Marque o item do backlog com `entregue` ao publicá-lo. Sem isso o portão conta
 para sempre os mesmos itens e não pode fechar nunca.

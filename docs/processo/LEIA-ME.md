@@ -17,7 +17,7 @@ aparece num burndown:
 |---|---|
 | **Ponto cego** | o ambiente não alcança a Open Library nem o Supabase. Três rodadas de retrabalho de layout saíram daí, e três defeitos só apareceram num print do celular. |
 | **Colisão de arquivo** | `js/app.js` tem ~3.000 linhas e quase toda tela passa por ele. Isso limita o paralelismo mais do que qualquer capacidade de time. |
-| **Capacidade de detecção** | defeito existe desde que foi escrito; o que muda é quando alguém consegue vê-lo. **11 dos 19** defeitos da última fase foram injetados antes dela e ficaram latentes de 1h20 a 21h. |
+| **Capacidade de detecção** | defeito existe desde que foi escrito; o que muda é quando alguém consegue vê-lo. **14 dos 23** defeitos da última fase foram injetados antes dela e ficaram latentes de 1h20 a 22h. |
 
 Então as métricas aqui medem **essas três coisas**, e não esforço:
 
@@ -54,8 +54,8 @@ o paralelismo rende.
 | linhas de app | 3.447 | 2.861 | 252 |
 | linhas de verificação | **0** | 1.465 | 1.187 |
 | linhas de conhecimento | 173 | 203 | 2.279 |
-| defeitos registrados | 10 | 13 | 19 |
-| **achados pela usuária** | **3 de 10** | **4 de 13** | **0 de 19** |
+| defeitos registrados | 10 | 13 | 23 |
+| **achados pela usuária** | **3 de 10** | **4 de 13** | **0 de 23** |
 | graves achados por ferramenta | 1 | 4 | 6 |
 
 As colunas por fase acima são um retrato do commit `dee44a2`, quando a
@@ -69,8 +69,8 @@ de hoje e estão conferidos contra a fonte mais abaixo.
 primeiro commit tem 2.420 linhas. A última é endurecimento e correção. Linha
 por hora não compara.
 
-**2. "Defeitos por fase" mede DETECÇÃO, não injeção.** **11 dos 19**
-defeitos da última fase nasceram antes dela e ficaram latentes de 1h20 a 21h —
+**2. "Defeitos por fase" mede DETECÇÃO, não injeção.** **14 dos 23**
+defeitos da última fase nasceram antes dela e ficaram latentes de 1h20 a 22h —
 o mais antigo é o histograma da ficha, que mostrava as notas da leitora sob o
 rótulo "Avaliações" desde o primeiro dia. O time híbrido não os evitou: ele os
 **tornou visíveis**. Ler a tabela como "a última fase teve menos defeitos" é
@@ -101,13 +101,14 @@ Asserções ao longo do projeto, ditas pelos próprios commits:
 30/08 15:39  103   suíte local hoje
 30/08 19:__  111   V3: o bloco de avaliações da comunidade
 30/08 20:__  +46   suíte de regressão nasce (12 casos de dado)
+30/08 21:__  298   V4: um endereço só para a resenha
 ```
 
-Hoje: **272 asserções** em quatro suítes, mais **46 checagens** em 12 casos de
+Hoje: **298 asserções** em quatro suítes, mais **46 checagens** em 12 casos de
 regressão, o rastreador (que não assere: mede e relata) e a prova em Postgres.
 **3.294 linhas de verificação para 6.409 de app** — razão de 0,52.
 
-**16 de 42 defeitos** tem caso de regressão que os prende. Os outros 26 estão
+**18 de 46 defeitos** tem caso de regressão que os prende. Os outros 28 estão
 listados um a um em `dados_teste.SO_DE_TELA`, cada um com o motivo de não ser
 alcançável por dado — pixel, CSS, defeito de mock ou de processo. "Sem caso"
 sem motivo escrito faz `conferir.py` falhar de propósito: dívida invisível é a
@@ -152,7 +153,7 @@ Hoje há 14 parciais e 12 ausentes.
 
 | critério | hoje | meta |
 |---|---|---|
-| asserções nas suítes | 272 | ≥ 200 |
+| asserções nas suítes | 298 | ≥ 200 |
 | achados graves do rastreador | 0 | 0 |
 | defeitos de corrupção em aberto | 0 | 0 |
 | RLS provado em Postgres real | sim | sim |
@@ -189,7 +190,7 @@ daqui com o que decide a coisa.
 
 | arquivo | o que é |
 |---|---|
-| `defeitos.csv` | os 42 defeitos, com fase, gravidade, **quem detectou** e latência |
+| `defeitos.csv` | os 46 defeitos, com fase, gravidade, **quem detectou** e latência |
 | `portoes.py` | mede os portões 1 e 2, e diz que o 3 não é medível daqui |
 | `conferir.py` | confere os números deste arquivo contra a fonte |
 | `../kb/` | a saída de uma volta do ciclo SDD |

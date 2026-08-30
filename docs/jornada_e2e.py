@@ -192,6 +192,7 @@ def rodar():
         checa('curtida gravada', len(S.BANCO['curtidas']) == 1)
         pg.click('.feed-comentar')
         pg.wait_for_selector('#campo-comentario', timeout=10000)
+        enderecoDoBruno = pg.evaluate('location.hash')
         pg.fill('#campo-comentario', 'Também quero ler.')
         pg.click('#forma-comentario button[type=submit]')
         pg.wait_for_timeout(900)
@@ -207,12 +208,27 @@ def rodar():
         pg.fill('input[name=senha]', 'segredo123')
         pg.click('#forma-conta button[type=submit]')
         pg.wait_for_selector('#forma-perfil', timeout=12000)
-        idL = S.BANCO['leituras'][0]['id']
-        pg.goto(BASE + '#/leitura/' + idL, wait_until='networkidle')
+        # A Ana chega pelo DIARIO dela, com o id local — o apelido. O Bruno
+        # chegou pelo feed, com o uuid. Se o endereco nao for o mesmo no fim, a
+        # resenha volta a ter dois enderecos e o item nao aconteceu.
+        pg.goto(BASE + '#/diario', wait_until='networkidle')
+        pg.wait_for_selector('.cel-marca a', timeout=10000)
+        apelido = pg.locator('.cel-marca a').first.get_attribute('href')
+        pg.locator('.cel-marca a').first.click()
         pg.wait_for_selector('.resenha', timeout=10000)
+        checa('a Ana entra pelo apelido do diario', '/resenha/' in apelido, apelido)
+        checa('e chega no MESMO endereco que o Bruno abriu',
+              pg.evaluate('location.hash') == enderecoDoBruno,
+              '%s vs %s' % (pg.evaluate('location.hash'), enderecoDoBruno))
         checa('a resenha dela tem 1 curtida',
               pg.inner_text('.conta-curtidas').strip() == '1')
         checa('e o comentario do Bruno', 'Também quero ler' in pg.inner_text('#comentarios'))
+        checa('ela ve que a resenha esta no ar',
+              'no ar' in pg.inner_text('.resenha-estado').lower())
+        checa('e pode compartilhar, editar e apagar dali mesmo',
+              pg.locator('[data-acao=compartilhar-resenha]').count() == 1 and
+              pg.locator('[data-acao=editar-log]').count() == 1 and
+              pg.locator('[data-acao=apagar-resenha]').count() == 1)
         pg.goto(BASE + '#/perfil', wait_until='networkidle')
         pg.wait_for_selector('.perfil-nome', timeout=8000)
         pg.wait_for_timeout(1200)

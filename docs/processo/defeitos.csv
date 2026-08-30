@@ -41,3 +41,7 @@ D40,time-hibrido,30/08 20:10,Banco sem o backfill da V1: descer duplicava o diá
 D41,time-hibrido,30/08 20:10,limparAssuntos não pegava mojibake: etiqueta ilegível chegava inteira na tela,baixa,caso de regressão assuntos-sujos,~21h,—
 D42,time-hibrido,30/08 20:10,Rota de página vencia a de contexto: o roteador da Open Library nunca era chamado no runner novo,média,eu (conferindo por que o caso falhava),<20min,—
 D43,time-hibrido,30/08 20:10,Duas suítes davam a mesma chave /works/OL1W a dois livros diferentes,baixa,eu (montando o dataset),~19h,—
+D44,time-hibrido,30/08 21:30,"A mesma resenha tinha dois endereços: o link mandado caía em ""Esta resenha não existe mais""",alta,agente de produto,~22h,—
+D45,time-hibrido,30/08 21:30,Compartilhar não sabia mandar o LINK — não havia url em nenhuma chamada de navigator.share,média,agente de produto,~22h,—
+D46,time-hibrido,30/08 21:30,"Apagar e a caixa .erro pintavam em --a3, o mesmo token de curtida",baixa,agente de design,~22h,—
+D47,time-hibrido,30/08 21:30,Folha aberta bloqueava todo clique seguinte e o rastreador acusava de quebrado o que estava atrás do modal,média,rastreador,<20min,—

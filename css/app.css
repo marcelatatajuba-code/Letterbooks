@@ -85,6 +85,13 @@
   --curtida: var(--a3);
   --quero:   var(--a2);
 
+  /* Vermelho de DESTRUIR: apagar a resenha, apagar a lista, apagar a conta.
+     Nao e o quarto acento — a regra que proibe um quarto acento fala de cor
+     que decora, e esta nunca aparece por decoracao: so quando alguma coisa vai
+     sumir. Ate aqui "Apagar" usava --a3, o MESMO token de --curtida, ou seja,
+     o botao de destruir estava pintado na cor de "eu gostei disto". */
+  --perigo: #ff4d4d;
+
   --raio:   4px;
   --raio-g: 8px;
   --sombra: 0 10px 30px rgba(0, 0, 0, .5);
@@ -113,6 +120,10 @@
   --a2: #a8b864;
   --a3: #e0a0b8;
   --sobre-a1: #1f0d04;
+  /* No cafe o vermelho puro brigaria com o laranja da marca; este e o mesmo
+     vermelho puxado para o quente do tema, e continua sendo o unico token que
+     significa "vai sumir". */
+  --perigo: #e5533d;
 }
 
 * { box-sizing: border-box; }
@@ -862,6 +873,28 @@ img { display: block; max-width: 100%; }
   margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--borda);
 }
 .resenha-corpo .resenha-texto { font-size: 15.5px; line-height: 1.75; }
+.resenha-sem-texto { color: var(--texto-3); font-size: 15.5px; }
+
+/* NOVO — nao existe no Letterboxd, que nunca teve dois enderecos para a mesma
+   resenha e portanto nunca precisou dizer qual e o publico. Aqui a autora
+   precisa saber, olhando, que o que ela ve e o que a outra pessoa vai ver. */
+.resenha-estado { display: block; margin: 8px 0 0; }
+.resenha .fila-aviso { margin: 10px 0 0; }
+
+/* "Contem spoiler" era style inline com --a1 — verde de "o que voce fez" num
+   rotulo de aviso, que e roubar o acento de outro trabalho. */
+.resenha-spoiler { display: block; margin: 0 0 10px; }
+
+.resenha-acoes { margin-top: 16px; }
+.resenha-botoes { margin-top: 26px; }
+/* O ♥ ao lado da nota diz que quem escreveu curtiu o LIVRO — nao a resenha. */
+.curtiu-o-livro { color: var(--curtida); }
+
+@media (max-width: 720px) {
+  /* Quatro botoes de 44 quebram em duas linhas nos 354px uteis. E o
+     comportamento certo do wrap, nao um problema a consertar. */
+  .resenha-botoes .botao { min-height: 44px; }
+}
 
 @media (max-width: 520px) {
   .resenha.sobre-heroi { margin-top: -140px; }
@@ -925,8 +958,10 @@ img { display: block; max-width: 100%; }
 .botao:hover { background: var(--borda); color: var(--texto); }
 .botao.destaque { background: var(--a1); color: var(--sobre-a1); }
 .botao.destaque:hover { filter: brightness(1.1); background: var(--a1); }
-.botao.perigo { background: none; color: var(--a3); }
-.botao.perigo:hover { background: rgba(212, 100, 155, .12); }
+.botao.perigo { background: none; color: var(--perigo); }
+/* O fundo do hover era um rosa cru escrito a mao, de nenhum token — sobrou de
+   uma paleta anterior. Agora e o proprio --perigo com opacidade. */
+.botao.perigo:hover { background: color-mix(in srgb, var(--perigo) 12%, transparent); }
 .linha-botoes { display: flex; flex-wrap: wrap; gap: 9px; }
 
 /* ================================================================ campos == */
@@ -981,8 +1016,13 @@ img { display: block; max-width: 100%; }
 }
 @keyframes gira { to { transform: rotate(360deg) } }
 
-.erro { padding: 13px 15px; border-radius: var(--raio); background: rgba(212, 100, 155, .1);
-        box-shadow: inset 0 0 0 1px rgba(212, 100, 155, .3); color: var(--a3); font-size: 13px; }
+/* Erro pintava em --a3, que e o token de CURTIDA, sobre um rosa escrito a mao
+   que nao vinha de token nenhum. A doc do sistema ja registrava isso como
+   divida; com --perigo no lugar ela some. */
+.erro { padding: 13px 15px; border-radius: var(--raio);
+        background: color-mix(in srgb, var(--perigo) 10%, transparent);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--perigo) 30%, transparent);
+        color: var(--perigo); font-size: 13px; }
 
 .aviso-flutuante {
   position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
@@ -1215,7 +1255,7 @@ img { display: block; max-width: 100%; }
 .linhas .valor { margin-left: auto; color: var(--texto-3); font-size: 13.5px; }
 .linhas .chevron { margin-left: auto; color: var(--texto-3); }
 .linhas .valor + .chevron { margin-left: 6px; }
-.linhas .perigo { color: var(--a3); }
+.linhas .perigo { color: var(--perigo); }
 
 @media (min-width: 721px) {
   .linhas { margin: 0; max-width: 460px; }
@@ -1362,7 +1402,7 @@ a.feed-resenha:hover { background: var(--superficie-2); color: var(--texto); }
   background: none; border: 0; cursor: pointer; align-self: start;
   color: var(--texto-3); font-size: 18px; line-height: 1; padding: 2px 4px;
 }
-.comentario-apagar:hover { color: var(--a3); }
+.comentario-apagar:hover { color: var(--perigo); }
 
 /* A fila de envio, quando tem coisa esperando rede. */
 .fila-aviso {

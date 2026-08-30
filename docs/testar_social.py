@@ -384,7 +384,7 @@ def rodar():
         checa('e leva ao perfil dela', 'Bia' in pg.inner_text('.perfil-nome'))
 
         print('\ncomentar')
-        pg.goto(BASE + '#/leitura/L1', wait_until='networkidle')
+        pg.goto(BASE + '#/resenha/L1', wait_until='networkidle')
         pg.wait_for_selector('#campo-comentario', timeout=10000)
         checa('a pagina da leitura abre', 'Dom Casmurro' in pg.inner_text('.resenha h1'))
         pg.fill('#campo-comentario', 'Também achei.')
@@ -469,7 +469,7 @@ def rodar():
         checa('a ficha abre com tres resenhas, nao com as quatro',
               pg.locator('.avaliacoes ~ .secao .feed-linha').count() == 3)
         checa('a resenha leva para a pagina dela',
-              pg.locator('a.feed-resenha').first.get_attribute('href') == '#/leitura/L1')
+              pg.locator('a.feed-resenha').first.get_attribute('href') == '#/resenha/L1')
         checa('e ha o botao de ver mais', pg.locator('.rede-mais').count() == 1)
         antes_mais = len([x for x in pedidos if 'livro=eq.' in x[2]])
         pg.click('.rede-mais')
@@ -537,6 +537,93 @@ def rodar():
               pg.inner_text('.avaliacoes'))
         nav.close()
 
+        # ================== um endereco so para a resenha =====================
+        # O achado: a mesma resenha tinha DOIS enderecos. #/resenha/<id local>
+        # lia o id gerado no aparelho — que so existe no localStorage de quem
+        # escreveu, entao o link mandado para outra pessoa caia em "Esta
+        # resenha nao existe mais". #/leitura/<uuid> abria para todo mundo mas
+        # nao tinha editar, apagar nem compartilhar. A ponte ja estava no dado:
+        # log.remoto.
+        print('\nresenha: o apelido local redireciona para o endereco publico')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        BANCO['leituras'].append({'id': 'UUID-1', 'perfil': 'uid-1', 'livro': '/works/OL1W',
+                                  'nota': 4.5, 'resenha': 'O narrador nao merece confianca.',
+                                  'lido_em': '2026-08-20', 'relido': False, 'spoiler': False,
+                                  'criado_em': '2026-08-21T10:00:00Z',
+                                  'cliente_id': 'meu-log'})
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg, logs=[{'id': 'meu-log', 'chave': '/works/OL1W', 'nota': 4.5,
+                          'resenha': 'O narrador nao merece confianca.',
+                          'lidoEm': '2026-08-20', 'relido': False, 'spoiler': False,
+                          'criadoEm': '2026-08-21T10:00:00Z', 'remoto': 'UUID-1'}])
+        pg.reload(wait_until='networkidle')
+
+        # Abrir pelo APELIDO, que e o que o glifo do diario e o cartao montam.
+        pg.goto(BASE + '#/resenha/meu-log', wait_until='networkidle')
+        pg.wait_for_selector('.resenha', timeout=10000)
+        checa('o apelido local leva ao endereco publico',
+              pg.evaluate('location.hash') == '#/resenha/UUID-1',
+              pg.evaluate('location.hash'))
+        # replace e nao assign: o apelido nao pode ficar no historico, senao o
+        # botao voltar devolve a pessoa para ele e o app pinga entre os dois.
+        pg.go_back()
+        pg.wait_for_timeout(700)
+        checa('e voltar NAO cai de novo no apelido',
+              'meu-log' not in pg.evaluate('location.hash'),
+              pg.evaluate('location.hash'))
+
+        pg.goto(BASE + '#/resenha/UUID-1', wait_until='networkidle')
+        pg.wait_for_selector('.resenha-estado', timeout=10000)
+        checa('a autora ve, escrito, que a resenha esta no ar',
+              'no ar' in pg.inner_text('.resenha-estado').lower())
+        textos = [t.lower() for t in pg.locator('.resenha-botoes .botao').all_inner_texts()]
+        checa('e a zona de acao tem as quatro: compartilhar, editar, ver, apagar',
+              all(x in ' '.join(textos) for x in
+                  ('compartilhar', 'editar', 'ver o livro', 'apagar')), str(textos))
+        checa('com o coracao e os comentarios, que so existem porque ha linha no servidor',
+              pg.locator('.resenha .feed-curtir').count() == 1 and
+              pg.locator('#comentarios').count() == 1)
+
+        # A folha de compartilhar: o link vem PRIMEIRO e a imagem por ultimo,
+        # ao contrario do que o app fazia — ate aqui "Compartilhar" so sabia
+        # mandar uma imagem do LIVRO, e nao havia `url` em lugar nenhum.
+        pg.locator('[data-acao=compartilhar-resenha]').click()
+        pg.wait_for_selector('.folha', timeout=5000)
+        linhas = pg.locator('.folha .linhas button').all_inner_texts()
+        checa('a folha oferece o link antes da imagem',
+              'link' in linhas[0].lower() and 'imagem' in linhas[-1].lower(), str(linhas))
+        checa('e o endereco mostrado e o publico, nao o apelido',
+              'UUID-1' in pg.inner_text('.folha .valor') or
+              'uuid-1' in pg.inner_text('.folha .valor').lower(),
+              pg.inner_text('.folha .valor'))
+        pg.locator('.folha-rodape .botao').click()
+        pg.wait_for_timeout(300)
+        checa('fechar fecha', pg.locator('.folha').count() == 0)
+        nav.close()
+
+        # Servidor apagou, aparelho nao. A resenha esta INTACTA no localStorage
+        # e nao pode ficar inalcancavel a partir do proprio diario de quem
+        # escreveu — cair no estado vazio seria perder o texto de vista.
+        print('\nresenha: apagada no servidor, intacta no aparelho')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)          # o banco NAO tem a leitura
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg, logs=[{'id': 'meu-log', 'chave': '/works/OL1W', 'nota': 4.5,
+                          'resenha': 'Continua aqui.', 'lidoEm': '2026-08-20',
+                          'relido': False, 'spoiler': False,
+                          'criadoEm': '2026-08-21T10:00:00Z', 'remoto': 'UUID-1'}])
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/resenha/UUID-1', wait_until='networkidle')
+        pg.wait_for_selector('.resenha', timeout=10000)
+        checa('a resenha aparece do aparelho, e nao "nao achei"',
+              'Continua aqui' in pg.inner_text('.resenha-texto'))
+        checa('e o texto nao fica inalcancavel a partir do diario',
+              pg.locator('.vazio').count() == 0)
+        nav.close()
+
         # ============================================ sem conta =============
         print('\nquem chega sem conta')
         zerar(); estado = {}
@@ -553,7 +640,7 @@ def rodar():
         pg.wait_for_selector('.perfil-nome', timeout=10000)
         checa('o perfil publico abre sem conta', 'Bia' in pg.inner_text('.perfil-nome'))
         checa('sem botao de seguir', pg.locator('#botao-seguir').count() == 0)
-        pg.goto(BASE + '#/leitura/L1', wait_until='networkidle')
+        pg.goto(BASE + '#/resenha/L1', wait_until='networkidle')
         pg.wait_for_selector('.resenha', timeout=10000)
         checa('a leitura abre sem conta', 'Dom Casmurro' in pg.inner_text('.resenha h1'))
         checa('e convida a entrar para comentar',
@@ -570,7 +657,7 @@ def rodar():
         # nao alcanca. Erro assim nao aparece na tela: a pagina so para.
         estouros = []
         pg.on('pageerror', lambda e: estouros.append(str(e)[:160]))
-        pg.goto(BASE + '#/leitura/L1', wait_until='networkidle')
+        pg.goto(BASE + '#/resenha/L1', wait_until='networkidle')
         pg.wait_for_selector('.resenha', timeout=10000)
         pg.wait_for_timeout(900)
         checa('sem conta, abrir uma leitura nao estoura javascript',

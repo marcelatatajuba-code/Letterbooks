@@ -262,6 +262,44 @@ with sync_playwright() as pw:
     ok('spoiler' in pg.locator('.resenha-corpo').inner_text().lower(), 'aviso de spoiler')
     ok('narrador' in pg.locator('.resenha-texto').inner_text(), 'o texto inteiro, sem cobrir')
     ok('/resenha/' in pg.evaluate('location.hash'), 'a resenha tem endereço próprio')
+    # FACE B da tela única: é minha e ainda NÃO subiu (sem log.remoto — aqui a
+    # nuvem está abortada, então nada subiu). O endereço público não existe
+    # ainda, e um botão que promete link e entrega nada é a pior variante desta
+    # tela: Compartilhar não pode ser desenhado.
+    ok(pg.locator('.resenha .fila-aviso').count() == 1,
+       'a resenha ainda só local diz por que não dá para compartilhar')
+    ok('só existe neste aparelho' in pg.locator('.resenha .fila-aviso').inner_text() or
+       'na fila' in pg.locator('.resenha .fila-aviso').inner_text(),
+       'e diz qual dos dois motivos é')
+    # .botao usa text-transform: uppercase — comparar sem normalizar mediria a
+    # folha de estilo, não o que a tela oferece.
+    textos = [t.lower() for t in pg.locator('.resenha-botoes .botao').all_inner_texts()]
+    ok(not any('compartilhar' in t for t in textos),
+       'sem endereço, sem botão de compartilhar — %r' % textos)
+    ok(any('editar' in t for t in textos) and any('apagar' in t for t in textos),
+       'mas editar e apagar continuam, que são ações locais')
+    ok(pg.locator('.resenha-estado').count() == 0, 'e nada diz "no ar", porque não está')
+    # Sem linha no servidor não há o que curtir nem comentar. Coração morto é
+    # pior do que coração nenhum.
+    ok(pg.locator('.resenha .feed-curtir').count() == 0, 'nem coração')
+    ok(pg.locator('#comentarios').count() == 0, 'nem caixa de comentários')
+
+    # A folha de apagar substitui o confirm() do navegador, que não diz o que
+    # se perde, não carrega o tema e sai branco num app escuro.
+    pg.locator('.resenha-botoes .botao.perigo').click()
+    pg.wait_for_selector('.folha', timeout=5000)
+    ok('Apagar esta resenha?' in pg.locator('.folha h2').inner_text(), 'a folha pergunta antes')
+    ok('somem daqui' in pg.locator('.folha-sub').inner_text(), 'e diz o que se perde')
+    corDoApagar = pg.locator('.folha .botao.perigo').evaluate(
+        "e => getComputedStyle(e).color")
+    corDaCurtida = pg.evaluate(
+        "() => getComputedStyle(document.documentElement).getPropertyValue('--curtida').trim()")
+    ok(corDoApagar != corDaCurtida,
+       'e "Apagar" não é mais pintado na cor de "eu curti" (%s)' % corDoApagar)
+    pg.locator('.folha-rodape .botao').first.click()   # Cancelar
+    pg.wait_for_timeout(300)
+    ok(pg.locator('.folha').count() == 0, 'cancelar fecha a folha')
+    ok(pg.locator('.resenha').count() == 1, 'e a resenha continua lá')
 
     print('10. barra do celular no desenho do original')
     pg.set_viewport_size({'width': 390, 'height': 844})

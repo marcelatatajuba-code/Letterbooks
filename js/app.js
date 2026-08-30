@@ -1037,7 +1037,7 @@
     var corpo = l.spoiler
       ? '<button class="spoiler-aviso" data-acao="ver-spoiler" data-texto="' +
         esc(l.resenha) + '">Esta resenha tem spoiler. Tocar para ler.</button>'
-      : '<a class="feed-resenha" href="#/leitura/' + encodeURIComponent(l.id) + '">' +
+      : '<a class="feed-resenha" href="#/resenha/' + encodeURIComponent(l.id) + '">' +
         esc(recortar(l.resenha, 240)) + '</a>';
 
     return '<article class="feed-linha" data-leitura="' + esc(l.id) + '">' +
@@ -1059,7 +1059,7 @@
             ' aria-pressed="false" aria-label="Curtir a resenha de ' + esc(nome) + '">' +
             '<span class="glifo" aria-hidden="true">♡</span>' +
             '<span class="conta-curtidas">' + (l.curtidas || 0) + '</span></button>' +
-          '<a class="feed-comentar" href="#/leitura/' + encodeURIComponent(l.id) + '"' +
+          '<a class="feed-comentar" href="#/resenha/' + encodeURIComponent(l.id) + '"' +
             ' aria-label="Comentar a resenha de ' + esc(nome) + '">' +
             '<span class="glifo" aria-hidden="true">💬</span>' + (l.comentarios || 0) + '</a>' +
           '<time>' + esc(quandoFoi(l.criado_em)) + '</time>' +
@@ -1225,67 +1225,407 @@
   /* Uma resenha tem endereco proprio, como no original: da para abrir direto
      nela em vez de cacar a linha no diario. */
 
-  function telaResenha(idLog) {
-    marcarAba('');
-    var log = Dados.log(idLog);
-    if (!log) return pintar('<p class="erro">Esta resenha não existe mais.</p>');
+  /* ============================================================ TELA: resenha
 
+     UM endereço. Até aqui a mesma resenha tinha dois, e nenhum servia à
+     história: #/resenha/<id local> lia Dados.log com o id gerado no aparelho
+     (js/dados.js) — que só existe no localStorage de quem escreveu, então o
+     link mandado para outra pessoa caía em "Esta resenha não existe mais"; e
+     #/leitura/<uuid> abria para todo mundo, com curtida e comentário, mas sem
+     editar, sem apagar, sem compartilhar, e sem dizer que a resenha era sua.
+
+     A ponte entre os dois ids já estava no dado: `log.remoto`. */
+
+  /* Resolução em três passos, e a ordem importa:
+     1. log local COM .remoto → troca a URL pelo endereço público e SAI sem
+        pintar. `replace` e não `assign`: o apelido não pode ficar no
+        histórico, senão o botão voltar devolve a pessoa para ele e o app fica
+        pingando entre os dois. Retornar na hora também é obrigatório — o
+        rotear() em curso não pode desenhar uma face e ser trocado no quadro
+        seguinte.
+     2. log local SEM .remoto → é minha e ainda não subiu. Pinta do
+        localStorage, funciona no avião, e diz por que ainda não dá para
+        compartilhar.
+     3. sem log local → é uuid remoto, vai para a nuvem.
+
+     Não testo o FORMATO do id para decidir (o local não tem hífen, o uuid
+     tem). Funcionaria hoje e amarraria o desenho ao formato do id, que é o
+     tipo de coisa que quebra calada no dia em que o formato muda. Procurar no
+     localStorage é síncrono e custa zero. */
+  function telaResenha(id) {
+    marcarAba('');
+    var local = Dados.log(id);
+    if (local && local.remoto) {
+      location.replace('#/resenha/' + encodeURIComponent(local.remoto));
+      return;
+    }
+    if (local) return desenhaResenha(daLeituraLocal(local));
+    return carregarResenhaRemota(id);
+  }
+
+  function carregarResenhaRemota(id) {
+    /* Pode ser minha, já sincronizada: aí o log local existe com .remoto == id,
+       e ele é o plano B se o servidor não responder. */
+    var meu = Dados.logPorRemoto(id);
+
+    if (!Nuvem.ligada()) {
+      return meu ? desenhaResenha(daLeituraLocal(meu))
+                 : pintar(htmlVazio('Não achei esta resenha',
+                          'A nuvem não está ligada neste aparelho.'));
+    }
+
+    carregando('Abrindo a resenha…');
+    Promise.all([
+      Nuvem.publico('feed', '?select=*&id=eq.' + encodeURIComponent(id)),
+      /* Comentário que não carrega não pode derrubar a resenha inteira. */
+      Nuvem.comentarios(id).catch(function () { return []; })
+    ]).then(function (r) {
+      var l = (r[0] || [])[0];
+      /* Apagada noutro aparelho e intacta neste: cair no estado vazio deixaria
+         a resenha inalcançável a partir do próprio diário de quem escreveu. */
+      if (!l) {
+        return meu ? desenhaResenha(daLeituraLocal(meu))
+                   : pintar(htmlVazio('Não achei esta resenha',
+                            'Ela pode ter sido apagada por quem escreveu.'));
+      }
+      desenhaResenha(daLeituraRemota(l, r[1] || []));
+    }, function (err) {
+      if (meu) return desenhaResenha(daLeituraLocal(meu));
+      pintar('<p class="erro">' + esc(err.message) + '</p>');
+    });
+  }
+
+  /* As duas fontes viram a MESMA forma antes de chegar no desenho. Sem isto
+     seriam dois renderizadores para uma tela só, que é exatamente a dívida que
+     este item existe para pagar. `noAr` é o que separa as quatro faces: sem
+     linha no servidor não há o que curtir, comentar nem compartilhar. */
+  function daLeituraLocal(log) {
     var livro = livroDe(log.chave);
     var perfil = Dados.estado().perfil;
-    var fundo = livro.capaGrande || livro.capa;
+    return {
+      id: log.remoto || log.id, idLocal: log.id, remoto: log.remoto || null,
+      minha: true, noAr: !!log.remoto, naFila: Sinc.esperandoLeitura(log.chave),
+      usuario: null, nome: perfil.nome || 'Você',
+      chave: log.chave, titulo: livro.titulo, ano: livro.ano,
+      capa: livro.capa, capaGrande: livro.capaGrande || livro.capa,
+      nota: log.nota, resenha: log.resenha || '', spoiler: !!log.spoiler,
+      relido: !!log.relido, data: dataBr(log.lidoEm),
+      curtido: Dados.curtido(log.chave),
+      curtidas: null, comentarios: null, perfilId: null
+    };
+  }
+
+  function daLeituraRemota(l, comentarios) {
+    var eu = Nuvem.entrou() ? Nuvem.quemSou() : null;
+    var meuLog = Dados.logPorRemoto(l.id);
+    return {
+      id: l.id, idLocal: meuLog ? meuLog.id : null, remoto: l.id,
+      minha: !!(eu && eu.id === l.perfil), noAr: true, naFila: false,
+      usuario: l.usuario, nome: l.perfil_nome || l.usuario || 'alguém',
+      chave: l.livro, titulo: l.titulo, ano: l.ano,
+      capa: l.capa, capaGrande: l.capa,
+      nota: typeof l.nota === 'number' ? l.nota : null,
+      resenha: l.resenha || '', spoiler: !!l.spoiler, relido: !!l.relido,
+      data: dataLonga(l.lido_em), curtido: false,
+      curtidas: l.curtidas || 0, comentarios: comentarios, perfilId: l.perfil
+    };
+  }
+
+  function enderecoDaResenha(v) {
+    return location.origin + location.pathname + '#/resenha/' + encodeURIComponent(v.id);
+  }
+
+  function desenhaResenha(v) {
+    var livroHref = rotaLivro(v.chave);
+    var podeCompartilhar = v.noAr;
+
+    /* Quatro faces, uma zona de ação. Compartilhar aparece SEM conta de
+       propósito: quem recebeu o link é quem mais repassa. E some inteiro na
+       face B — um botão que promete link e entrega nada é a pior variante
+       possível desta história. */
+    var botoes = [];
+    if (podeCompartilhar) {
+      botoes.push('<button class="botao' + (v.minha ? ' destaque' : '') +
+                  '" data-acao="compartilhar-resenha">Compartilhar</button>');
+    }
+    if (v.minha && v.idLocal) {
+      botoes.push('<button class="botao" data-acao="editar-log" data-id="' +
+                  esc(v.idLocal) + '">Editar</button>');
+    }
+    botoes.push('<a class="botao" href="' + livroHref + '">Ver o livro</a>');
+    if (v.minha && v.idLocal) {
+      botoes.push('<button class="botao perigo" data-acao="apagar-resenha">Apagar</button>');
+    } else if (!v.minha && Nuvem.entrou() && v.perfilId) {
+      botoes.push('<button class="botao" id="botao-seguir" data-acao="seguir" disabled>…</button>');
+    }
+
+    var quem = v.usuario
+      ? '<a class="resenha-quem" href="#/leitor/' + encodeURIComponent(v.usuario) + '">' +
+          '<span class="feed-avatar" aria-hidden="true">' +
+            esc(v.nome.trim().charAt(0).toUpperCase()) + '</span>' +
+          '<b>' + esc(v.nome) + '</b><span>@' + esc(v.usuario) + '</span></a>'
+      : '<div class="resenha-quem">' +
+          '<span class="feed-avatar" aria-hidden="true">' +
+            esc((v.nome || '?').trim().charAt(0).toUpperCase()) + '</span>' +
+          '<b>' + esc(v.nome) + '</b></div>';
+
+    /* A autora precisa saber, OLHANDO, que o que ela vê é o que a outra pessoa
+       vai ver. É a resposta direta ao pedido: um endereço só, o mesmo que eu
+       vejo e o mesmo que eu mando. */
+    var estado = v.minha
+      ? (v.noAr
+          ? '<p class="rotulo resenha-estado">No ar · quem tem o link lê sem conta</p>'
+          : '<p class="fila-aviso">' + (v.naFila
+              ? 'Esta resenha está na fila para subir. Assim que subir, ela ganha um endereço para compartilhar.'
+              : 'Esta resenha só existe neste aparelho. ' +
+                '<a href="#/conta">Crie uma conta</a> para ela ganhar um endereço.') + '</p>')
+      : '';
+
+    /* Spoiler da SUA resenha não se esconde de você: o texto é seu e você já
+       sabe o que escreveu — vem com o rótulo de aviso, como sempre veio. O de
+       outra pessoa fica atrás do botão. O rótulo era style inline com --a1,
+       verde de "o que você fez" num aviso; virou classe, em --texto-3. */
+    var corpo = v.resenha
+      ? '<div class="resenha-corpo">' +
+          (v.spoiler && !v.minha
+            ? '<button class="spoiler-aviso" data-acao="ver-spoiler" data-texto="' +
+              esc(v.resenha) + '">Esta resenha tem spoiler. Tocar para ler.</button>'
+            : (v.spoiler ? '<p class="rotulo resenha-spoiler">Contém spoiler</p>' : '') +
+              '<p class="resenha-texto">' + esc(v.resenha) + '</p>') +
+        '</div>'
+      : '<p class="resenha-corpo resenha-sem-texto">' +
+        'Esta leitura foi registrada sem resenha.</p>';
+
+    var acoesSociais = v.noAr
+      ? '<div class="feed-acoes resenha-acoes">' +
+          '<button class="feed-curtir" data-acao="curtir-leitura" data-id="' + esc(v.id) + '"' +
+            ' aria-pressed="false" aria-label="Curtir esta resenha">' +
+            '<span class="glifo" aria-hidden="true">♡</span>' +
+            '<span class="conta-curtidas">' + (v.curtidas || 0) + '</span></button>' +
+          '<a class="feed-comentar" href="#comentarios" aria-label="Ir para os comentários">' +
+            '<span class="glifo" aria-hidden="true">💬</span>' +
+            (v.comentarios ? v.comentarios.length : 0) + '</a>' +
+        '</div>'
+      : '';
 
     pintar(
-      htmlHeroi(fundo) +
-      '<article class="resenha' + (fundo ? ' sobre-heroi' : '') + '">' +
-        '<div class="lista-autoria">' +
-          '<span class="avatar avatar-mini" aria-hidden="true">' +
-            esc((perfil.nome || '?').trim().charAt(0).toUpperCase()) + '</span>' +
-          '<span>' + esc(perfil.nome) + '</span>' +
-        '</div>' +
-
+      htmlHeroi(v.capaGrande) +
+      '<article class="resenha' + (v.capaGrande ? ' sobre-heroi' : '') + '">' +
+        quem +
         '<div class="resenha-topo">' +
           '<div>' +
-            '<h1 class="resenha-titulo"><a href="' + rotaLivro(log.chave) + '">' +
-              esc(livro.titulo) + '</a>' +
-              (livro.ano ? ' <span class="ano">' + livro.ano + '</span>' : '') + '</h1>' +
+            '<h1 class="resenha-titulo"><a href="' + livroHref + '">' +
+              esc(v.titulo) + '</a>' +
+              (v.ano ? ' <span class="ano">' + v.ano + '</span>' : '') + '</h1>' +
             '<p class="resenha-linha">' +
-              '<span class="estrelas">' + estrelasTexto(log.nota) + '</span>' +
-              (Dados.curtido(log.chave)
-                ? ' <span style="color:var(--curtida)">♥</span>' : '') +
+              (v.nota ? '<span class="estrelas">' + estrelasTexto(v.nota) + '</span>' : '') +
+              (v.curtido ? ' <span class="curtiu-o-livro" aria-label="curtiu o livro">♥</span>' : '') +
             '</p>' +
-            '<p class="resenha-data">Lido em ' + dataBr(log.lidoEm) +
-              (log.relido ? ' · releitura' : '') + '</p>' +
+            '<p class="resenha-data">Lido em ' + esc(v.data) +
+              (v.relido ? ' · releitura' : '') + '</p>' +
+            estado +
           '</div>' +
-          '<a class="resenha-capa" href="' + rotaLivro(log.chave) + '" aria-label="' +
-            esc(livro.titulo) + '">' + htmlCapa(livro) + '</a>' +
+          '<a class="resenha-capa" href="' + livroHref + '" aria-label="' +
+            esc(v.titulo) + '">' +
+            htmlCapa({ chave: v.chave, titulo: v.titulo, capa: v.capa }) + '</a>' +
         '</div>' +
-
-        (log.resenha
-          ? '<div class="resenha-corpo">' +
-              (log.spoiler
-                ? '<p class="rotulo" style="color:var(--a1);margin-bottom:10px">' +
-                  'Contém spoiler</p>' : '') +
-              '<p class="resenha-texto">' + esc(log.resenha) + '</p>' +
-            '</div>'
-          : '<p class="resenha-corpo" style="color:var(--texto-3)">' +
-            'Esta leitura foi registrada sem resenha.</p>') +
-
-        '<div class="linha-botoes" style="margin-top:26px">' +
-          '<button class="botao" data-acao="editar-log" data-id="' + log.id + '">Editar</button>' +
-          '<a class="botao" href="' + rotaLivro(log.chave) + '">Ver o livro</a>' +
-          '<button class="botao perigo" data-acao="apagar-log" data-id="' + log.id + '">Apagar</button>' +
-        '</div>' +
-      '</article>');
+        corpo +
+        acoesSociais +
+        '<div class="linha-botoes resenha-botoes">' + botoes.join('') + '</div>' +
+      '</article>' +
+      (v.noAr ? htmlSecaoComentarios(v) : ''));
 
     acoes({
       'editar-log': function (a) {
-        abrirFolhaRegistro(livroDe(log.chave), a.getAttribute('data-id'));
+        abrirFolhaRegistro(livroDe(v.chave), a.getAttribute('data-id'));
       },
-      'apagar-log': function (a) {
-        if (!confirm('Apagar este registro de leitura?')) return;
-        Dados.apagarLog(a.getAttribute('data-id'));
-        ir('#/diario');
+      'apagar-resenha': function () { abrirFolhaApagarResenha(v); },
+      'compartilhar-resenha': function () { abrirFolhaCompartilharResenha(v); },
+      'curtir-leitura': alternarCurtida,
+      'ver-spoiler': revelarSpoiler,
+      seguir: function (b) { alternarSeguir(v.perfilId, b); },
+      'apagar-comentario': function (b) {
+        var linha = b.closest('.comentario');
+        Nuvem.apagarComentario(b.getAttribute('data-id')).then(function () {
+          linha.remove();
+        }, function (e) { aviso(e.message); });
       }
+    });
+
+    if (v.noAr) {
+      ligarCurtidas(tela);
+      ligarFormaComentario(v);
+    }
+    if (!v.minha && Nuvem.entrou() && v.perfilId) atualizarBotaoSeguir(v.perfilId);
+  }
+
+  function htmlSecaoComentarios(v) {
+    var cs = v.comentarios || [];
+    return '<section class="secao" id="comentarios" style="margin-top:26px">' +
+      '<h2>' + plural(cs.length, 'comentário', 'comentários') + '</h2>' +
+      '<div id="lista-comentarios">' + cs.map(htmlComentario).join('') + '</div>' +
+      (Nuvem.entrou()
+        ? '<form id="forma-comentario" style="margin-top:14px">' +
+            '<label class="campo"><span>Seu comentário</span>' +
+            '<textarea id="campo-comentario" maxlength="2000" style="min-height:74px" ' +
+            'placeholder="O que você achou?"></textarea></label>' +
+            '<div class="linha-botoes">' +
+            '<button class="botao destaque" type="submit">Comentar</button></div>' +
+          '</form>'
+        : '<p class="conta-texto" style="margin-top:14px">' +
+          '<a class="alvo" href="#/conta">Entre na sua conta</a> para comentar.</p>') +
+    '</section>';
+  }
+
+  function ligarFormaComentario(v) {
+    var forma = document.getElementById('forma-comentario');
+    if (!forma) return;
+    var eu = Nuvem.quemSou();
+    forma.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var campo = document.getElementById('campo-comentario');
+      var texto = campo.value.trim();
+      if (!texto) return;
+      var b = forma.querySelector('button');
+      b.disabled = true; b.textContent = 'Enviando…';
+      Nuvem.comentar(v.id, texto).then(function (novo) {
+        campo.value = '';
+        b.disabled = false; b.textContent = 'Comentar';
+        document.getElementById('lista-comentarios').insertAdjacentHTML('beforeend',
+          htmlComentario({ id: novo.id, texto: texto, criado_em: novo.criado_em,
+                           perfil: eu.id, perfis: { usuario: 'você', nome: 'Você' } }));
+      }, function (e) {
+        b.disabled = false; b.textContent = 'Comentar';
+        aviso(e.message);
+      });
+    });
+  }
+
+  /* ------------------------------------- folha: compartilhar esta resenha */
+
+  /* NOVO — no Letterboxd a folha de ação é do FILME, não da resenha, e a
+     escolha entre mandar o link e mandar a imagem não existe lá.
+
+     A ordem é link primeiro, imagem por último, ao contrário do que o app
+     fazia: até aqui "Compartilhar" desenhava um cartão do LIVRO e entregava por
+     navigator.share({ files, title }) — não havia `url` em lugar nenhum do
+     arquivo. Mandar o link, que é o pedido literal, simplesmente não existia.
+
+     LIMITE HONESTO: a rota é por hash, então o servidor nunca vê o <id> e não
+     há Open Graph por resenha — o cartão que o WhatsApp mostra é o genérico do
+     index.html para toda resenha. Por isso nada aqui sugere prévia rica, e a
+     linha da imagem é a compensação disponível: a imagem É a prévia, e vai com
+     o link colado. */
+  function abrirFolhaCompartilharResenha(v) {
+    var url = enderecoDaResenha(v);
+    var curto = url.replace(/^https?:\/\//, '').replace(/\/index\.html/, '/');
+    if (curto.length > 42) curto = curto.slice(0, 24) + '…' + curto.slice(-14);
+    var temCopia = !!(navigator.clipboard && navigator.clipboard.writeText);
+    var temShare = !!navigator.share;
+
+    camada.innerHTML =
+      '<div class="folha-fundo" data-fechar="fundo"><div class="folha" role="dialog" ' +
+        'aria-modal="true" aria-label="Compartilhar esta resenha">' +
+        '<h2>Compartilhar esta resenha</h2>' +
+        '<p class="folha-sub">' + esc(v.titulo) +
+          ' · qualquer pessoa abre, sem conta.</p>' +
+        '<div class="linhas">' +
+          (temCopia
+            ? '<button data-acao="copiar-link">Copiar o link' +
+              '<span class="valor">' + esc(curto) + '</span>' +
+              '<span class="chevron" aria-hidden="true">›</span></button>'
+            : '') +
+          (temShare
+            ? '<button data-acao="mandar-link">Mandar o link' +
+              '<span class="valor">pelo aparelho</span>' +
+              '<span class="chevron" aria-hidden="true">›</span></button>'
+            : '') +
+          '<button data-acao="mandar-imagem">Mandar como imagem' +
+            '<span class="valor">com a capa e a nota</span>' +
+            '<span class="chevron" aria-hidden="true">›</span></button>' +
+        '</div>' +
+        /* Sem clipboard (contexto não seguro, iPhone antigo) a linha vira um
+           campo já selecionado — nunca um botão que não faz nada. */
+        (temCopia ? '' :
+          '<label class="campo" style="margin-top:16px"><span>Copie o endereço</span>' +
+          '<input id="link-resenha" readonly value="' + esc(url) + '"></label>') +
+        '<div class="folha-rodape"><button class="botao" data-fechar="ok">Fechar</button></div>' +
+      '</div></div>';
+
+    var painel = camada.firstElementChild;
+    var campo = document.getElementById('link-resenha');
+    if (campo) { campo.focus(); campo.select(); }
+
+    painel.addEventListener('click', function (ev) {
+      var acao = ev.target.closest('[data-acao]');
+      if (acao) return executarCompartilhamento(acao.getAttribute('data-acao'), v, url);
+      var alvo = ev.target.closest('[data-fechar]');
+      if (!alvo) return;
+      if (alvo.getAttribute('data-fechar') === 'fundo' && ev.target !== alvo) return;
+      camada.innerHTML = '';
+    });
+  }
+
+  function executarCompartilhamento(acao, v, url) {
+    if (acao === 'copiar-link') {
+      return navigator.clipboard.writeText(url).then(function () {
+        camada.innerHTML = '';
+        aviso('Link copiado.');
+      }, function () { aviso('Não consegui copiar. Segure no endereço para copiar à mão.'); });
+    }
+    if (acao === 'mandar-link') {
+      var texto = v.resenha ? recortar(v.resenha, 120) : '';
+      return navigator.share({
+        title: 'Resenha de ' + v.titulo, text: texto, url: url
+      }).then(function () { camada.innerHTML = ''; },
+              function () { /* cancelar não é erro */ });
+    }
+    if (acao === 'mandar-imagem') {
+      camada.innerHTML = '';
+      return cartaoDeCompartilhar(livroDe(v.chave), v.nota, url).then(function (msg) {
+        if (msg) aviso(msg);
+      }, function (err) { aviso('Não consegui montar a imagem: ' + err.message); });
+    }
+  }
+
+  /* ------------------------------------------ folha: apagar esta resenha */
+
+  /* O confirm() do navegador não diz o que se perde, não carrega o tema — sai
+     branco num app escuro — e no PWA do iPhone aparece com o endereço do site
+     no título. E aqui a consequência é maior do que era: a tabela comentarios
+     referencia leituras com `on delete cascade` (servidor/esquema.sql), então
+     os comentários de outras pessoas somem junto. A frase abaixo é literal,
+     não retórica. */
+  function abrirFolhaApagarResenha(v) {
+    var quantos = v.comentarios ? v.comentarios.length : 0;
+    camada.innerHTML =
+      '<div class="folha-fundo" data-fechar="fundo"><div class="folha" role="dialog" ' +
+        'aria-modal="true" aria-label="Apagar esta resenha">' +
+        '<h2>Apagar esta resenha?</h2>' +
+        '<p class="folha-sub">O texto, a nota e a data somem daqui' +
+          (v.noAr ? ' e do servidor' : '') + '.' +
+          (quantos ? ' ' + plural(quantos, 'comentário que escreveram nela some',
+                                  'comentários que escreveram nela somem') + ' junto.' : '') +
+          (v.noAr ? ' O endereço para de abrir.' : '') + '</p>' +
+        '<div class="folha-rodape">' +
+          '<button class="botao" data-fechar="ok">Cancelar</button>' +
+          '<span class="espaco"></span>' +
+          '<button class="botao perigo" data-acao="confirmar-apagar">Apagar</button>' +
+        '</div>' +
+      '</div></div>';
+
+    var painel = camada.firstElementChild;
+    painel.addEventListener('click', function (ev) {
+      if (ev.target.closest('[data-acao=confirmar-apagar]')) {
+        camada.innerHTML = '';
+        Dados.apagarLog(v.idLocal);
+        aviso('Resenha apagada.');
+        return ir('#/diario');
+      }
+      var alvo = ev.target.closest('[data-fechar]');
+      if (!alvo) return;
+      if (alvo.getAttribute('data-fechar') === 'fundo' && ev.target !== alvo) return;
+      camada.innerHTML = '';
     });
   }
 
@@ -1950,7 +2290,10 @@
      Nada e enviado a servidor nenhum: o canvas vira arquivo e vai direto para
      a folha de compartilhamento do sistema. */
 
-  function cartaoDeCompartilhar(livro, nota) {
+  /* `endereco`, quando vem, faz duas coisas: entra desenhado embaixo da marca
+     e vai junto no navigator.share. É o ponto inteiro do item — quem recebe a
+     imagem recebe o link, e não uma foto solta que não leva a lugar nenhum. */
+  function cartaoDeCompartilhar(livro, nota, endereco) {
     var L = 1080, A = 1920;
     var cv = document.createElement('canvas');
     cv.width = L; cv.height = A;
@@ -2023,7 +2366,13 @@
 
       desenharMarca(c, L / 2, A - 170, cor);
 
-      return entregarCartao(cv, livro);
+      if (endereco) {
+        c.fillStyle = cor('--texto-3') || '#82756a';
+        c.font = '700 22px -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+        c.fillText(endereco.replace(/^https?:\/\//, ''), L / 2, A - 108);
+      }
+
+      return entregarCartao(cv, livro, endereco);
     });
   }
 
@@ -2081,7 +2430,7 @@
     });
   }
 
-  function entregarCartao(cv, livro) {
+  function entregarCartao(cv, livro, endereco) {
     return new Promise(function (ok, falha) {
       var nome = 'letterbooks-' + (livro.titulo || 'livro')
         .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -2094,7 +2443,10 @@
         /* No celular, a folha de compartilhamento do sistema — que e onde o
            Instagram, o WhatsApp e o resto aparecem. */
         if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
-          return navigator.share({ files: [arquivo], title: livro.titulo })
+          var carga = { files: [arquivo], title: livro.titulo };
+          /* Sem isto a imagem chega sozinha e não leva a lugar nenhum. */
+          if (endereco) carga.url = endereco;
+          return navigator.share(carga)
             .then(function () { ok(''); })
             .catch(function (e) { ok(e && e.name === 'AbortError' ? '' : baixar(blob, nome)); });
         }
@@ -2338,7 +2690,7 @@
           '<button class="feed-curtir" data-acao="curtir-leitura" data-id="' + esc(l.id) + '"' +
             ' aria-pressed="false"><span class="glifo">♡</span>' +
             '<span class="conta-curtidas">' + (l.curtidas || 0) + '</span></button>' +
-          '<a class="feed-comentar" href="#/leitura/' + encodeURIComponent(l.id) + '">' +
+          '<a class="feed-comentar" href="#/resenha/' + encodeURIComponent(l.id) + '">' +
             '<span class="glifo">💬</span>' + (l.comentarios || 0) + '</a>' +
           '<time>' + esc(quandoFoi(l.criado_em)) + '</time>' +
         '</div>' +
@@ -2531,110 +2883,9 @@
     });
   }
 
-  /* ====================================================== uma leitura ======
-
-     A pagina de uma leitura do feed, com os comentarios. E o endereco que da
-     para mandar para alguem — por isso ela carrega sem conta, e o campo de
-     comentario e que aparece só para quem entrou. */
-
-  function telaLeitura(id) {
-    marcarAba('');
-    if (!Nuvem.ligada()) return pintar('<p class="erro">A nuvem não está ligada.</p>');
-    carregando('Abrindo…');
-
-    Promise.all([
-      Nuvem.publico('feed', '?select=*&id=eq.' + encodeURIComponent(id)),
-      Nuvem.comentarios(id)
-    ]).then(function (r) {
-      var l = (r[0] || [])[0];
-      var cs = r[1] || [];
-      if (!l) return pintar(htmlVazio('Não achei esta leitura', 'Ela pode ter sido apagada.'));
-      desenhaLeitura(l, cs);
-    }, function (err) {
-      pintar('<p class="erro">' + esc(err.message) + '</p>');
-    });
-  }
-
-  function desenhaLeitura(l, comentarios) {
-    var eu = Nuvem.entrou() ? Nuvem.quemSou() : null;
-    var nome = l.perfil_nome || l.usuario;
-
-    pintar(
-      htmlHeroi(l.capa) +
-      '<article class="resenha' + (l.capa ? ' sobre-heroi' : '') + '">' +
-        '<a class="resenha-quem" href="#/leitor/' + encodeURIComponent(l.usuario) + '">' +
-          '<span class="feed-avatar" aria-hidden="true">' +
-            esc(nome.trim().charAt(0).toUpperCase()) + '</span>' +
-          '<b>' + esc(nome) + '</b><span>@' + esc(l.usuario) + '</span></a>' +
-        '<h1><a href="' + rotaLivro(l.livro) + '">' + esc(l.titulo) + '</a></h1>' +
-        '<p class="resenha-meta">' +
-          (typeof l.nota === 'number'
-            ? '<span class="estrelas">' + estrelasTexto(l.nota) + '</span> · ' : '') +
-          (l.relido ? 'releitura · ' : '') +
-          esc(dataLonga(l.lido_em)) + '</p>' +
-        (l.resenha
-          ? (l.spoiler
-              ? '<button class="spoiler-aviso" data-acao="ver-spoiler" data-texto="' +
-                esc(l.resenha) + '">Esta resenha tem spoiler. Tocar para ler.</button>'
-              : '<p class="resenha-texto">' + esc(l.resenha) + '</p>')
-          : '') +
-        '<div class="feed-acoes" style="margin-top:16px">' +
-          '<button class="feed-curtir" data-acao="curtir-leitura" data-id="' + esc(l.id) + '"' +
-            ' aria-pressed="false"><span class="glifo">♡</span>' +
-            '<span class="conta-curtidas">' + (l.curtidas || 0) + '</span></button>' +
-        '</div>' +
-      '</article>' +
-
-      '<section class="secao" style="margin-top:26px">' +
-        '<h2>' + plural(comentarios.length, 'comentário', 'comentários') + '</h2>' +
-        '<div id="comentarios">' + comentarios.map(htmlComentario).join('') + '</div>' +
-        (eu
-          ? '<form id="forma-comentario" style="margin-top:14px">' +
-              '<label class="campo"><span>Seu comentário</span>' +
-              '<textarea id="campo-comentario" maxlength="2000" style="min-height:74px" ' +
-              'placeholder="O que você achou?"></textarea></label>' +
-              '<div class="linha-botoes">' +
-              '<button class="botao destaque" type="submit">Comentar</button></div>' +
-            '</form>'
-          : '<p class="conta-texto" style="margin-top:14px">' +
-            '<a class="alvo" href="#/conta">Entre na sua conta</a> para comentar.</p>') +
-      '</section>'
-    );
-
-    acoes({
-      'curtir-leitura': alternarCurtida,
-      'ver-spoiler': revelarSpoiler,
-      'apagar-comentario': function (b) {
-        if (!confirm('Apagar este comentário?')) return;
-        var linha = b.closest('.comentario');
-        Nuvem.apagarComentario(b.getAttribute('data-id')).then(function () {
-          linha.remove();
-        }, function (e) { aviso(e.message); });
-      }
-    });
-    ligarCurtidas(tela);
-
-    var forma = document.getElementById('forma-comentario');
-    if (!forma) return;
-    forma.addEventListener('submit', function (ev) {
-      ev.preventDefault();
-      var campo = document.getElementById('campo-comentario');
-      var texto = campo.value.trim();
-      if (!texto) return;
-      var b = forma.querySelector('button');
-      b.disabled = true; b.textContent = 'Enviando…';
-      Nuvem.comentar(l.id, texto).then(function (novo) {
-        campo.value = '';
-        b.disabled = false; b.textContent = 'Comentar';
-        document.getElementById('comentarios').insertAdjacentHTML('beforeend',
-          htmlComentario({ id: novo.id, texto: texto, criado_em: novo.criado_em,
-                           perfil: eu.id, perfis: { usuario: 'você', nome: 'Você' } }));
-      }, function (e) {
-        b.disabled = false; b.textContent = 'Comentar';
-        aviso(e.message);
-      });
-    });
-  }
+  /* telaLeitura/desenhaLeitura viviam aqui: eram a MESMA resenha noutro
+     endereço, com curtida e comentário mas sem editar, apagar ou compartilhar.
+     Foram absorvidas por desenhaResenha, que agora é a tela única. */
 
   function htmlComentario(c) {
     var p = c.perfis || {};
@@ -3027,12 +3278,11 @@
     /* A ficha do livro, a resenha e a lista correm a imagem ate o topo: nelas
        o cabecalho com a marca sai e sobra o chevron, sobre a foto. */
     var raiz = (location.hash || '').replace(/^#\/?/, '').split('/')[0];
+    /* 'leitura' esteve nesta lista por um commit: era a rota da página pública
+       da resenha, que nascera fora dela. Ela não existe mais — 'resenha' é o
+       endereço único, e já estava aqui desde o começo. */
     document.body.classList.toggle('imersiva',
-      raiz === 'livro' || raiz === 'resenha' || raiz === 'lista' ||
-      /* 'leitura' ficou de fora quando a camada social nasceu: em 390px a
-         página pintava um herói de 300px COM a barra do topo por cima e puxava
-         o conteúdo −190 por baixo dela. A ficha do livro agora leva para cá. */
-      raiz === 'leitura');
+      raiz === 'livro' || raiz === 'resenha' || raiz === 'lista');
     var partes = (location.hash || '#/inicio').replace(/^#\/?/, '').split('/');
     var rota = partes[0] || 'inicio';
 
@@ -3056,7 +3306,6 @@
     if (rota === 'leitor')  return telaLeitor(decodeURIComponent(partes[1] || ''));
     if (rota === 'seguidores' || rota === 'seguindo')
       return telaGente(rota, decodeURIComponent(partes[1] || ''));
-    if (rota === 'leitura') return telaLeitura(decodeURIComponent(partes[1] || ''));
     return telaInicio();
   }
 

@@ -38,7 +38,8 @@
    "resumo": "Unificar as duas telas desiguais: telaResenha (js/app.js:934, a sua, local, em #/resenha/<id do aparelho>, sem curtida nem comentário) e desenhaLeitura (js/app.js:2259, pública, em #/leitura/<uuid>, com tudo). A sua resenha passa a redirecionar para o endereço público assim que o registro tem remoto (Dados.marcarRemoto já grava isso, js/sinc.js), e o botão Compartilhar oferece o LINK ao lado do cartão de imagem que já existe (cartaoDeCompartilhar, js/app.js:1659).",
    "valor": "Para quem escreveu uma resenha e quer mandar para alguém. Hoje o único compartilhar entrega um PNG bonito, sem o texto e sem para onde clicar. Também é o pré-requisito de qualquer notificação: não dá para avisar 'comentaram na sua resenha' sem um endereço para onde levar.",
    "esforco": "M",
-   "depende": "item 1 (a resenha precisa ter subido de forma confiável)"
+   "depende": "item 1 (a resenha precisa ter subido de forma confiável)",
+   "entregue": "V4 — um endereço só para a resenha, com compartilhar e apagar"
   },
   {
    "ordem": 5,

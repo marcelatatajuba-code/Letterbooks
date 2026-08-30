@@ -92,9 +92,9 @@
    "nome": "Página de resenha com endereço próprio",
    "area": "Livros",
    "noOriginal": "Imagem de fundo, autoria, nota, data, texto, curtidas, comentários e etiquetas.",
-   "noLetterbooks": "Duas telas separadas e desiguais: telaResenha (js/app.js:934) é a SUA resenha local (#/resenha/<id local>) e não tem curtida, comentário nem link público; desenhaLeitura (js/app.js:2259, rota #/leitura/<uuid>) tem curtidas e comentários mas só existe depois de sincronizar e não é oferecida em nenhum lugar da tela local.",
-   "estado": "parcial",
-   "evidencia": "js/app.js:934 telaResenha vs js/app.js:2259 desenhaLeitura"
+   "noLetterbooks": "telaResenha resolve o id em três passos: log local com .remoto redireciona (location.replace) para o endereço público, log sem .remoto pinta do localStorage, e id desconhecido vai para a nuvem. #/leitura foi absorvida. Com folha de compartilhar (link primeiro, imagem por último) e folha de apagar no lugar do confirm() do navegador.",
+   "estado": "completo",
+   "evidencia": "js/app.js telaResenha / desenhaResenha; docs/jornada_e2e.py passo 10"
   },
   {
    "nome": "Elenco e equipe → página do autor",

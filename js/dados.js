@@ -133,6 +133,16 @@ var Dados = (function () {
     return estado.logs.filter(function (l) { return l.id === idLog; })[0] || null;
   }
 
+  /* O caminho inverso: da linha do servidor de volta para a do aparelho. A
+     pagina da resenha usa isto como plano B — se o endereco publico nao
+     responde (apagado noutro aparelho, servidor fora), a resenha esta INTACTA
+     aqui e nao pode ficar inalcancavel a partir do proprio diario de quem
+     escreveu. */
+  function logPorRemoto(idRemoto) {
+    if (!idRemoto) return null;
+    return estado.logs.filter(function (l) { return l.remoto === idRemoto; })[0] || null;
+  }
+
   /* O id que o banco deu para esta leitura. E o que liga a linha daqui a
      linha de la — sem ele, editar uma resenha no aparelho criaria uma
      segunda leitura no servidor em vez de corrigir a primeira. */
@@ -412,6 +422,7 @@ var Dados = (function () {
     registrar:  registrar,
     apagarLog:  apagarLog,
     log:        log,
+    logPorRemoto: logPorRemoto,
     logs:       logs,
     logsDo:     logsDo,
     jaLeu:      jaLeu,
