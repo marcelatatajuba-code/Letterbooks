@@ -1,0 +1,43 @@
+# Publica o Letterbooks no GitHub Pages a cada push na main.
+#
+# Este workflow so faz efeito quando a fonte do Pages, em Settings > Pages,
+# esta em "GitHub Actions". Se estiver em "Deploy from a branch", quem publica
+# e o proprio GitHub e este job falha sem consequencia — o site sai do mesmo
+# jeito. Ele existe porque sem ele, na primeira configuracao, nada publica.
+name: Publicar no GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Buscar o repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar o Pages
+        uses: actions/configure-pages@v5
+
+      - name: Empacotar o site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Publicar
+        id: deploy
+        uses: actions/deploy-pages@v4
