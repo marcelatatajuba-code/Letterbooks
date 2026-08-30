@@ -1,0 +1,124 @@
+# Letterbooks
+
+Um "Letterboxd para livros". PWA em JavaScript puro, sem framework e sem etapa
+de build: os arquivos que estão no repositório são os que rodam no navegador.
+
+Este arquivo existe para uma sessão nova não redescobrir, no susto, o que já
+custou caro descobrir uma vez.
+
+---
+
+## Antes de qualquer coisa: o que este ambiente NÃO alcança
+
+A política de rede do contêiner bloqueia **openlibrary.org** e
+**supabase.co**. Isso não é defeito do app — o navegador da usuária alcança os
+dois normalmente.
+
+Consequências práticas, e elas mudam como se trabalha aqui:
+
+- **Nunca julgue layout pelas capas.** Todo teste roda contra capas geradas em
+  `docs/fixtures.py`, que são retângulos chapados. Capa de verdade tem outra
+  proporção, outra cor e às vezes não existe. Três defeitos só apareceram num
+  print do celular da usuária: assuntos sujos, fundo lavado e capa cortada.
+- **Nenhum teste prova que o contrato com o Supabase está certo.** Os mocks
+  imitam o formato do PostgREST, não o comportamento dele. A primeira conta de
+  verdade é a prova.
+- Para conferir SQL, há um Postgres local: veja `servidor/provar.sql`.
+
+## Como rodar as verificações
+
+Todas precisam de um servidor local na porta 8899:
+
+```
+cd /home/user/letterbooks && python3 -m http.server 8899 --bind 127.0.0.1 &
+```
+
+Depois, de dentro de `docs/`:
+
+| suíte | o que cobre |
+|---|---|
+| `python3 testar.py` | ~100 verificações da parte local: telas, diário, listas, escala de aplicativo, capas |
+| `python3 testar_nuvem.py` | conta, sessão, renovação de token, migração do diário |
+| `python3 testar_social.py` | sincronização com fila, feed, seguir, curtir, comentar |
+| `python3 jornada_e2e.py` | a jornada inteira com DUAS contas, do cadastro ao comentário |
+| `python3 rastreador.py` | anda o app sozinho: cobertura, acessibilidade, alvos de toque |
+| `node testar-chave.js` | a trava que recusa a chave errada do Supabase |
+| `node testar-assuntos.js` | a limpeza de assuntos da Open Library |
+
+**Rode as quatro primeiras antes de todo commit.** A `jornada_e2e` é a mais
+barata em achados por minuto: as outras provam que cada peça funciona, ela
+prova que funcionam juntas — e foi a única que pegou o bug da leitura
+duplicada.
+
+Depois de mexer em CSS ou JS, suba a versão do cache em `sw.js`
+(`var CACHE = 'letterbooks-vN'`), senão o navegador serve a versão velha.
+
+## Regras que vieram de errar
+
+**Meça, não olhe.** Três vezes seguidas o layout foi ajustado no olho e errou
+do mesmo jeito: peça grande demais, densidade de site num aplicativo. O que
+resolveu foi medir os quadros do vídeo do app original. As ferramentas estão
+em `docs/` (`extrair.py`, `agrupar.py`, `cores.py`) e o método em
+`docs/LEIA-ME.md`. A seção 12 de `testar.py` trava os números medidos.
+
+**Confira QUAL quadro está na mesa.** Um erro real: o perfil foi comparado com
+um quadro já rolado para baixo do retrato, e daí saiu a conclusão errada de que
+o app não centraliza o avatar. Ele centraliza (quadro `t084`).
+
+**Local primeiro, sempre.** O que a pessoa escreve tem que estar salvo antes de
+qualquer coisa depender da rede. `js/sinc.js` põe cada mudança numa fila no
+aparelho e esvazia quando dá. Nunca faça uma escrita depender da resposta do
+servidor para acontecer.
+
+**Nunca comprometa dado por conveniência de leitura.** A view `feed` precisa de
+`security_invoker = on`; sem isso ela roda com os poderes de quem a criou e o
+RLS das tabelas de baixo é ignorado.
+
+## Convenções
+
+- **Idioma.** Nomes de função, variável e classe em português. Comentários **sem
+  acento** (convenção do arquivo); textos de interface **com acento**.
+- **Comentários explicam POR QUÊ**, não o quê. O padrão do repositório é
+  registrar a decisão e o que ela evita.
+- **Cores por token.** A paleta está no `:root` de `css/app.css` e foi medida
+  nos pixels do app original. Cada acento tem trabalho fixo:
+  **verde `#00e054`** = o que você fez (lido, registrar, salvar);
+  **laranja `#ff8000`** = o que você gostou (curtida, favorito);
+  **azul `#40bcf4`** = onde você está (aba ativa, links).
+  Não invente papel novo para cor existente nem cor nova para papel existente.
+  A paleta anterior ("coral sobre café") continua no arquivo: basta
+  `data-tema="cafe"` no `<html>`.
+- **Área de toque mínima de 44px.** Cresça por `inset` num pseudo-elemento, não
+  por largura fixa centrada — em controle colado na margem direita isso vaza da
+  tela e cria rolagem lateral.
+- **Capa vai inteira.** Pôster de cinema é sempre 2:3; capa de livro não.
+  `object-fit: contain` por cima de uma cópia desfocada da mesma imagem.
+- **`js/config.js` só aceita a chave `anon`.** A `service_role` ignora todas as
+  políticas de RLS e **nunca** pode ir para o repositório. `js/nuvem.js` lê o
+  papel escrito dentro da chave e se recusa a subir com a errada.
+
+## Mapa dos arquivos
+
+```
+index.html            casca: topo, barra de abas
+css/app.css           tokens no :root, depois componentes
+js/config.js          URL e chave anon do Supabase
+js/api.js             Open Library (busca, obra, autor, limpeza de assuntos)
+js/dados.js           estado local + observador de mudanças
+js/nuvem.js           conta, sessão, escrita, social
+js/sinc.js            fila local → nuvem
+js/app.js             roteador por hash + todas as telas  (~3000 linhas)
+sw.js                 cache do app + acervo
+servidor/esquema.sql  10 tabelas, RLS, view feed, gatilho de cadastro
+servidor/provar.sql   prova o esquema num Postgres local
+docs/                 medição, mapa das telas do original, suítes
+```
+
+`js/app.js` é o gargalo: quase toda tela passa por ele. Duas frentes mexendo
+nele ao mesmo tempo colidem — trabalhe em série ali.
+
+## O ciclo de trabalho
+
+Existem papéis definidos em `.claude/agents/` (produto, mercado, design, GPM,
+tech lead, tester, harness) e o ciclo SDD que os orquestra. Para uma volta
+completa, use a skill `/ciclo`. Para só verificar, `/verificar`.
