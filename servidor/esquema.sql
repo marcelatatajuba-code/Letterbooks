@@ -242,7 +242,14 @@ create policy "posso denunciar"         on denuncias for insert
 -- velho. Uma view economiza uma consulta com junção a cada abertura do app.
 -- ============================================================================
 
-create or replace view feed as
+-- security_invoker: sem isso a view roda com os poderes de quem a CRIOU (o
+-- superusuário do painel), e o RLS das tabelas de baixo é ignorado. Hoje isso
+-- não vazaria nada, porque leituras, perfis e livros já são públicos para
+-- leitura. Mas no dia em que uma dessas políticas ficar mais restrita — um
+-- diário privado, por exemplo — a view continuaria devolvendo tudo, e o
+-- vazamento não estaria em lugar nenhum do código do aplicativo.
+create or replace view feed
+  with (security_invoker = on) as
   select l.*,
          p.usuario, p.nome as perfil_nome,
          li.titulo, li.autores, li.ano, li.capa,
@@ -252,6 +259,12 @@ create or replace view feed as
     join perfis  p  on p.id = l.perfil
     join livros  li on li.chave = l.livro
    order by l.criado_em desc;
+
+-- O PostgREST fala com o banco como "anon" (visitante) ou "authenticated"
+-- (quem entrou). Os privilégios padrão do Supabase já cobrem as tabelas, mas
+-- ser explícito aqui evita o erro mais chato de diagnosticar: tudo certo no
+-- esquema e o app recebendo lista vazia, sem mensagem de erro nenhuma.
+grant select on feed to anon, authenticated;
 
 -- ============================================================================
 -- Ao criar uma conta, criar o perfil junto — senão a pessoa entra e não

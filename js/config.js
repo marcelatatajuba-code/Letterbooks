@@ -12,6 +12,6 @@
    politicas de RLS do servidor/esquema.sql, nao o segredo desta chave.
    ========================================================================== */
 var CONFIG = {
-  supabaseUrl: '',
+  supabaseUrl: 'https://ifnnsttcpawcyyvypczn.supabase.co',
   supabaseChave: ''
 };
