@@ -130,12 +130,18 @@
 
   /* ========================================================= pecas reutilizaveis */
 
+  /* A lombada com o titulo fica SEMPRE no HTML, e a imagem por cima dela.
+     Se a capa nao carregar — 404 na Open Library, limite de taxa, rede caindo —
+     o proprio img se remove e a lombada reaparece, em vez de sobrar uma caixa
+     vazia. Numa tela que pede quarenta capas de uma vez, isso e a diferenca
+     entre uma grade e um paredao de buracos. */
   function htmlCapa(livro, extra) {
     var url = livro.capa || livro.capaGrande;
-    var miolo = url
-      ? '<img src="' + esc(url) + '" alt="Capa de ' + esc(livro.titulo) + '" loading="lazy">'
-      : '<div class="capa-vazia"><span>' + esc(livro.titulo) + '</span></div>';
-    return '<div class="capa">' + miolo + (extra || '') + '</div>';
+    return '<div class="capa">' +
+      '<div class="capa-vazia"><span>' + esc(livro.titulo) + '</span></div>' +
+      (url ? '<img src="' + esc(url) + '" alt="Capa de ' + esc(livro.titulo) + '"' +
+             ' loading="lazy" onerror="this.remove()">' : '') +
+      (extra || '') + '</div>';
   }
 
   /* Um item da grade: so a capa, como as grades de posters do original. O que
