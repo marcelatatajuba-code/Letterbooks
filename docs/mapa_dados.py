@@ -1,0 +1,58 @@
+# -*- coding: utf-8 -*-
+"""As 24 telas da jornada, com o que cada uma faz e como esta no Letterbooks."""
+
+# (id do quadro, grupo, nome no app, nome/rota no Letterbooks, estado, o que faz / o que falta)
+TELAS = [
+ ('t000','Livros','Films — início','#/inicio','pronto',
+  'Rola de lado, um trilho por seção, sem chamada de capa. Reconstruído com seis trilhos; os quatro últimos só vão à rede quando chegam perto da tela.'),
+ ('t001','Livros','Reviews','#/resenhas','pronto',
+  'As resenhas de quem você segue. Hoje mostra só as suas — o resto depende da camada social.'),
+ ('t002','Livros','Lists','#/listas','pronto',
+  'Cada lista é um nome, o autor e uma tira de capas. Reconstruído com a pilha de capas sobrepostas.'),
+ ('t003','Livros','Journal','—','fora',
+  'Conteúdo editorial escrito pela redação do Letterboxd: pautas, seleções, ensaios. Não existe equivalente aberto para livros, e inventar uma redação seria mentira de interface.'),
+ ('t007','Livros','Popular This Week — grade','#/explorar/populares','pronto',
+  'Grade de quatro colunas, coladas, de borda a borda. Reconstruída.'),
+ ('t030','Livros','Visor de capa','—','falta',
+  'Tocar numa capa da grade abre a capa em tela cheia, com Assistido / Curtir / Nota / Quero ver embaixo, e desliza para o próximo título. Falta.'),
+ ('t034','Livros','Filtros','—','falta',
+  'Cancelar | Filtros | Concluir, com linhas Ano, Gênero, País, Idioma, Duração. Metade depende de campos que a Open Library não indexa por obra.'),
+ ('t050','Livros','Ficha do filme','#/livro/…','pronto',
+  'Imagem até o topo, sem cabeçalho, chevron sobre a foto; título à esquerda, pôster à direita, ano e direção em dois níveis, histograma e barra de ação fixa.'),
+ ('t055','Livros','Folha de ação','folha rápida','pronto',
+  'A folha que abre pela barra "Avaliar, registrar, resenhar". Ganhou a fileira de estrelas tocáveis e as linhas Registrar / Adicionar a uma lista / Compartilhar.'),
+ ('t057','Livros','Resenha','#/resenha/…','pronto',
+  'Imagem de fundo, autoria, nota, data, texto, curtidas e etiquetas. Reconstruída, menos as curtidas e os comentários.'),
+
+ ('t059','Buscar','Buscar — Explorar por','#/buscar','pronto',
+  'Campo de busca e uma lista de recortes com chevron. Reconstruída com os seis recortes da Open Library.'),
+ ('t061','Buscar','Resultados','#/buscar/termo/1','pronto',
+  'Pílulas de escopo e resultados em lista: miniatura, título em negrito, "ano, de Fulano". Reconstruído — com Livros e Autores no lugar dos três escopos do original.'),
+ ('t065','Buscar','Buscas recentes','#/buscar','pronto',
+  'As últimas buscas, para repetir sem redigitar. Reconstruído, guardado no aparelho.'),
+
+ ('t072','Registrar','Adicionar um filme','folha de escolha','pronto',
+  'O que o botão ⊕ abre: um campo de busca e as buscas recentes. Reconstruído.'),
+ ('t073','Registrar','Eu li… (registro)','folha de registro','pronto',
+  'Data, nota, curtir, resenha, etiquetas. Reconstruída, com releitura e aviso de spoiler no lugar das etiquetas.'),
+
+ ('t074','Atividade','Atividade — Amigos','—','falta',
+  'O feed: quem você segue registrou, curtiu, comentou, com o texto em uma linha e a resenha citada num cartão. É a próxima etapa, e depende das contas.'),
+ ('t082','Atividade','Filtros de atividade','—','falta',
+  'Quais tipos de evento entram no feed. Só faz sentido depois que o feed existir.'),
+
+ ('t084','Perfil','Perfil','#/perfil','pronto',
+  'Retrato redondo centralizado, lugar, favoritos, atividade recente e histograma. Corrigido nesta rodada — eu tinha tirado o retrato comparando com um quadro rolado.'),
+ ('t085','Perfil','Contagens do perfil','#/perfil','pronto',
+  'Cada número é também um caminho: Leituras, Obras, Resenhas, Listas, Quero ler, Curtidas. Reconstruído.'),
+ ('t086','Perfil','Diário','#/diario','pronto',
+  'Agrupado por mês, cada linha com dia, capa, título e nota. Reconstruído, com a faixa de mês de largura inteira no celular.'),
+ ('t088','Perfil','Nova lista','folha de lista','pronto',
+  'Nome, descrição e itens. Reconstruído.'),
+ ('t090','Perfil','Listas vazias','#/listas','parcial',
+  'O original põe uma piada no vazio ("And like that, poof. He\'s gone."). O meu explica o que a tela faz. Falta a voz.'),
+ ('t091','Perfil','Quero ver / Estante','#/estante','pronto',
+  'Grade de quatro colunas com o que você quer ler. Reconstruída.'),
+ ('t102','Perfil','Ajustes','#/conta','parcial',
+  'Linhas de ajuste com valor e chevron. A tela de conta cobre perfil, usuário e sessão; falta notificações, privacidade e ícone do app.'),
+]
