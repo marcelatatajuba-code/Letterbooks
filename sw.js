@@ -13,7 +13,7 @@
 
    O seu diario nao passa por aqui: ele vive no localStorage e ja e offline.
    ========================================================================== */
-var CACHE = 'letterbooks-v3';
+var CACHE = 'letterbooks-v4';
 var CACHE_REDE = 'letterbooks-acervo-v1';
 
 var ARQUIVOS = [
@@ -21,8 +21,10 @@ var ARQUIVOS = [
   './index.html',
   './manifest.webmanifest',
   './css/app.css',
+  './js/config.js',
   './js/api.js',
   './js/dados.js',
+  './js/nuvem.js',
   './js/app.js',
   './icons/icone-192.png',
   './icons/icone-512.png',
@@ -55,6 +57,15 @@ self.addEventListener('fetch', function (ev) {
 
   var url = new URL(ev.request.url);
   var externo = url.origin !== self.location.origin;
+
+  /* So o acervo publico entra no cache de rede, e por nome de servidor. A conta
+     e o feed vem do Supabase, sao dados de UMA pessoa e passam direto para a
+     rede: guardar isso aqui faria o navegador de um aparelho compartilhado
+     servir o diario de quem entrou antes. */
+  var acervo = /(^|\.)openlibrary\.org$/.test(url.hostname) ||
+               /(^|\.)archive\.org$/.test(url.hostname);
+
+  if (externo && !acervo) return;
 
   /* Acervo: tenta a rede, guarda o que veio, e cai no cache se estiver offline. */
   if (externo) {

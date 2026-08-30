@@ -1073,12 +1073,20 @@
         '</div></section>';
     }
 
+    var naNuvem = Nuvem.ligada();
     html += '<section class="secao"><h2>Seus dados</h2>' +
       '<p style="color:var(--texto-2);font-size:13px;margin:0 0 14px">' +
-        'Tudo fica guardado só neste navegador. Exporte um arquivo para levar seu diário ' +
-        'para outro aparelho — ou para não perder nada.</p>' +
+        (naNuvem
+          ? (Nuvem.entrou()
+              ? 'Você está na sua conta. O que registrar daqui em diante também fica no aparelho — o arquivo exportado continua sendo a sua cópia de segurança.'
+              : 'Este diário está guardado só neste navegador. Crie uma conta para levá-lo com você e aparecer no feed de quem te segue.')
+          : 'Tudo fica guardado só neste navegador. Exporte um arquivo para levar seu diário para outro aparelho — ou para não perder nada.') + '</p>' +
       '<div class="linha-botoes">' +
         '<button class="botao" data-acao="editar-perfil">Editar perfil</button>' +
+        (naNuvem
+          ? '<a class="botao' + (Nuvem.entrou() ? '' : ' destaque') + '" href="#/conta">' +
+            (Nuvem.entrou() ? 'Sua conta' : 'Criar conta') + '</a>'
+          : '') +
         '<button class="botao" data-acao="exportar">Exportar diário</button>' +
         '<button class="botao" data-acao="importar">Importar diário</button>' +
         '<button class="botao perigo" data-acao="limpar">Apagar tudo</button></div>' +
@@ -1653,6 +1661,276 @@
 
   /* ==================================================================== roteador */
 
+  /* ================================================================ conta == */
+
+  /* A tela de conta e a unica que muda de cara conforme a nuvem esteja
+     desligada, deslogada ou dentro. As tres versoes vivem aqui juntas para
+     que de para ler a maquina de estados inteira de uma vez. */
+
+  function telaConta() {
+    marcarAba('perfil');
+    if (!Nuvem.ligada()) return contaDesligada();
+    if (!Nuvem.entrou())  return contaPorta('entrar');
+    return contaDentro();
+  }
+
+  /* Sem chave em js/config.js: o app segue local, e a tela diz isso em vez de
+     mostrar um formulario que nao ia funcionar. */
+  function contaDesligada() {
+    pintar(
+      '<div class="conta">' +
+        '<h1>Conta</h1>' +
+        '<p class="conta-texto">O Letterbooks está no modo local: seu diário, suas ' +
+          'listas e suas resenhas ficam guardados só neste aparelho, sem conta e sem ' +
+          'servidor. Funciona, e funciona offline.</p>' +
+        '<p class="conta-texto">Para ligar a parte de rede social — perfil público, ' +
+          'feed de quem você segue, curtir e comentar — falta criar o banco e colar duas ' +
+          'linhas em <code>js/config.js</code>. O passo a passo está em ' +
+          '<code>servidor/LEIA-ME.md</code>, no repositório.</p>' +
+        '<p class="conta-texto">Nada do que você já registrou se perde nisso: quando a ' +
+          'conta existir, a primeira coisa que ela faz é subir o seu diário de hoje.</p>' +
+        '<div class="linha-botoes"><a class="botao" href="#/perfil">Voltar ao perfil</a></div>' +
+      '</div>'
+    );
+  }
+
+  /* Entrar e criar conta sao o mesmo formulario com um campo a mais. Duas telas
+     separadas so dariam duas copias do mesmo tratamento de erro. */
+  function contaPorta(modo) {
+    var criando = modo === 'criar';
+
+    pintar(
+      '<div class="conta">' +
+        '<h1>' + (criando ? 'Criar conta' : 'Entrar') + '</h1>' +
+        '<nav class="segmentos conta-abas">' +
+          '<a href="#/conta" class="' + (criando ? '' : 'ativa') + '" data-acao="modo-entrar">Entrar</a>' +
+          '<a href="#/conta" class="' + (criando ? 'ativa' : '') + '" data-acao="modo-criar">Criar conta</a>' +
+        '</nav>' +
+        '<form id="forma-conta" novalidate>' +
+          (criando
+            ? '<label class="campo"><span>Nome</span>' +
+              '<input name="nome" autocomplete="name" placeholder="Como você quer aparecer"></label>'
+            : '') +
+          '<label class="campo"><span>E-mail</span>' +
+            '<input name="email" type="email" autocomplete="email" required></label>' +
+          '<label class="campo"><span>Senha</span>' +
+            '<input name="senha" type="password" required ' +
+            'autocomplete="' + (criando ? 'new-password' : 'current-password') + '" ' +
+            'minlength="6"></label>' +
+          (criando ? '<p class="conta-dica">Pelo menos 6 caracteres.</p>' : '') +
+          '<p class="conta-erro" id="conta-erro" role="alert" hidden></p>' +
+          '<div class="linha-botoes">' +
+            '<button class="botao destaque" type="submit">' +
+              (criando ? 'Criar conta' : 'Entrar') + '</button>' +
+            (criando ? '' : '<button class="botao" type="button" data-acao="esqueci">Esqueci a senha</button>') +
+          '</div>' +
+        '</form>' +
+        '<p class="conta-texto conta-rodape">Seu perfil e seu diário ficam públicos, como ' +
+          'no Letterboxd. E-mail e senha, não.</p>' +
+      '</div>'
+    );
+
+    var forma = document.getElementById('forma-conta');
+    var caixaErro = document.getElementById('conta-erro');
+
+    function erro(msg) {
+      caixaErro.textContent = msg || '';
+      caixaErro.hidden = !msg;
+    }
+
+    /* Enquanto a requisicao esta no ar, o botao trava e diz o que esta
+       fazendo. Sem isso, dois toques seguidos viram duas contas. */
+    function ocupado(sim, texto) {
+      var b = forma.querySelector('button[type=submit]');
+      b.disabled = sim;
+      b.textContent = sim ? texto : (criando ? 'Criar conta' : 'Entrar');
+    }
+
+    forma.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      erro('');
+      var email = forma.email.value.trim();
+      var senha = forma.senha.value;
+      if (!email || !senha) return erro('Preencha e-mail e senha.');
+      if (criando && senha.length < 6) return erro('A senha precisa de pelo menos 6 caracteres.');
+
+      ocupado(true, criando ? 'Criando…' : 'Entrando…');
+      var promessa = criando
+        ? Nuvem.cadastrar(email, senha, forma.nome.value.trim())
+        : Nuvem.entrar(email, senha);
+
+      promessa.then(function (r) {
+        if (criando && r && r.confirmar) {
+          ocupado(false);
+          return pintar(
+            '<div class="conta"><h1>Confirme o e-mail</h1>' +
+            '<p class="conta-texto">Enviamos um link para <b>' + esc(email) + '</b>. ' +
+            'Clique nele e depois volte aqui para entrar.</p>' +
+            '<div class="linha-botoes"><a class="botao" href="#/conta">Voltar</a></div></div>'
+          );
+        }
+        aviso(criando ? 'Conta criada.' : 'Você entrou.');
+        contaDentro();
+      }, function (e) {
+        ocupado(false);
+        erro(e.message);
+      });
+    });
+
+    acoes({
+      'modo-entrar': function (a, ev) { ev.preventDefault(); contaPorta('entrar'); },
+      'modo-criar':  function (a, ev) { ev.preventDefault(); contaPorta('criar'); },
+      esqueci: function () {
+        var email = forma.email.value.trim();
+        if (!email) return erro('Escreva o e-mail primeiro, e então peça a troca de senha.');
+        Nuvem.recuperarSenha(email).then(function () {
+          aviso('Link de nova senha enviado para ' + email + '.');
+        }, function (e) { erro(e.message); });
+      }
+    });
+  }
+
+  /* Dentro da conta. Busca o perfil no servidor antes de pintar — o @usuario
+     nasce la, no gatilho de cadastro, e nao existe do lado de ca. */
+  function contaDentro() {
+    carregando('Carregando sua conta…');
+    Nuvem.meuPerfil().then(pintarConta, function (e) {
+      pintar('<div class="conta"><h1>Conta</h1>' +
+        '<p class="conta-erro">' + esc(e.message) + '</p>' +
+        '<div class="linha-botoes">' +
+          '<button class="botao" data-acao="tentar">Tentar de novo</button>' +
+          '<button class="botao perigo" data-acao="sair">Sair</button></div></div>');
+      acoes({ tentar: contaDentro, sair: sairDaConta });
+    });
+  }
+
+  function pintarConta(p) {
+    var eu = Nuvem.quemSou();
+    var d = Dados.estado();
+    var marcacoes = d.querLer.length + d.curtidas.length + d.favoritos.length;
+    var quanto = d.logs.length + d.listas.length + marcacoes;
+    var migrado = Nuvem.jaMigrou();
+
+    /* O bloco de migracao so aparece se houver o que migrar e ainda nao tiver
+       migrado. Depois disso vira uma linha com a data, para a pessoa saber que
+       aconteceu e nao ficar procurando o botao. */
+    var blocoMigrar = '';
+    if (migrado) {
+      blocoMigrar =
+        '<section class="secao"><h2>Diário deste aparelho</h2>' +
+        '<p class="conta-texto">Já enviado para a sua conta em ' +
+          esc(dataCurta(migrado)) + '.</p></section>';
+    } else if (quanto) {
+      blocoMigrar =
+        '<section class="secao"><h2>Trazer o diário deste aparelho</h2>' +
+        '<p class="conta-texto">Você tem <b>' + d.logs.length + '</b> leituras, <b>' +
+          d.listas.length + '</b> listas e <b>' + marcacoes + '</b> marcações guardadas ' +
+          'só aqui. Enviar copia tudo para a conta. O que está no aparelho continua ' +
+          'onde está — nada é apagado.</p>' +
+        '<p class="conta-erro" id="migrar-erro" role="alert" hidden></p>' +
+        '<div class="linha-botoes">' +
+          '<button class="botao destaque" data-acao="migrar">Enviar para a conta</button>' +
+        '</div></section>';
+    }
+
+    pintar(
+      '<div class="conta">' +
+        '<h1>Sua conta</h1>' +
+        '<p class="conta-texto">' + esc(eu.email) + '</p>' +
+
+        /* novalidate porque a mensagem do navegador vem no idioma dele e nao
+           combina com a regra do banco; quem explica o erro e o codigo abaixo. */
+        '<form id="forma-perfil" novalidate>' +
+          '<label class="campo"><span>Usuário</span>' +
+            '<input name="usuario" value="' + esc((p && p.usuario) || '') + '" ' +
+            'autocapitalize="none" autocorrect="off" spellcheck="false"></label>' +
+          '<p class="conta-dica">Minúsculas, números e _, de 3 a 20. É o endereço ' +
+            'público do seu perfil.</p>' +
+          '<label class="campo"><span>Nome</span>' +
+            '<input name="nome" value="' + esc((p && p.nome) || '') + '"></label>' +
+          '<label class="campo"><span>Bio</span>' +
+            '<textarea name="bio" style="min-height:70px">' + esc((p && p.bio) || '') + '</textarea></label>' +
+          '<label class="campo"><span>Lugar</span>' +
+            '<input name="local" value="' + esc((p && p.local) || '') + '"></label>' +
+          '<p class="conta-erro" id="perfil-erro" role="alert" hidden></p>' +
+          '<div class="linha-botoes">' +
+            '<button class="botao destaque" type="submit">Salvar</button></div>' +
+        '</form>' +
+
+        blocoMigrar +
+
+        '<section class="secao"><h2>Sessão</h2>' +
+          '<div class="linha-botoes">' +
+            '<button class="botao perigo" data-acao="sair">Sair desta conta</button>' +
+          '</div></section>' +
+      '</div>'
+    );
+
+    var forma = document.getElementById('forma-perfil');
+    var caixaErro = document.getElementById('perfil-erro');
+
+    forma.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      caixaErro.hidden = true;
+      var campos = {
+        usuario: forma.usuario.value.trim().toLowerCase(),
+        nome:    forma.nome.value.trim(),
+        bio:     forma.bio.value.trim(),
+        local:   forma.local.value.trim()
+      };
+      if (!/^[a-z0-9_]{3,20}$/.test(campos.usuario)) {
+        caixaErro.textContent = 'O usuário aceita só letras minúsculas, números e _, de 3 a 20.';
+        caixaErro.hidden = false;
+        return;
+      }
+      var b = forma.querySelector('button[type=submit]');
+      b.disabled = true; b.textContent = 'Salvando…';
+      Nuvem.salvarPerfil(campos).then(function (novo) {
+        /* Espelha o nome no perfil local, para o resto do app nao mostrar dois
+           nomes diferentes para a mesma pessoa. */
+        if (campos.nome) { Dados.estado().perfil.nome = campos.nome; Dados.salvar(); }
+        aviso('Perfil salvo.');
+        pintarConta(novo || p);
+      }, function (e) {
+        b.disabled = false; b.textContent = 'Salvar';
+        caixaErro.textContent = e.message;
+        caixaErro.hidden = false;
+      });
+    });
+
+    acoes({
+      sair: sairDaConta,
+      migrar: function (botao) {
+        var err = document.getElementById('migrar-erro');
+        err.hidden = true;
+        botao.disabled = true;
+        Nuvem.migrar(Dados.estado(), function (etapa, feito, total) {
+          botao.textContent = 'Enviando ' + etapa + '… (' + feito + '/' + total + ')';
+        }).then(function (r) {
+          aviso(r.leituras + ' leituras enviadas.');
+          pintarConta(p);
+        }, function (e) {
+          botao.disabled = false;
+          botao.textContent = 'Tentar enviar de novo';
+          err.textContent = e.message;
+          err.hidden = false;
+        });
+      }
+    });
+  }
+
+  function sairDaConta() {
+    Nuvem.sair().then(function () {
+      aviso('Você saiu. Seu diário deste aparelho continua aqui.');
+      contaPorta('entrar');
+    });
+  }
+
+  function dataCurta(iso) {
+    var d = new Date(iso);
+    return isNaN(d.getTime()) ? iso : d.toLocaleDateString('pt-BR');
+  }
+
   function rotear() {
     camada.innerHTML = '';
     var partes = (location.hash || '#/inicio').replace(/^#\/?/, '').split('/');
@@ -1673,6 +1951,7 @@
     if (rota === 'listas')  return telaListas();
     if (rota === 'lista')   return telaLista(partes[1]);
     if (rota === 'perfil')  return telaPerfil();
+    if (rota === 'conta')   return telaConta();
     return telaInicio();
   }
 
