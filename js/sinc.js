@@ -213,7 +213,15 @@ var Sinc = (function () {
               sinopse: b.sinopse
             });
           });
-          return Dados.fundir(leituras, marcadores);
+          var contas = Dados.fundir(leituras, marcadores);
+
+          /* As linhas antigas que a fusao reconheceu por assinatura recebem o
+             cliente_id no servidor. Falha aqui nao para a descida: o diario ja
+             esta certo no aparelho, e a proxima abertura tenta de novo. */
+          if (!contas.adotar.length) return contas;
+          return Promise.all(contas.adotar.map(function (a) {
+            return Nuvem.adotarLeitura(a.remoto, a.cliente_id).catch(function () {});
+          })).then(function () { return contas; });
         });
       })
       .then(function (contagens) {

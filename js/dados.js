@@ -180,17 +180,50 @@ var Dados = (function () {
 
      Devolve as contagens que a tela mostra — e elas sao contagens de verdade,
      nao estimativa: quem desenha a tela nao inventa numero. */
+  /* A chave do terceiro casamento, abaixo. Livro + dia + nota + resenha: quatro
+     campos iguais sao a mesma leitura para qualquer efeito pratico. So livro +
+     dia — que e a regra do backfill em SQL — juntaria duas releituras do mesmo
+     dia com resenhas diferentes, e essas sao duas de verdade. */
+  function assinaturaDaLeitura(chave, dia, nota, resenha) {
+    return chave + '|' + dia + '|' +
+           (typeof nota === 'number' ? nota : '') + '|' + (resenha || '');
+  }
+
   function fundir(remotas, marcadoresRemotos) {
-    var porCliente = {}, porRemoto = {};
+    var porCliente = {}, porRemoto = {}, orfas = {};
     estado.logs.forEach(function (l) {
       porCliente[l.id] = l;
       if (l.remoto) porRemoto[l.remoto] = l;
+      /* Leitura local que ainda nao esta amarrada a nenhuma linha do servidor.
+         So estas participam do terceiro casamento. */
+      else orfas[assinaturaDaLeitura(l.chave, l.lidoEm, l.nota, l.resenha)] = l;
     });
 
-    var vieram = 0, jaEstavam = 0;
+    var vieram = 0, jaEstavam = 0, adotar = [];
 
     (remotas || []).forEach(function (r) {
       var local = (r.cliente_id && porCliente[r.cliente_id]) || porRemoto[r.id];
+
+      /* TERCEIRO CASAMENTO, e ele existe por causa de um banco que ainda nao
+         rodou o esquema.sql da V1. Antes dela toda leitura subia sem
+         cliente_id; o backfill preenche essas linhas, mas se ele nao rodou a
+         linha volta orfa, nao casa por cliente_id nem por remoto, e a descida
+         DUPLICA o diario inteiro em silencio — no aparelho e, na subida
+         seguinte, no servidor tambem. Quem instalou o Supabase antes da V1 e
+         nao reexecutou o SQL esta exatamente nesse estado agora.
+
+         Casada a linha, ela entra em `adotar`: o Sinc grava o cliente_id nela
+         no servidor, e a partir dai o caminho normal de upsert funciona
+         sozinho. E conserto de uma vez, nao remendo a cada descida. */
+      if (!local && !r.cliente_id) {
+        var assinatura = assinaturaDaLeitura(r.livro, r.lido_em, r.nota, r.resenha);
+        local = orfas[assinatura];
+        if (local) {
+          delete orfas[assinatura];   /* uma linha do servidor por leitura local */
+          adotar.push({ remoto: r.id, cliente_id: local.id });
+        }
+      }
+
       if (local) {
         local.remoto  = r.id;
         local.nota    = typeof r.nota === 'number' ? r.nota : null;
@@ -231,6 +264,7 @@ var Dados = (function () {
 
     salvar();
     return { vieram: vieram, jaEstavam: jaEstavam, marcadores: marcadores,
+             adotar: adotar,
              subiram: estado.logs.length - vieram - jaEstavam };
   }
 

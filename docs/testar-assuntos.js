@@ -22,3 +22,14 @@ ok(!API._perto('exito', 'success'), 'exito nao vira success');
 ok(API._limpar([], 8).length === 0, 'lista vazia nao quebra');
 ok(API._limpar(null, 8).length === 0, 'nulo nao quebra');
 ok(API._limpar(['a', 'Ficção'], 8).length === 1, 'etiqueta de uma letra sai');
+
+// Mojibake: UTF-8 lido como Latin-1. Agrupar por distancia de edicao nao pega
+// — a forma estragada fica longe demais da boa e vira grupo proprio, entao a
+// etiqueta ilegivel chegava inteira na tela. Achado pelo caso 'assuntos-sujos'
+// de docs/dados_teste.py.
+var sujo = API._limpar(['FiÃ§Ã£o brasileira', 'Ficção brasileira', 'LiterÃ¡ria'], 8);
+ok(sujo.indexOf('Ficção brasileira') >= 0, 'a grafia boa fica');
+ok(!sujo.some(function (s) { return /[\u00C3\u00C2][\u0080-\u00BF]/.test(s); }),
+   'e nenhuma etiqueta com mojibake sobrevive');
+ok(API._limpar(['Ficção', 'Anotações', 'Ação'], 8).length === 3,
+   'acento de verdade nao e confundido com mojibake');

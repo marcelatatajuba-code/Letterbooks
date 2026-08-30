@@ -134,6 +134,17 @@ var API = (function () {
      escrito assim. */
   function suspeito(s) { return /\s[a-z]\.\s*$/i.test(s); }
 
+  /* Mojibake: texto UTF-8 lido como Latin-1 em algum ponto do caminho.
+     "Ficcao" com cedilha volta como "FicÃ§Ã£o" — um A-til ou A-circunflexo
+     seguido de SIMBOLO, nunca de letra. Nenhuma etiqueta de verdade tem essa
+     sequencia, em lingua nenhuma, entao ela e lixo inteiro e nem entra na
+     conta: agrupar por distancia de edicao nao resolve isto, porque a forma
+     estragada fica a tres ou quatro caracteres da boa e vira um grupo so dela.
+     A limpeza ja tirava a duplicata; a etiqueta ilegivel continuava na tela. */
+  function mojibake(s) {
+    return /[\u00C3\u00C2][\u0080-\u00BF]/.test(s);
+  }
+
   /* Sem acento, sem pontuacao, tudo junto: "Succès" e "Success" viram
      "succes" e "success", que a distancia de edicao abaixo aproxima. */
   function chaveAssunto(s) {
@@ -162,6 +173,7 @@ var API = (function () {
     (lista || []).forEach(function (cru) {
       var s = String(cru || '').trim();
       if (s.length < 2 || s.length > 40) return;
+      if (mojibake(s)) return;
       var k = chaveAssunto(s);
       if (!k) return;
       var g = null;

@@ -70,14 +70,36 @@ try:
 except FileNotFoundError:
     criterio(2, 'achados graves do rastreador', 'sem medida', '0', False)
 
+import sys as _sys
+_sys.path.insert(0, caminho('docs'))
+import dados_teste as _dt
+_com, _sem, _tela = _dt.cobertura()
+criterio(2, 'defeitos de dado com caso de regressão',
+         '%d de %d' % (len(_com), len(_com) + len(_sem)), 'todos', not _sem,
+         'os outros %d não são alcançáveis por dado e estão listados um a um '
+         'em dados_teste.SO_DE_TELA' % len(_tela))
+
 # Os defeitos que corrompem dado sao os unicos que nao podem esperar volta
-# nenhuma: o resto incomoda, este apaga o que a pessoa escreveu.
-defeitos = open(caminho('docs/processo/defeitos.csv'), encoding='utf-8').read()
-corrompe = [l for l in defeitos.split('\n')
-            if 'duplic' in l.lower() or 'órf' in l.lower() or 'orf' in l.lower()]
-criterio(2, 'defeitos de corrupção conhecidos', '%d, todos corrigidos' % len(corrompe),
-         '0 em aberto', True,
-         'em aberto se algum deles reaparecer numa suíte')
+# nenhuma: o resto incomoda, este apaga o que a pessoa escreveu. Este criterio
+# passava por decreto — um `True` fixo, que e criterio que nao pode falhar e
+# portanto nao mede nada. Agora ele pergunta uma coisa verificavel: cada
+# defeito de corrupcao tem um caso de regressao que o prende?
+import csv as _csv
+_defeitos = list(_csv.DictReader(open(caminho('docs/processo/defeitos.csv'),
+                                      encoding='utf-8')))
+# 'apag' ficou de fora da lista: pegava "apaguei o workflow do Pages", que e
+# defeito de publicacao e nao de dado. Palavra-chave frouxa faz o portao contar
+# errado, que e o mesmo que nao contar.
+_corrompe = [d for d in _defeitos
+             if any(p in d['defeito'].lower() for p in ('duplic', 'órf', 'orf'))]
+# Preso = tem caso de regressao OU tem motivo escrito de por que dado nao
+# alcanca ele. A segunda saida nao afrouxa a regra: exige uma frase, e um
+# defeito de corrupcao NOVO sem nenhuma das duas abre o portao.
+_soltos = [d['id'] for d in _corrompe
+           if d['id'] not in _com and d['id'] not in _dt.SO_DE_TELA]
+criterio(2, 'defeitos de corrupção presos',
+         '%d de %d' % (len(_corrompe) - len(_soltos), len(_corrompe)), 'todos',
+         not _soltos, 'sem caso e sem motivo: ' + (', '.join(_soltos) or 'nenhum'))
 
 prova = os.path.exists(caminho('servidor/provar.sql')) and \
         os.path.exists(caminho('servidor/provar-v1.sql'))

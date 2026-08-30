@@ -1,40 +1,43 @@
 id,fase,quando,defeito,gravidade,detector,latencia,evitavel_por
 D01,vibecoding,29/08 23:40,"Layout na escala de site, não de app (1ª rodada)",alta,usuária,~50min,medição contra o original
-D02,vibecoding,30/08 00:21,"Tipografia e ritmo errados (2ª rodada)",alta,usuária,~40min,medição contra o original
-D03,vibecoding,30/08 03:22,"Layout ainda em escala de site (3ª rodada)",alta,usuária,~2h40,medição contra o original
-D04,vibecoding,30/08 00:01,"Site 3 commits atrasado — apaguei o workflow do Pages por dedução errada",alta,eu (tarde),~53min,verificar config em vez de deduzir de um build
-D05,vibecoding,29/08 23:08,"<a> dentro de <a>: o glifo escapava para a célula seguinte",média,suíte local,<10min,—
-D06,vibecoding,29/08 23:08,"colspan 6 onde precisava 7: borda parava no meio da tabela",baixa,medição de pixel,<10min,—
-D07,vibecoding,29/08 23:54,"scroll-snap cancelava o padding do trilho",baixa,medição de pixel,<10min,—
-D08,vibecoding,29/08 23:49,"scrollWidth 441 em tela de 390: rolagem lateral",média,suíte local,<10min,—
-D09,vibecoding,30/08 00:45,"Capa que falha ao carregar virava caixa vazia",alta,raciocínio meu,~2h,dado real (nunca testável aqui)
-D10,vibecoding,30/08 03:22,"Comparei com o quadro errado do vídeo (perfil já rolado)",média,eu,~30min,conferir qual quadro está na mesa
+D02,vibecoding,30/08 00:21,Tipografia e ritmo errados (2ª rodada),alta,usuária,~40min,medição contra o original
+D03,vibecoding,30/08 03:22,Layout ainda em escala de site (3ª rodada),alta,usuária,~2h40,medição contra o original
+D04,vibecoding,30/08 00:01,Site 3 commits atrasado — apaguei o workflow do Pages por dedução errada,alta,eu (tarde),~53min,verificar config em vez de deduzir de um build
+D05,vibecoding,29/08 23:08,<a> dentro de <a>: o glifo escapava para a célula seguinte,média,suíte local,<10min,—
+D06,vibecoding,29/08 23:08,colspan 6 onde precisava 7: borda parava no meio da tabela,baixa,medição de pixel,<10min,—
+D07,vibecoding,29/08 23:54,scroll-snap cancelava o padding do trilho,baixa,medição de pixel,<10min,—
+D08,vibecoding,29/08 23:49,scrollWidth 441 em tela de 390: rolagem lateral,média,suíte local,<10min,—
+D09,vibecoding,30/08 00:45,Capa que falha ao carregar virava caixa vazia,alta,raciocínio meu,~2h,dado real (nunca testável aqui)
+D10,vibecoding,30/08 03:22,Comparei com o quadro errado do vídeo (perfil já rolado),média,eu,~30min,conferir qual quadro está na mesa
 D11,instrumentado,30/08 03:55,"Assuntos sujos: 10 etiquetas para 4 ideias, 3 com mojibake",média,print da usuária,~4h,dado real
-D12,instrumentado,30/08 03:55,"Fundo lavado: capa clara desfocada virava faixa cinza",média,print da usuária,~4h,dado real
-D13,instrumentado,30/08 03:55,"Capas cortadas: livro não é 2:3 como pôster de cinema",alta,print da usuária,~4h,dado real
-D14,instrumentado,30/08 04:03,"View feed sem security_invoker: RLS ignorado",alta,prova em Postgres local,<15min,—
-D15,instrumentado,30/08 05:41,"Estrela + resenha criavam DUAS leituras do mesmo livro",alta,jornada de ponta a ponta,~37min,—
-D16,instrumentado,30/08 05:41,"Meu próprio perfil não mostrava seguidores nem seguindo",alta,usuária,~37min,jornada com duas contas
-D17,instrumentado,30/08 05:43,"Perfil dizia 'Leitora' com @bruno embaixo",média,jornada de ponta a ponta,<5min,—
-D18,instrumentado,30/08 05:41,"Mock ignorava filtro in.(): acusou o app de erro que não tinha",média,jornada de ponta a ponta,<5min,—
-D19,instrumentado,30/08 05:59,"Links de capa sem nome acessível no diário e no feed",média,rastreador autônomo,~18min,—
-D20,instrumentado,30/08 05:59,"Glifo ≡ do diário com 8x16px de área de toque",média,rastreador autônomo,~18min,—
-D21,instrumentado,30/08 05:59,"Chevron das seções com 8x33px",baixa,rastreador autônomo,~18min,—
-D22,instrumentado,30/08 05:59,"Curtir e comentar com 25x19px",baixa,rastreador autônomo,~18min,—
-D23,instrumentado,30/08 05:59,"Regressão: minha correção de toque criou rolagem lateral de 4px",média,rastreador autônomo,<5min,—
-D24,time-hibrido,30/08 07:23,"Livro sem capa prendia a pessoa na tela sem caminho de volta",alta,agente tech lead,~3h20,—
-D25,time-hibrido,30/08 07:23,"Visitante sem conta tomava TypeError ao abrir link compartilhado",alta,agente tech lead,~2h20,—
-D26,time-hibrido,30/08 07:23,".voltar fora da lista de área de toque",baixa,agente tech lead,~1h20,—
-D27,time-hibrido,30/08 07:23,"Migração deixava toda leitura órfã: editar depois duplicava no banco",alta,agente tech lead,~5h30,—
-D28,time-hibrido,30/08 07:23,"Histograma da ficha era o SEU, idêntico em todo livro, rotulado 'Avaliações'",alta,agente de produto,~5h30,—
-D29,time-hibrido,30/08 06:11,"Suíte de 100 verificações vivia só no rascunho da sessão",alta,agente de harness,~7h,—
-D30,time-hibrido,30/08 15:39,"Mock ignorava on_conflict: teste passaria verde e produção duplicaria",alta,eu (avisado pelo tech lead),<10min,—
-D31,time-hibrido,30/08 15:39,"Mock devolvia lista vazia: migração parecia funcionar deixando tudo órfão",média,suíte de nuvem,<10min,—
+D12,instrumentado,30/08 03:55,Fundo lavado: capa clara desfocada virava faixa cinza,média,print da usuária,~4h,dado real
+D13,instrumentado,30/08 03:55,Capas cortadas: livro não é 2:3 como pôster de cinema,alta,print da usuária,~4h,dado real
+D14,instrumentado,30/08 04:03,View feed sem security_invoker: RLS ignorado,alta,prova em Postgres local,<15min,—
+D15,instrumentado,30/08 05:41,Estrela + resenha criavam DUAS leituras do mesmo livro,alta,jornada de ponta a ponta,~37min,—
+D16,instrumentado,30/08 05:41,Meu próprio perfil não mostrava seguidores nem seguindo,alta,usuária,~37min,jornada com duas contas
+D17,instrumentado,30/08 05:43,Perfil dizia 'Leitora' com @bruno embaixo,média,jornada de ponta a ponta,<5min,—
+D18,instrumentado,30/08 05:41,Mock ignorava filtro in.(): acusou o app de erro que não tinha,média,jornada de ponta a ponta,<5min,—
+D19,instrumentado,30/08 05:59,Links de capa sem nome acessível no diário e no feed,média,rastreador autônomo,~18min,—
+D20,instrumentado,30/08 05:59,Glifo ≡ do diário com 8x16px de área de toque,média,rastreador autônomo,~18min,—
+D21,instrumentado,30/08 05:59,Chevron das seções com 8x33px,baixa,rastreador autônomo,~18min,—
+D22,instrumentado,30/08 05:59,Curtir e comentar com 25x19px,baixa,rastreador autônomo,~18min,—
+D23,instrumentado,30/08 05:59,Regressão: minha correção de toque criou rolagem lateral de 4px,média,rastreador autônomo,<5min,—
+D24,time-hibrido,30/08 07:23,Livro sem capa prendia a pessoa na tela sem caminho de volta,alta,agente tech lead,~3h20,—
+D25,time-hibrido,30/08 07:23,Visitante sem conta tomava TypeError ao abrir link compartilhado,alta,agente tech lead,~2h20,—
+D26,time-hibrido,30/08 07:23,.voltar fora da lista de área de toque,baixa,agente tech lead,~1h20,—
+D27,time-hibrido,30/08 07:23,Migração deixava toda leitura órfã: editar depois duplicava no banco,alta,agente tech lead,~5h30,—
+D28,time-hibrido,30/08 07:23,"Histograma da ficha era o SEU, idêntico em todo livro, rotulado 'Avaliações' (registrado 2x: D34 era duplicata)",alta,agente de produto,~5h30,—
+D29,time-hibrido,30/08 06:11,Suíte de 100 verificações vivia só no rascunho da sessão,alta,agente de harness,~7h,—
+D30,time-hibrido,30/08 15:39,Mock ignorava on_conflict: teste passaria verde e produção duplicaria,alta,eu (avisado pelo tech lead),<10min,—
+D31,time-hibrido,30/08 15:39,Mock devolvia lista vazia: migração parecia funcionar deixando tudo órfão,média,suíte de nuvem,<10min,—
 D32,time-hibrido,30/08 15:39,"Asserção media a ordem de todos os pedidos, não só das escritas",baixa,suíte social,<5min,—
-D33,time-hibrido,30/08 19:00,"Mock ignorava livro=eq.: o teste passaria mostrando o histograma de todo o acervo",alta,tech lead (na revisão do plano),<10min,—
-D34,time-hibrido,30/08 19:00,"Histograma da ficha era o da leitora, não do livro, sob o rótulo Avaliações",alta,agente de produto,~20h,—
-D35,time-hibrido,30/08 19:00,"Espera casava com a tela anterior (.grade da busca): teste falhava 2 em 3",média,suíte local,~15min,—
-D36,time-hibrido,30/08 19:00,"Semear e navegar antes de recarregar: guardarLivro grava por cima da semeadura",média,suíte social,~10min,—
-D37,time-hibrido,30/08 19:00,"Sonda de alvo media sob as barras fixas e acusava de miúdo controle já consertado",média,rastreador,~10min,—
-D38,time-hibrido,30/08 19:00,"Retrato do feed é link de 30x30 e nunca esteve na lista de alvos",média,rastreador,~14h,—
-D39,time-hibrido,30/08 19:00,"Rota 'leitura' fora da lista de imersivas: herói de 300px sob a barra do topo",média,agente de design,~14h,—
+D33,time-hibrido,30/08 19:00,Mock ignorava livro=eq.: o teste passaria mostrando o histograma de todo o acervo,alta,tech lead (na revisão do plano),<10min,—
+D35,time-hibrido,30/08 19:00,Espera casava com a tela anterior (.grade da busca): teste falhava 2 em 3,média,suíte local,~15min,—
+D36,time-hibrido,30/08 19:00,Semear e navegar antes de recarregar: guardarLivro grava por cima da semeadura,média,suíte social,~10min,—
+D37,time-hibrido,30/08 19:00,Sonda de alvo media sob as barras fixas e acusava de miúdo controle já consertado,média,rastreador,~10min,—
+D38,time-hibrido,30/08 19:00,Retrato do feed é link de 30x30 e nunca esteve na lista de alvos,média,rastreador,~14h,—
+D39,time-hibrido,30/08 19:00,Rota 'leitura' fora da lista de imersivas: herói de 300px sob a barra do topo,média,agente de design,~14h,—
+D40,time-hibrido,30/08 20:10,Banco sem o backfill da V1: descer duplicava o diário no aparelho e na subida seguinte no servidor,alta,caso de regressão leitura-orfa-no-banco,~5h,—
+D41,time-hibrido,30/08 20:10,limparAssuntos não pegava mojibake: etiqueta ilegível chegava inteira na tela,baixa,caso de regressão assuntos-sujos,~21h,—
+D42,time-hibrido,30/08 20:10,Rota de página vencia a de contexto: o roteador da Open Library nunca era chamado no runner novo,média,eu (conferindo por que o caso falhava),<20min,—
+D43,time-hibrido,30/08 20:10,Duas suítes davam a mesma chave /works/OL1W a dois livros diferentes,baixa,eu (montando o dataset),~19h,—

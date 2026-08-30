@@ -10,28 +10,6 @@ proxy = os.environ.get('HTTPS_PROXY')
 erros = []
 
 
-def responder(rota):
-    p = urlparse(rota.request.url); q = parse_qs(p.query)
-    def j(o): rota.fulfill(status=200, content_type='application/json',
-                           headers={'access-control-allow-origin': '*'}, body=json.dumps(o))
-    if 'covers.' in p.netloc:
-        m = re.search(r'/[ab]/id/(\d+)-', p.path)
-        idc = int(m.group(1)) if m else 1
-        t = next((l[1] for l in fixtures.LIVROS if l[4] == idc), '')
-        return rota.fulfill(status=200, content_type='image/jpeg',
-                            headers={'access-control-allow-origin': '*'},
-                            body=fixtures.capa_png(idc, t))
-    if p.path.endswith('/trending/weekly.json'): return j(fixtures.tendencia())
-    if p.path.endswith('/search.json'):
-        return j(fixtures.busca((q.get('q') or q.get('subject') or q.get('isbn') or [''])[0],
-                                int((q.get('page') or ['1'])[0])))
-    if p.path.startswith('/works/'): return j(fixtures.obra(p.path[:-5]))
-    if p.path.startswith('/authors/'):
-        if p.path.endswith('/works.json'): return j(fixtures.obras_do(p.path.split('/')[2]))
-        return j(fixtures.autor(p.path.split('/')[2].replace('.json', '')))
-    rota.fulfill(status=404, body='')
-
-
 def ok(cond, msg):
     if not cond: raise AssertionError(msg)
     print('   ok:', msg)
@@ -44,7 +22,7 @@ with sync_playwright() as pw:
         args=['--ignore-certificate-errors', '--no-sandbox'])
     ctx = nav.new_context(viewport={'width': 1180, 'height': 900}, locale='pt-BR',
                           accept_downloads=True)
-    ctx.route('**openlibrary.org/**', responder)
+    ctx.route('**openlibrary.org/**', fixtures.responder)
     # A ficha do livro agora consulta a comunidade. Esta suite e a do app
     # LOCAL: o servidor cai de proposito, e a secao 8b afirma o que a tela faz
     # quando ele cai. Sem esta rota o teste dependeria do tempo do proxy.

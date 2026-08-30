@@ -41,11 +41,12 @@ Depois, de dentro de `docs/`:
 | `python3 testar_nuvem.py` | conta, sessão, renovação de token, migração do diário |
 | `python3 testar_social.py` | sincronização com fila, feed, seguir, curtir, comentar |
 | `python3 jornada_e2e.py` | a jornada inteira com DUAS contas, do cadastro ao comentário |
+| `python3 testar_regressao.py` | as FORMAS de dado que já quebraram: livro sem capa, leitura órfã, perfil só com @, resenha no limite do corte |
 | `python3 rastreador.py` | anda o app sozinho: cobertura, acessibilidade, alvos de toque |
 | `node testar-chave.js` | a trava que recusa a chave errada do Supabase |
 | `node testar-assuntos.js` | a limpeza de assuntos da Open Library |
 
-**Rode as quatro primeiras antes de todo commit.** A `jornada_e2e` é a mais
+**Rode as cinco primeiras antes de todo commit.** A `jornada_e2e` é a mais
 barata em achados por minuto: as outras provam que cada peça funciona, ela
 prova que funcionam juntas — e foi a única que pegou o bug da leitura
 duplicada.
@@ -65,6 +66,14 @@ conserto vem antes de qualquer coisa que falte.
 `wait_for_selector` casou com a tela ANTERIOR (`.conta h1`, depois
 `.grade .cartao` — que a busca também desenha) e o teste virou moeda. O sinal
 de espera tem que ser algo que só o destino tem.
+
+**Corrigiu um defeito? Ele vira um caso em `docs/dados_teste.py`.** As suítes
+provam FLUXOS; a de regressão prova FORMAS DE DADO, que é o que apodrece
+calado. Um caso são ~10 linhas de dicionário — dado, rota e o que se afirma —
+e nenhuma linha de código no runner. Se o defeito não for alcançável por dado
+(pixel, CSS, defeito de mock), escreva o motivo em `SO_DE_TELA`: o
+`conferir.py` falha de propósito quando um defeito não tem nem caso nem
+motivo. Foi assim que a suíte nasceu já achando dois defeitos vivos.
 
 **Meça, não olhe.** Três vezes seguidas o layout foi ajustado no olho e errou
 do mesmo jeito: peça grande demais, densidade de site num aplicativo. O que

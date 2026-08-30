@@ -21,7 +21,12 @@ defeitos = list(csv.DictReader(open(os.path.join(RAIZ, 'docs/processo/defeitos.c
 
 SUITES = ['docs/testar.py', 'docs/testar_nuvem.py', 'docs/testar_social.py',
           'docs/jornada_e2e.py']
-VERIFICACAO = SUITES + ['docs/rastreador.py', 'docs/fixtures.py',
+# A suite de regressao nao tem `ok(` nem `checa(`: as assercoes dela sao dados,
+# em dados_teste.CASOS. Contar por linha de codigo seria contar errado, entao
+# ela e contada pelo numero de checagens dos casos.
+REGRESSAO = 'docs/dados_teste.py'
+VERIFICACAO = SUITES + ['docs/testar_regressao.py', 'docs/dados_teste.py',
+                        'docs/rastreador.py', 'docs/fixtures.py',
                         'docs/testar-chave.js', 'docs/testar-assuntos.js',
                         'servidor/provar.sql', 'servidor/provar-v1.sql']
 APP = ['js/api.js', 'js/app.js', 'js/config.js', 'js/dados.js', 'js/nuvem.js',
@@ -61,7 +66,7 @@ confere('razão verificação/app', '0,%s' % (afirma_raz.group(1) if afirma_raz 
 confere('defeitos registrados', afirma_def.group(1) if afirma_def else '?', len(defeitos))
 
 for fase, rotulo in [('vibecoding', '3 de 10'), ('instrumentado', '4 de 13'),
-                     ('time-hibrido', '0 de 16')]:
+                     ('time-hibrido', '0 de 19')]:
     total, daUsuaria = porFase(fase)
     confere('%s: achados pela usuária' % fase, rotulo, '%d de %d' % (daUsuaria, total))
     if ('**%s**' % rotulo) not in doc:
@@ -74,10 +79,24 @@ for fase, rotulo in [('vibecoding', '3 de 10'), ('instrumentado', '4 de 13'),
 # afirma isso em DOIS lugares, e afirmacao repetida apodrece em dobro.
 hib = [x for x in defeitos if x['fase'] == 'time-hibrido']
 latentes = len([x for x in hib if 'h' in x['latencia']])
-POR_EXTENSO = {9: 'Nove', 16: 'dezesseis'}
-frase = '**%s dos %s**' % (POR_EXTENSO.get(latentes, latentes), POR_EXTENSO.get(len(hib), len(hib)))
+frase = '**%d dos %d**' % (latentes, len(hib))
 confere('defeitos latentes na última fase', frase, frase if doc.count(frase) == 2 else
         'o documento diz isso %d vez(es), esperava 2' % doc.count(frase))
+
+# A cobertura de regressao: quantos defeitos ja registrados tem um caso que os
+# prende. E o numero que responde "quanto do que ja quebrou nao volta calado".
+import importlib, sys as _sys
+_sys.path.insert(0, os.path.join(RAIZ, 'docs'))
+dados_teste = importlib.import_module('dados_teste')
+com, sem, tela = dados_teste.cobertura()
+afirma_cob = re.search(r'\*\*(\d+) de (\d+) defeitos\*\* tem caso', doc)
+confere('defeitos com caso de regressao',
+        '%s de %s' % (afirma_cob.group(1), afirma_cob.group(2)) if afirma_cob else '?',
+        '%d de %d' % (len(com), len(defeitos)))
+if sem:
+    falhas.append('defeitos sem caso e sem motivo: ' + ', '.join(sem))
+    print('  FALHA %d defeito(s) sem caso e sem motivo escrito: %s'
+          % (len(sem), ', '.join(sem)))
 
 print()
 if falhas:

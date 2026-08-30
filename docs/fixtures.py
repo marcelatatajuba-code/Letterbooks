@@ -1,7 +1,14 @@
 # -*- coding: utf-8 -*-
 """Respostas de mentira no formato exato da Open Library, para testar o app
-sem rede (a politica do conteiner bloqueia openlibrary.org)."""
-import io, json, random
+sem rede (a politica do conteiner bloqueia openlibrary.org).
+
+`responder(rota)` e o roteador que qualquer suite liga com
+`ctx.route('**openlibrary.org/**', fixtures.responder)`. Ele mora aqui, e nao
+dentro de uma suite, porque mock duplicado ja nos mordeu quatro vezes: a copia
+aprende um filtro, a outra nao, e o teste passa verde mostrando o dado errado.
+"""
+import io, json, random, re
+from urllib.parse import urlparse, parse_qs
 from PIL import Image, ImageDraw
 
 LIVROS = [
@@ -78,7 +85,24 @@ def tendencia():
     return {"query": "", "works": [_doc(l) for l in LIVROS[:12]]}
 
 
+# Obras que so existem para medir limites (assuntos sujos, titulo enorme, livro
+# sem capa). Ficam fora de busca() e de tendencia() de proposito. O jeito certo
+# de meter dado torto no app e pela API, que e por onde ele chega na vida real —
+# semear localStorage com assunto sujo testaria um estado que o app nao produz,
+# porque a limpeza acontece em API.detalhe (js/api.js:191).
+OBRAS_EXTRA = {}
+
+
+def registrar_obra(chave, titulo, subjects=None, descricao=None, covers=None):
+    OBRAS_EXTRA[chave] = {"key": chave, "title": titulo,
+                          "subjects": subjects or [],
+                          "description": descricao or "",
+                          "covers": covers or []}
+
+
 def obra(chave):
+    if chave in OBRAS_EXTRA:
+        return dict(OBRAS_EXTRA[chave])
     l = [x for x in LIVROS if x[0] == chave]
     if not l:
         return {"key": chave, "title": "Obra"}
@@ -146,3 +170,32 @@ def obras_do(chave):
                 e["covers"] = [l[4]]
             entradas.append(e)
     return {"size": len(entradas), "entries": entradas}
+
+
+def responder(rota):
+    """Roteia qualquer chamada a openlibrary.org / covers.openlibrary.org."""
+    p = urlparse(rota.request.url); q = parse_qs(p.query)
+
+    def j(o):
+        rota.fulfill(status=200, content_type='application/json',
+                     headers={'access-control-allow-origin': '*'}, body=json.dumps(o))
+
+    if 'covers.' in p.netloc:
+        m = re.search(r'/[ab]/id/(\d+)-', p.path)
+        idc = int(m.group(1)) if m else 1
+        t = next((l[1] for l in LIVROS if l[4] == idc), '')
+        return rota.fulfill(status=200, content_type='image/jpeg',
+                            headers={'access-control-allow-origin': '*'},
+                            body=capa_png(idc, t))
+    if p.path.endswith('/trending/weekly.json'):
+        return j(tendencia())
+    if p.path.endswith('/search.json'):
+        return j(busca((q.get('q') or q.get('subject') or q.get('isbn') or [''])[0],
+                       int((q.get('page') or ['1'])[0])))
+    if p.path.startswith('/works/'):
+        return j(obra(p.path[:-5]))
+    if p.path.startswith('/authors/'):
+        if p.path.endswith('/works.json'):
+            return j(obras_do(p.path.split('/')[2]))
+        return j(autor(p.path.split('/')[2].replace('.json', '')))
+    rota.fulfill(status=404, body='')

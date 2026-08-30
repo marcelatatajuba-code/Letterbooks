@@ -280,6 +280,18 @@ var Nuvem = (function () {
     }).then(function (l) { return (l && l[0]) || null; });
   }
 
+  /* Adota uma linha antiga: grava nela o cliente_id da leitura que ja existe
+     neste aparelho. E o que o backfill do esquema.sql faria, feito pelo lado do
+     cliente para quem nunca reexecutou o SQL. Depois disto o upsert por
+     (perfil, cliente_id) volta a encontrar a linha certa, e a leitura para de
+     duplicar a cada edicao. A RLS ja cuida de so deixar mexer no que e seu. */
+  function adotarLeitura(idRemoto, clienteId) {
+    return tabela('leituras', '?id=eq.' + encodeURIComponent(idRemoto), {
+      metodo: 'PATCH', corpo: { cliente_id: clienteId },
+      cabecalhos: { Prefer: 'return=minimal' }
+    });
+  }
+
   function apagarLeitura(idRemoto) {
     return tabela('leituras', '?id=eq.' + idRemoto, { metodo: 'DELETE' });
   }
@@ -628,6 +640,7 @@ var Nuvem = (function () {
 
     salvarLivro:    salvarLivro,
     salvarLeitura:  salvarLeitura,
+    adotarLeitura:  adotarLeitura,
     apagarLeitura:  apagarLeitura,
     porMarcador:    porMarcador,
     tirarMarcador:  tirarMarcador,
