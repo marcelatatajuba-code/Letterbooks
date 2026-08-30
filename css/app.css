@@ -342,10 +342,13 @@ img { display: block; max-width: 100%; }
   margin: 0 0 2px; font-size: 31px; font-weight: 800;
   line-height: 1.08; letter-spacing: -.032em;
 }
-.livro-linha { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
-.livro-linha .ano { color: var(--texto-2); font-size: 17px; }
-.livro-linha .autoria { color: var(--texto-2); font-size: 14px; }
+/* Empilhado, nao lado a lado: o versalete miudo em cima e a autoria em
+   negrito embaixo, como o app faz com o ano e o diretor. */
+.livro-linha { margin-bottom: 18px; }
+.livro-linha .rotulo { display: block; margin-bottom: 3px; }
+.livro-linha .autoria { display: block; color: var(--texto); font-size: 15px; font-weight: 700; }
 .livro-linha .autoria b { color: var(--texto); font-weight: 700; }
+.livro-linha .autoria a:hover { color: var(--a1); }
 
 /* as abas internas da ficha, como CAST / CREW / DETAILS */
 .fichas { display: flex; gap: 18px; border-bottom: 1px solid var(--borda); margin-bottom: 16px; }
@@ -469,7 +472,7 @@ img { display: block; max-width: 100%; }
   display: flex; align-items: center;
   margin-top: 16px; padding-top: 14px;
   border-top: 1px solid var(--borda);
-  font-size: 15px; color: var(--texto-2);
+  font-size: 14px; color: var(--texto-2);
 }
 .linha-mais::after { content: "›"; margin-left: auto; font-size: 20px; color: var(--texto-3); }
 .linha-mais:hover { color: var(--texto); }
@@ -617,22 +620,30 @@ img { display: block; max-width: 100%; }
 
 /* ==================================================== perfil e numeros == */
 
+/* No app o perfil nao abre com um retrato grande e centralizado: o nome vive
+   na linha de cima e a tela comeca no conteudo — favoritos, atividade,
+   numeros. O circulo de 96px centralizado empurrava tudo isso para fora da
+   primeira dobra. Aqui o avatar e uma linha: retrato pequeno a esquerda,
+   nome e bio ao lado. */
 .perfil-topo {
-  text-align: center;
-  padding: 6px 0 24px; margin-bottom: 4px;
-  border-bottom: 1px solid var(--borda);
+  display: grid; grid-template-columns: auto 1fr;
+  align-items: center; column-gap: 12px;
+  padding: 2px 0 16px;
 }
+/* O bloco seguinte ja traz a propria divisoria no topo: duas linhas seguidas
+   deixavam uma faixa vazia entre o nome e os favoritos. */
+.perfil-topo + .bloco { margin-top: 0; }
 .avatar {
-  width: 96px; height: 96px; border-radius: 50%;
-  margin: 0 auto 14px;
+  width: 48px; height: 48px; border-radius: 50%;
+  grid-row: 1 / span 2;
   display: grid; place-items: center;
   background: var(--superficie-2); color: var(--a1);
-  font-size: 38px; font-weight: 800;
+  font-size: 20px; font-weight: 800;
 }
-.perfil-nome { margin: 0 0 4px; font-size: 22px; font-weight: 800; letter-spacing: -.025em; }
-.perfil-bio { margin: 0; color: var(--texto-3); font-size: 13.5px; }
+.perfil-nome { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -.025em; }
+.perfil-bio { margin: 1px 0 0; color: var(--texto-3); font-size: 13px; }
 
-.numeros { display: flex; flex-wrap: wrap; gap: 30px; margin-bottom: 34px; }
+.numeros { display: flex; flex-wrap: wrap; gap: 30px; margin: 24px 0 30px; }
 .numero { text-align: left; }
 .numero b { display: block; font-size: 22px; font-weight: 700; line-height: 1.1; }
 .numero span {
@@ -772,14 +783,18 @@ img { display: block; max-width: 100%; }
 /* No original, estante e listas ficam dentro do perfil. */
 
 /* Controle segmentado, como as abas do topo e do perfil no original. */
+/* Medido no app: 29px de altura, texto de 12,5px, quatro segmentos de
+   largura igual ocupando a tela quase inteira. O que eu tinha antes media 48px
+   com texto de 14 — no celular isso rouba uma seção inteira de conteúdo. */
 .segmentos, .perfil-atalhos {
   display: flex; padding: 2px;
   background: var(--superficie); border-radius: 8px; margin-bottom: 26px;
 }
 .segmentos a, .perfil-atalhos a {
   position: relative;
-  flex: 1; padding: 6px 6px; text-align: center; border-radius: 6px;
-  font-size: 14px; font-weight: 600; letter-spacing: -.01em; color: var(--texto-2);
+  flex: 1; padding: 5px 6px; text-align: center; border-radius: 6px;
+  font-size: 12.5px; font-weight: 600; letter-spacing: -.005em; color: var(--texto-2);
+  white-space: nowrap;
 }
 /* Separador fino entre as abas inativas, como no original — some ao lado da
    aba ativa, para nao encostar na pilula. */
@@ -889,7 +904,22 @@ img { display: block; max-width: 100%; }
 /* ============================================================ responsivo == */
 
 @media (max-width: 940px) {
-  .livro-colunas { grid-template-columns: 150px 1fr; }
+  /* Titulo a esquerda, capa flutuando a direita sobre o fundo, miolo em
+     largura inteira embaixo. display:contents solta os filhos do bloco de
+     texto direto na grade, para o titulo dividir a linha com a capa sem
+     arrastar a sinopse junto. */
+  .livro-colunas { grid-template-columns: 1fr 112px; column-gap: 16px; row-gap: 0; }
+  .livro-texto { display: contents; }
+  .livro-capa { grid-column: 2; grid-row: 1; align-self: start; }
+  .livro-topo { grid-column: 1; grid-row: 1; align-self: end; padding-bottom: 4px; }
+  .livro-texto > *:not(.livro-topo) { grid-column: 1 / -1; }
+  /* display:contents faz de cada filho um item da grade, e item de grade
+     estica por padrao — o que transformava o botao "ler a sinopse inteira"
+     numa faixa de largura inteira com o texto no meio. */
+  .livro-texto > button { justify-self: start; }
+  .livro-titulo { font-size: 24px; line-height: 1.1; }
+  .livro-linha { gap: 8px; margin-bottom: 14px; }
+  .livro-linha .ano { font-size: 14px; }
   .painel { grid-column: 1 / -1; position: static; }
   .painel-acoes { grid-template-columns: repeat(3, 1fr); }
   .heroi { height: 220px; }
@@ -898,14 +928,32 @@ img { display: block; max-width: 100%; }
 }
 
 @media (max-width: 720px) {
+  /* ---- escala de aplicativo -------------------------------------------
+     Tudo aqui saiu de medir os quadros do app, nao de achar bonito. O app
+     cabe TRES secoes acima da dobra; a versao anterior cabia uma, porque
+     cada peca era 20 a 40% maior do que a do original. Tipo grande e folga
+     larga sao o que faz uma tela de celular parecer um site encolhido. */
+
   /* A marca vai para o centro, como no original. */
-  .topo { gap: 12px; padding: 0 14px; justify-content: center; }
+  .topo { gap: 12px; padding: 0 14px; justify-content: center; height: 46px; }
   .marca { position: static; }
+  .marca svg { width: 18px; height: 18px; }
+  .marca b { font-size: 17px; }
   /* No celular o topo fica so com a marca: navegacao, busca e o botao de
      registrar passam todos para a barra de baixo, como no original. */
   .topo-nav, .topo-fim { display: none; }
-  /* Medido no quadro do original: margem lateral 18px, não 14. */
-  .pagina { padding: 20px 18px 70px; }
+  /* Margem lateral 18px, medida no quadro. O respiro de cima era 20px; no
+     app as abas comecam a 12px da marca. */
+  .pagina { padding: 12px 18px 70px; }
+
+  /* As abas quase encostam nas bordas, como no app. */
+  .segmentos { margin: 0 -8px 16px; }
+
+  /* Titulo de secao: 15px, e o chevron a direita e do tamanho do texto. */
+  .secao { margin-bottom: 20px; }
+  .secao > h2 { font-size: 15px; margin-bottom: 8px; }
+  .titulo-pagina { font-size: 21px; }
+  .sub-pagina { margin-bottom: 18px; }
 
   /* No celular o diario vira o que e no original: faixa de mes de largura
      inteira e linhas enxutas. Some o cabecalho de colunas (nao ha colunas a
@@ -928,8 +976,8 @@ img { display: block; max-width: 100%; }
 
 
 @media (max-width: 520px) {
-  .livro-colunas { grid-template-columns: 110px 1fr; gap: 16px; }
-  .livro-titulo { font-size: 20px; }
+  .livro-colunas { grid-template-columns: 1fr 96px; column-gap: 14px; }
+  .livro-titulo { font-size: 21px; }
   .grade { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
   .cel-nota { width: 74px; }
 }
@@ -951,14 +999,14 @@ img { display: block; max-width: 100%; }
 }
 .abas-pe a {
   flex: 1;
-  display: flex; flex-direction: column; align-items: center; gap: 3px;
-  padding: 8px 2px 7px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 14px 2px;
   color: var(--texto-3);
 }
-.abas-pe a svg { width: 21px; height: 21px; fill: currentColor; }
-.abas-pe a span {
-  font-size: 9px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
-}
+.abas-pe a svg { width: 22px; height: 22px; fill: currentColor; }
+/* O app nao rotula os icones: o nome de cada aba vive no aria-label, para
+   quem usa leitor de tela, e a barra ganha os 12px que a legenda ocupava. */
+.abas-pe a span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .abas-pe a.ativa { color: var(--a1); }
 
 /* O "+" central: o unico elemento colorido da barra, como no original. */
@@ -974,7 +1022,7 @@ img { display: block; max-width: 100%; }
 @media (max-width: 720px) {
   .abas-pe { display: flex; }
   /* espaco para a barra nao cobrir o fim do conteudo */
-  .pagina { padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
+  .pagina { padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
 }
 
 /* ================================================================= conta == */
@@ -999,3 +1047,86 @@ img { display: block; max-width: 100%; }
 .conta-abas { margin-bottom: 20px; }
 .conta-rodape { margin-top: 22px; }
 .conta .secao { margin-top: 30px; }
+
+/* ---------------------------------------------------------- esqueleto ----- */
+/* Um trilho de capas cinzas enquanto a rede responde. Sem ele a home nasce
+   com buracos e empurra o conteudo para baixo quando cada secao chega — o
+   pulo e o que mais denuncia uma tela montada as pressas. */
+.trilho-vazio {
+  display: flex; gap: 7px;
+  margin: 0 -20px; padding: 2px 20px;
+  overflow: hidden;
+}
+.trilho-vazio::before, .trilho-vazio::after {
+  content: ""; flex: 0 0 104px; aspect-ratio: 2 / 3;
+  border-radius: var(--raio);
+  background: linear-gradient(100deg, var(--superficie) 30%,
+              var(--superficie-2) 50%, var(--superficie) 70%);
+  background-size: 300% 100%;
+  animation: brilho 1.4s ease-in-out infinite;
+}
+.trilho-vazio::after { animation-delay: .15s; }
+@keyframes brilho { from { background-position: 130% 0; } to { background-position: -30% 0; } }
+
+@media (max-width: 720px) {
+  .trilho-vazio { margin: 0 -18px; padding-left: 18px; padding-right: 18px; }
+  .trilho-vazio::before, .trilho-vazio::after { flex-basis: 92px; }
+}
+
+/* ============================================== telas imersivas =========== */
+/* Na ficha, na resenha e na lista a imagem corre ate o topo da tela e o
+   cabecalho com a marca sai — e o que o app faz. O chevron por cima da foto
+   vira o unico caminho de volta, entao ele tem que existir sempre que a
+   imagem existir. */
+
+.voltar {
+  position: absolute; top: 10px; left: 12px; z-index: 3;
+  width: 34px; height: 34px; display: grid; place-items: center;
+  background: rgba(0, 0, 0, .38); border: 0; border-radius: 50%;
+  color: #fff; cursor: pointer;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.voltar svg { width: 20px; height: 20px; }
+.voltar:active { transform: scale(.94); }
+
+@media (max-width: 720px) {
+  body.imersiva .topo { display: none; }
+  /* Sem cabecalho, a pagina comeca no zero e a imagem sangra ate a borda. */
+  body.imersiva .pagina { padding-top: 0; }
+  body.imersiva .heroi { margin-top: 0; }
+  .voltar { top: calc(10px + env(safe-area-inset-top)); }
+
+  /* O fundo do app ocupa quase metade da tela e e bem mais presente do que
+     o meu era: com 220px e opacidade .75 a capa desfocada sumia. */
+  .heroi { height: 300px; }
+  .heroi-imagem { opacity: .95; filter: blur(22px) saturate(1.5); }
+  .heroi + .livro-colunas { margin-top: -150px; }
+
+  /* A barra de acao flutua a 64px do fim e tem 46px de altura: sem esta
+     folga ela cobria o fim dos detalhes. */
+  .livro-colunas { padding-bottom: 128px; }
+}
+
+/* ============================================== linhas de ajuste ========== */
+/* O padrao de lista do app: rotulo a esquerda, valor a direita, chevron, uma
+   divisoria fina entre as linhas. Substitui as fileiras de botoes em caixa
+   alta, que eram o que mais fazia a tela parecer formulario de sistema. */
+
+.linhas { margin: 0 -18px; }
+.linhas button, .linhas a {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 13px 18px; text-align: left;
+  background: none; border: 0; border-bottom: 1px solid var(--borda);
+  color: var(--texto); font-size: 14.5px; cursor: pointer;
+}
+.linhas > :first-child { border-top: 1px solid var(--borda); }
+.linhas button:active, .linhas a:active { background: var(--superficie); }
+.linhas .valor { margin-left: auto; color: var(--texto-3); font-size: 13.5px; }
+.linhas .chevron { margin-left: auto; color: var(--texto-3); }
+.linhas .valor + .chevron { margin-left: 6px; }
+.linhas .perigo { color: var(--a3); }
+
+@media (min-width: 721px) {
+  .linhas { margin: 0; max-width: 460px; }
+  .linhas button, .linhas a { padding-left: 0; padding-right: 2px; }
+}

@@ -135,6 +135,19 @@
      o proprio img se remove e a lombada reaparece, em vez de sobrar uma caixa
      vazia. Numa tela que pede quarenta capas de uma vez, isso e a diferenca
      entre uma grade e um paredao de buracos. */
+  /* A imagem de fundo das telas de detalhe, com o chevron de voltar por cima
+     — nelas o cabecalho com a marca sai, e este vira o unico jeito de voltar. */
+  function htmlHeroi(fundo) {
+    if (!fundo) return '';
+    return '<div class="heroi">' +
+      '<div class="heroi-imagem" style="background-image:url(' + esc(fundo) + ')"></div>' +
+      '<button class="voltar" data-acao="voltar" aria-label="Voltar">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"' +
+        ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M15 5 8 12l7 7"></path></svg>' +
+      '</button></div>';
+  }
+
   function htmlCapa(livro, extra) {
     var url = livro.capa || livro.capaGrande;
     return '<div class="capa">' +
@@ -234,6 +247,11 @@
 
   /* ================================================================== TELA: inicio */
 
+  /* A home do app nao tem chamada de capa: ela abre direto no conteudo e
+     empilha varios trilhos, tres deles visiveis antes de rolar. A versao
+     anterior gastava a primeira dobra inteira num titulo de marketing e
+     mostrava um trilho so. Aqui a ordem e: o que e seu primeiro, o acervo
+     depois. */
   function telaInicio() {
     marcarAba('inicio');
     var logs = Dados.logs();
@@ -247,23 +265,24 @@
         vistos[l.chave] = 1;
         recentes.push(livroDe(l.chave));
       });
-      html += '<section class="secao"><h2>Suas leituras recentes' +
-              '<a class="seta" href="#/diario" aria-label="Ver o diário"></a></h2>' +
-              htmlTrilho(recentes) + '</section>';
-    } else {
-      html += '<h1 class="titulo-pagina">Seu diário de leitura começa aqui</h1>' +
-              '<p class="sub-pagina">Busque um livro, dê estrelas e escreva o que achou. ' +
-              'Tudo fica guardado neste aparelho, sem conta e sem senha.</p>';
+      html += secaoTrilho('Suas leituras recentes', recentes, '#/diario');
     }
 
     if (Dados.estado().querLer.length) {
-      html += '<section class="secao"><h2>Quero ler' +
-              '<a class="seta" href="#/estante" aria-label="Ver a estante"></a></h2>' +
-              htmlTrilho(Dados.estado().querLer.slice(0, 16).map(livroDe)) + '</section>';
+      html += secaoTrilho('Quero ler',
+                          Dados.estado().querLer.slice(0, 16).map(livroDe), '#/estante');
     }
 
     html += '<section class="secao" id="secao-alta"><h2>Em alta esta semana</h2>' +
-            '<p class="carregando">Buscando na Open Library…</p></section>';
+            '<div class="trilho-vazio" aria-hidden="true"></div></section>';
+
+    /* Os demais trilhos so vao a rede quando chegam perto da tela. Quatro
+       consultas de uma vez na abertura seriam quatro esperas para ver a
+       primeira capa — e a Open Library limita a taxa. */
+    html += secaoPreguicosa('populares',  'Mais lidos') +
+            secaoPreguicosa('classicos',  'Clássicos') +
+            secaoPreguicosa('brasileira', 'Literatura brasileira') +
+            secaoPreguicosa('poesia',     'Poesia');
 
     if (logs.length) {
       html += '<section class="secao"><h2>Onde você está</h2><div class="numeros">' +
@@ -277,6 +296,63 @@
     pintar(html);
 
     preencherEmAlta(14);
+    ligarPreguicosas();
+  }
+
+  /* Titulo com o chevron a direita, como toda secao da home do app. */
+  function secaoTrilho(titulo, livros, destino) {
+    if (!livros.length) return '';
+    return '<section class="secao"><h2>' + esc(titulo) +
+      (destino ? '<a class="seta" href="' + destino + '" aria-label="Ver tudo em ' +
+                 esc(titulo) + '"></a>' : '') +
+      '</h2>' + htmlTrilho(livros) + '</section>';
+  }
+
+  function secaoPreguicosa(recorte, titulo) {
+    return '<section class="secao preguicosa" data-recorte="' + esc(recorte) + '">' +
+      '<h2>' + esc(titulo) + '<a class="seta" href="#/explorar/' + esc(recorte) +
+      '" aria-label="Ver tudo em ' + esc(titulo) + '"></a></h2>' +
+      '<div class="trilho-vazio" aria-hidden="true"></div></section>';
+  }
+
+  /* Carrega cada trilho quando ele chega a 300px da tela. Sem
+     IntersectionObserver (navegador antigo), carrega todos de uma vez. */
+  function ligarPreguicosas() {
+    var secoes = Array.prototype.slice.call(tela.querySelectorAll('.preguicosa'));
+    if (!secoes.length) return;
+
+    function encher(s) {
+      if (s.getAttribute('data-carregando')) return;
+      s.setAttribute('data-carregando', '1');
+      API.explorar(s.getAttribute('data-recorte'), 1).then(function (r) {
+        if (!tela.contains(s)) return;
+        r.livros.forEach(Dados.guardarLivro);
+        var vazio = s.querySelector('.trilho-vazio');
+        if (!vazio) return;
+        if (r.livros.length) vazio.outerHTML = htmlTrilho(r.livros.slice(0, 14));
+        else s.remove();
+      }).catch(function () {
+        /* Um trilho do acervo que nao carregou nao vale uma mensagem de erro
+           no meio da home: a secao simplesmente sai. O erro da busca e do
+           "em alta" continua aparecendo, porque ali a pessoa pediu. */
+        if (tela.contains(s)) s.remove();
+      });
+    }
+
+    if (!window.IntersectionObserver) return secoes.forEach(encher);
+
+    var olho = new IntersectionObserver(function (entradas) {
+      entradas.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        olho.unobserve(en.target);
+        encher(en.target);
+      });
+    }, { rootMargin: '300px 0px' });
+    secoes.forEach(function (s) { olho.observe(s); });
+  }
+
+  function espera(s) {
+    return s.querySelector('.trilho-vazio') || s.querySelector('.carregando');
   }
 
   /* Preenche a secao #secao-alta, usada tanto no inicio quanto na busca. */
@@ -285,15 +361,22 @@
       var s = document.getElementById('secao-alta');
       if (!s) return;
       livros.forEach(Dados.guardarLivro);
-      s.querySelector('.carregando').outerHTML = livros.length
+      espera(s).outerHTML = livros.length
         ? (s.getAttribute('data-forma') === 'grade' ? htmlGrade(livros) : htmlTrilho(livros))
         : '<p class="erro">Não consegui carregar os destaques agora.</p>';
     }).catch(function (err) {
       var s = document.getElementById('secao-alta');
       if (!s) return;
-      s.querySelector('.carregando').outerHTML =
+      espera(s).outerHTML =
         '<p class="erro">' + esc(err.message) + ' Verifique a conexão e recarregue.</p>';
     });
+  }
+
+  /* Uma linha do bloco de ajustes: rotulo, valor opcional e o chevron. */
+  function linhaAjuste(tag, atributos, rotulo, valor) {
+    return '<' + tag + ' ' + atributos + '>' + esc(rotulo) +
+      (valor ? '<span class="valor">' + valor + '</span>' : '') +
+      '<span class="chevron" aria-hidden="true">›</span></' + tag + '>';
   }
 
   function numero(valor, rotulo) {
@@ -516,15 +599,22 @@
       '</section>';
 
     var html =
-      (fundo ? '<div class="heroi"><div class="heroi-imagem" style="background-image:url(' +
-               esc(fundo) + ')"></div></div>' : '') +
+      htmlHeroi(fundo) +
       '<div class="livro-colunas">' +
         '<div class="livro-capa">' + htmlCapa(livro) + '</div>' +
-        '<div>' +
-          '<h1 class="livro-titulo">' + esc(livro.titulo) + '</h1>' +
-          '<div class="livro-linha">' +
-            (livro.ano ? '<span class="ano">' + livro.ano + '</span>' : '') +
-            '<span class="autoria">de ' + htmlAutoria(livro) + '</span>' +
+        /* No celular o titulo fica a ESQUERDA e a capa flutua a direita, sobre
+           o fundo desfocado — e o desenho do app. O miolo (sinopse, assuntos,
+           detalhes) volta a ocupar a largura inteira embaixo, senao ficaria
+           espremido numa coluna de 250px ate o fim da pagina. */
+        '<div class="livro-texto">' +
+          '<div class="livro-topo">' +
+            '<h1 class="livro-titulo">' + esc(livro.titulo) + '</h1>' +
+            /* Dois niveis, como "2026 · DIRECTED BY / Na Hong-jin" no app: o
+               versalete miudo diz o que e, e o nome fica em negrito embaixo. */
+            '<div class="livro-linha">' +
+              '<span class="rotulo">' + (livro.ano ? livro.ano + ' · ' : '') + 'De</span>' +
+              '<span class="autoria">' + htmlAutoria(livro) + '</span>' +
+            '</div>' +
           '</div>' +
           miolo +
           blocoNotas +
@@ -735,8 +825,7 @@
     var fundo = livro.capaGrande || livro.capa;
 
     pintar(
-      (fundo ? '<div class="heroi"><div class="heroi-imagem" style="background-image:url(' +
-               esc(fundo) + ')"></div></div>' : '') +
+      htmlHeroi(fundo) +
       '<article class="resenha' + (fundo ? ' sobre-heroi' : '') + '">' +
         '<div class="lista-autoria">' +
           '<span class="avatar avatar-mini" aria-hidden="true">' +
@@ -910,8 +999,7 @@
     var perfil = Dados.estado().perfil;
 
     pintar(
-      (fundo ? '<div class="heroi"><div class="heroi-imagem" style="background-image:url(' +
-               esc(fundo) + ')"></div></div>' : '') +
+      htmlHeroi(fundo) +
       '<div class="lista-cabecalho' + (fundo ? ' sobre-heroi' : '') + '">' +
         '<div class="lista-autoria">' +
           '<span class="avatar avatar-mini" aria-hidden="true">' +
@@ -1062,7 +1150,6 @@
         '<p style="margin:0 0 4px;color:var(--texto-2);font-size:13px">' +
           e.noAno + ' de ' + e.meta + ' livros · ' + pct + '%</p>' +
         '<div class="meta-barra"><i style="width:' + pct + '%"></i></div>' +
-        '<button class="botao" data-acao="editar-meta" style="margin-top:10px">Ajustar a meta</button>' +
       '</section>';
 
     if (e.media !== null) {
@@ -1074,6 +1161,8 @@
     }
 
     var naNuvem = Nuvem.ligada();
+    /* Linhas de lista, nao fileira de botoes: e o padrao do app para ajustes,
+       e cabe o dobro de opcoes na mesma altura. */
     html += '<section class="secao"><h2>Seus dados</h2>' +
       '<p style="color:var(--texto-2);font-size:13px;margin:0 0 14px">' +
         (naNuvem
@@ -1081,15 +1170,18 @@
               ? 'Você está na sua conta. O que registrar daqui em diante também fica no aparelho — o arquivo exportado continua sendo a sua cópia de segurança.'
               : 'Este diário está guardado só neste navegador. Crie uma conta para levá-lo com você e aparecer no feed de quem te segue.')
           : 'Tudo fica guardado só neste navegador. Exporte um arquivo para levar seu diário para outro aparelho — ou para não perder nada.') + '</p>' +
-      '<div class="linha-botoes">' +
-        '<button class="botao" data-acao="editar-perfil">Editar perfil</button>' +
+      '<div class="linhas">' +
         (naNuvem
-          ? '<a class="botao' + (Nuvem.entrou() ? '' : ' destaque') + '" href="#/conta">' +
-            (Nuvem.entrou() ? 'Sua conta' : 'Criar conta') + '</a>'
+          ? linhaAjuste('a', 'href="#/conta"', 'Conta',
+                        Nuvem.entrou() ? 'entrou' : 'criar conta')
           : '') +
-        '<button class="botao" data-acao="exportar">Exportar diário</button>' +
-        '<button class="botao" data-acao="importar">Importar diário</button>' +
-        '<button class="botao perigo" data-acao="limpar">Apagar tudo</button></div>' +
+        linhaAjuste('button', 'data-acao="editar-perfil"', 'Editar perfil', esc(d.perfil.nome)) +
+        linhaAjuste('button', 'data-acao="editar-meta"', 'Meta do ano',
+                    d.perfil.meta.total + ' livros') +
+        linhaAjuste('button', 'data-acao="exportar"', 'Exportar diário', '') +
+        linhaAjuste('button', 'data-acao="importar"', 'Importar diário', '') +
+        linhaAjuste('button', 'data-acao="limpar" class="perigo"', 'Apagar tudo', '') +
+      '</div>' +
       '<input type="file" id="arquivo-importar" accept="application/json,.json" hidden>' +
       '</section>';
 
@@ -1931,8 +2023,19 @@
     return isNaN(d.getTime()) ? iso : d.toLocaleDateString('pt-BR');
   }
 
+  /* Quem chegou por um link direto nao tem para onde voltar: cai no inicio em
+     vez de sair do site. */
+  function voltarOuInicio() {
+    if (history.length > 1) history.back(); else ir('#/inicio');
+  }
+
   function rotear() {
     camada.innerHTML = '';
+    /* A ficha do livro, a resenha e a lista correm a imagem ate o topo: nelas
+       o cabecalho com a marca sai e sobra o chevron, sobre a foto. */
+    var raiz = (location.hash || '').replace(/^#\/?/, '').split('/')[0];
+    document.body.classList.toggle('imersiva',
+      raiz === 'livro' || raiz === 'resenha' || raiz === 'lista');
     var partes = (location.hash || '#/inicio').replace(/^#\/?/, '').split('/');
     var rota = partes[0] || 'inicio';
 
@@ -1963,6 +2066,13 @@
 
   document.getElementById('botao-registrar').addEventListener('click', abrirFolhaEscolha);
   document.getElementById('aba-mais').addEventListener('click', abrirFolhaEscolha);
+
+  /* O chevron de voltar existe na ficha, na resenha e na lista. Um ouvinte no
+     documento cobre as tres sem repetir a acao em cada mapa. */
+  document.addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-acao="voltar"]');
+    if (b) voltarOuInicio();
+  });
 
   window.addEventListener('hashchange', rotear);
   rotear();
