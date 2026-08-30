@@ -290,11 +290,14 @@ img { display: block; max-width: 100%; }
   box-shadow: 0 0 0 2px var(--a1);
   transform: translateY(-2px);
 }
-.capa img {
-  position: absolute; inset: 0;
-  width: 100%; height: 100%; object-fit: cover;
-  background: var(--superficie);
+.capa img { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* A copia desfocada preenche a caixa; a capa de verdade vai inteira por cima. */
+.capa-fundo {
+  object-fit: cover;
+  filter: blur(12px) saturate(1.5) brightness(.6);
+  transform: scale(1.25);
 }
+.capa-imagem { object-fit: contain; }
 
 /* Sem capa na Open Library, a propria lombada vira o marcador. */
 .capa-vazia {
@@ -353,16 +356,22 @@ img { display: block; max-width: 100%; }
   height: 300px; margin: calc(-26px) calc(-50vw + 50%) 0;
   padding: 0 calc(50vw - 50% ); overflow: hidden;
 }
+/* Capa de livro nao e still de filme. Boa parte das capas e clara — fundo
+   branco, tipografia preta — e desfocar isso dava uma faixa cinza lavada no
+   topo da ficha, que lia como tela inacabada. O brilho baixo e a saturacao
+   alta transformam a capa clara numa atmosfera escura com a cor dela, em vez
+   de um borrao cinza. */
 .heroi-imagem {
   position: absolute; inset: -40px;
   background-size: cover; background-position: center 30%;
-  filter: blur(30px) saturate(1.4);
-  opacity: .75; transform: scale(1.15);
+  filter: blur(30px) saturate(2.2) brightness(.45);
+  opacity: 1; transform: scale(1.15);
 }
 .heroi::after {
   content: ""; position: absolute; inset: 0;
-  background: linear-gradient(to bottom, rgba(var(--fundo-rgb), .35) 0%,
-              rgba(var(--fundo-rgb), .75) 55%, var(--fundo) 100%);
+  background: linear-gradient(to bottom, rgba(var(--fundo-rgb), .5) 0%,
+              rgba(var(--fundo-rgb), .35) 30%,
+              rgba(var(--fundo-rgb), .82) 72%, var(--fundo) 100%);
 }
 .heroi + .livro-colunas { margin-top: -170px; position: relative; z-index: 1; }
 
@@ -1127,7 +1136,7 @@ img { display: block; max-width: 100%; }
   /* O fundo do app ocupa quase metade da tela e e bem mais presente do que
      o meu era: com 220px e opacidade .75 a capa desfocada sumia. */
   .heroi { height: 300px; }
-  .heroi-imagem { opacity: .95; filter: blur(22px) saturate(1.5); }
+  .heroi-imagem { filter: blur(22px) saturate(2.2) brightness(.45); }
   .heroi + .livro-colunas { margin-top: -150px; }
 
   /* A barra de acao flutua a 64px do fim e tem 46px de altura: sem esta

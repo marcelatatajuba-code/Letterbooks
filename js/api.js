@@ -64,7 +64,7 @@ var API = (function () {
       capaGrande: capa(cru.cover_i, 'L'),
       paginas:    cru.number_of_pages_median || null,
       edicoes:    cru.edition_count || null,
-      assuntos:   (cru.subject || []).slice(0, 12)
+      assuntos:   limparAssuntos(cru.subject, 8)
     };
   }
 
@@ -112,6 +112,75 @@ var API = (function () {
       .then(function (d) { return (d.docs || []).map(normalizar).filter(Boolean); });
   }
 
+  /* ------------------------------------------------------------- assuntos */
+
+  /* A lista de assuntos da Open Library vem suja: o mesmo conceito aparece em
+     varias linguas, repetido com e sem acento, e com restos de codificacao
+     quebrada. Um exemplo real, de "How to Win Friends and Influence People":
+
+       Succès · Psychologie appliquée · Psychologie applique e. ·
+       Applied Psychology · Succe s. · Success · Conduct of life · Éxito
+
+     Sao dez etiquetas para quatro ideias, e tres delas ("Succe s.",
+     "Psychologie applique e.") sao lixo de acento perdido, onde o "è" virou
+     "e " e o resto virou um pedaco solto. Mostrar isso cru faz a ficha
+     parecer despejo de banco de dados.
+
+     A limpeza tem tres passos: marcar o lixo, agrupar o que e a mesma coisa
+     e escolher a melhor grafia de cada grupo. */
+
+  /* "Succe s." e "Psychologie applique e." terminam com letra solta e ponto.
+     E a assinatura da codificacao quebrada, e nao existe assunto de verdade
+     escrito assim. */
+  function suspeito(s) { return /\s[a-z]\.\s*$/i.test(s); }
+
+  /* Sem acento, sem pontuacao, tudo junto: "Succès" e "Success" viram
+     "succes" e "success", que a distancia de edicao abaixo aproxima. */
+  function chaveAssunto(s) {
+    return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase().replace(/[^a-z0-9]+/g, '');
+  }
+
+  /* Distancia de edicao com teto 1: so precisamos saber se duas grafias estao
+     a um caractere de distancia, entao para no primeiro passo que estoura. */
+  function pertoDe(a, b) {
+    if (a === b) return true;
+    if (Math.abs(a.length - b.length) > 1) return false;
+    var i = 0, j = 0, erros = 0;
+    while (i < a.length && j < b.length) {
+      if (a[i] === b[j]) { i++; j++; continue; }
+      if (++erros > 1) return false;
+      if (a.length > b.length) i++;
+      else if (b.length > a.length) j++;
+      else { i++; j++; }
+    }
+    return erros + (a.length - i) + (b.length - j) <= 1;
+  }
+
+  function limparAssuntos(lista, limite) {
+    var grupos = [];
+    (lista || []).forEach(function (cru) {
+      var s = String(cru || '').trim();
+      if (s.length < 2 || s.length > 40) return;
+      var k = chaveAssunto(s);
+      if (!k) return;
+      var g = null;
+      for (var i = 0; i < grupos.length; i++) {
+        if (pertoDe(grupos[i].chave, k)) { g = grupos[i]; break; }
+      }
+      if (!g) { g = { chave: k, formas: [] }; grupos.push(g); }
+      g.formas.push(s);
+    });
+
+    return grupos.map(function (g) {
+      /* Dentro do grupo, a melhor grafia e a que nao e lixo; entre as boas,
+         a mais curta, que costuma ser a sem parenteses de desambiguacao. */
+      var boas = g.formas.filter(function (s) { return !suspeito(s); });
+      var candidatas = boas.length ? boas : g.formas;
+      return candidatas.sort(function (a, b) { return a.length - b.length; })[0];
+    }).slice(0, limite || 8);
+  }
+
   /* ----------------------------------------------------------- ficha da obra */
 
   /* Detalhes da obra: sinopse e assuntos. A chave e do tipo "/works/OL45804W". */
@@ -119,7 +188,7 @@ var API = (function () {
     return pegar('https://openlibrary.org' + chave + '.json').then(function (d) {
       return {
         sinopse:  textoDe(d.description),
-        assuntos: (d.subjects || []).slice(0, 12),
+        assuntos: limparAssuntos(d.subjects, 8),
         capaId:   (d.covers || [])[0] || null
       };
     }).catch(function () {

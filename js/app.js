@@ -148,13 +148,28 @@
       '</button></div>';
   }
 
+  /* Pôster de cinema é sempre 2:3; capa de livro, não. A Open Library devolve
+     de tudo — quadrada, alta, larga — e forçar isso numa caixa 2:3 com
+     object-fit:cover corta a borda, que numa capa é onde mora o título. Então
+     a capa vai INTEIRA (contain) sobre uma cópia dela mesma desfocada, que
+     preenche a caixa. É a mesma imagem: uma requisição, dois usos.
+
+     A lombada com o título fica sempre no HTML, embaixo de tudo. Se a imagem
+     falhar — 404, limite de taxa, rede caindo — os dois <img> se removem e a
+     lombada reaparece, em vez de sobrar uma caixa vazia. */
   function htmlCapa(livro, extra) {
     var url = livro.capa || livro.capaGrande;
+    var img = '';
+    if (url) {
+      img = '<img class="capa-fundo" src="' + esc(url) + '" alt="" aria-hidden="true"' +
+            ' loading="lazy" onerror="this.remove()">' +
+            '<img class="capa-imagem" src="' + esc(url) + '"' +
+            ' alt="Capa de ' + esc(livro.titulo) + '"' +
+            ' loading="lazy" onerror="this.remove()">';
+    }
     return '<div class="capa">' +
       '<div class="capa-vazia"><span>' + esc(livro.titulo) + '</span></div>' +
-      (url ? '<img src="' + esc(url) + '" alt="Capa de ' + esc(livro.titulo) + '"' +
-             ' loading="lazy" onerror="this.remove()">' : '') +
-      (extra || '') + '</div>';
+      img + (extra || '') + '</div>';
   }
 
   /* Um item da grade: so a capa, como as grades de posters do original. O que
