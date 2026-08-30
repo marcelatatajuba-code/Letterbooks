@@ -1,0 +1,126 @@
+# O processo, medido
+
+Registro do como — não do quê. O quê está nos commits e em `docs/kb/`.
+
+Tudo aqui saiu de `git log` e das próprias suítes. Nenhum número foi
+estimado. Onde a medida é fraca, está escrito que é fraca.
+
+---
+
+## Por que não é Scrum
+
+Story point, velocity e burndown supõem que o recurso escasso é **hora de
+gente**. Aqui não é. Três coisas limitaram este projeto, e nenhuma delas
+aparece num burndown:
+
+| o que limita | como se manifestou |
+|---|---|
+| **Ponto cego** | o ambiente não alcança a Open Library nem o Supabase. Três rodadas de retrabalho de layout saíram daí, e três defeitos só apareceram num print do celular. |
+| **Colisão de arquivo** | `js/app.js` tem ~3.000 linhas e quase toda tela passa por ele. Isso limita o paralelismo mais do que qualquer capacidade de time. |
+| **Capacidade de detecção** | defeito existe desde que foi escrito; o que muda é quando alguém consegue vê-lo. Cinco dos nove defeitos da última fase foram **injetados nas fases anteriores** e ficaram latentes por horas. |
+
+Então as métricas aqui medem **essas três coisas**, e não esforço:
+
+- **quem detectou** cada defeito (usuária, suíte, agente, eu)
+- **latência**: quanto tempo o defeito ficou vivo antes de ser visto
+- **razão verificação/app**: quanto de código existe para provar o outro
+
+## As fases do SDLC, e quem executou cada uma
+
+O ciclo é SDD — especificação antes de código. O mapeamento para as fases
+clássicas, com o executor real de cada uma:
+
+| fase SDLC | o que é aqui | executor | artefato |
+|---|---|---|---|
+| Requisitos | inventário do Letterboxd contra o que o app faz | agente `produto` | `docs/kb/produto.json` |
+| Análise de mercado | concorrentes e oportunidades, **com procedência** | agente `mercado` | `docs/kb/mercado.json` |
+| Priorização | backlog único, fidelidade ganha de novidade | orquestrador de curadoria | `docs/kb/backlog.json` |
+| Design | história, DoR, DoD, casos de uso, spec de tela | agentes `gpm` + `design` | `docs/kb/especificacoes.json` |
+| Arquitetura | viabilidade, ordem, colisões | agente `tech-lead` | `docs/kb/plano-tecnico.json` |
+| Plano de teste | casos, antes de existir código | agente `qa` | fase Revisão do ciclo |
+| Implementação | **uma frente só, em série** | eu | commits |
+| Verificação | sete suítes + rastreador autônomo | ferramenta | `/verificar` |
+| Publicação | push; o Pages publica sozinho | ferramenta | — |
+
+A implementação fica fora do script de propósito: agentes editando `app.js`
+em paralelo se sobrescrevem, e trabalho perdido em silêncio custa mais do que
+o paralelismo rende.
+
+## Os três modos de execução, medidos
+
+| | vibecoding | instrumentado | time híbrido |
+|---|---|---|---|
+| commits | 9 | 12 | 3 |
+| linhas de app | 3.447 | 2.861 | 252 |
+| linhas de verificação | **0** | 1.465 | 1.187 |
+| linhas de conhecimento | 173 | 203 | 2.279 |
+| defeitos registrados | 10 | 13 | 9 |
+| **achados pela usuária** | **3 de 10** | **4 de 13** | **0 de 9** |
+| graves achados por ferramenta | 1 | 4 | 6 |
+
+### Como ler isto sem se enganar
+
+**1. As fases não fazem o mesmo trabalho.** A primeira era campo aberto — o
+primeiro commit tem 2.420 linhas. A última é endurecimento e correção. Linha
+por hora não compara.
+
+**2. "Defeitos por fase" mede DETECÇÃO, não injeção.** Cinco dos nove
+defeitos da última fase nasceram nas duas primeiras e ficaram latentes de 1h20
+a 5h30. O time híbrido não os evitou — ele os **tornou visíveis**. Ler a
+tabela como "a última fase teve menos defeitos" é ler ao contrário.
+
+**3. Hora de parede não é esforço.** A última fase mostra 9,5 horas porque
+inclui 73 minutos de agentes rodando e um intervalo longo sem trabalho nenhum.
+Não divida nada por essas horas.
+
+**4. O que a tabela sustenta de verdade** é uma coisa só, e ela é forte:
+**a usuária parou de ser o detector.** De 3 em 10, para 4 em 13, para 0 em 9.
+Isso não é opinião — é a coluna de detector do `defeitos.csv`.
+
+## A curva da verificação
+
+Asserções ao longo do projeto, ditas pelos próprios commits:
+
+```
+29/08 23:02   34   ▓▓▓
+29/08 23:08   45   ▓▓▓▓
+29/08 23:40   55   ▓▓▓▓▓
+29/08 23:49   73   ▓▓▓▓▓▓▓
+30/08 00:21   81   ▓▓▓▓▓▓▓▓
+30/08 01:48  +46   suíte de nuvem nasce
+30/08 05:04  +35   suíte social nasce
+30/08 05:41   —    jornada de ponta a ponta nasce
+30/08 05:59   —    rastreador autônomo nasce
+30/08 15:39  103   suíte local hoje
+```
+
+Hoje: **239 asserções** em quatro suítes, mais o rastreador (que não assere:
+mede e relata) e a prova em Postgres. **2.426 linhas de verificação para 6.017
+de app** — razão de 0,40.
+
+Os três números acima foram conferidos contra a fonte depois de escritos, e os
+três estavam errados na primeira versão deste arquivo: 251 contava os achados
+do rastreador como asserção, 0,55 somava o script de orquestração como
+verificação, e "4 de 10" atribuía à usuária um defeito que fui eu quem viu
+(D04, o site atrasado). Ficam registrados porque um documento de métrica que
+não confere os próprios números não vale a leitura.
+
+## O que nenhuma métrica daqui alcança
+
+- **Se o app está bonito.** O rastreador mede estrutura, alcance do dedo, nome
+  acessível e erro de execução. Julgamento de desenho continua sendo trabalho
+  de olhar, e o print do seu celular vale mais que qualquer suíte.
+- **Se o contrato com o Supabase está certo.** Os mocks imitam o formato do
+  PostgREST, não o comportamento. Três vezes um mock frouxo quase deixou passar
+  defeito — e uma dessas vezes ele acusou o app de um erro que não existia.
+- **Quanto custou.** Não meço horas de gente nem dinheiro. O que existe é o
+  consumo do ciclo de agentes: 14 agentes, 1,95 milhão de tokens, 73 minutos.
+
+## Os arquivos
+
+| arquivo | o que é |
+|---|---|
+| `defeitos.csv` | os 32 defeitos, com fase, gravidade, **quem detectou** e latência |
+| `../kb/` | a saída de uma volta do ciclo SDD |
+| `../../CLAUDE.md` | as regras que vieram de errar |
+| `../../.claude/agents/` | os sete papéis |

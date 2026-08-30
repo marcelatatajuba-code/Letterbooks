@@ -117,6 +117,18 @@ docs/                 medição, mapa das telas do original, suítes
 `js/app.js` é o gargalo: quase toda tela passa por ele. Duas frentes mexendo
 nele ao mesmo tempo colidem — trabalhe em série ali.
 
+## O processo, medido
+
+`docs/processo/` registra **como** este projeto foi feito, não o quê:
+`defeitos.csv` tem os 32 defeitos com quem detectou cada um e quanto tempo
+ficaram latentes; o `LEIA-ME.md` compara os três modos de execução com dados
+do `git log`. `conferir.py` confere os números afirmados no documento contra a
+fonte — rode depois de mexer no processo, nas suítes ou no registro.
+
+A conclusão que os dados sustentam é uma só: **a usuária deixou de ser o
+detector** (3 em 10 → 4 em 13 → 0 em 9). Todo o resto da tabela tem confundidor
+e está anotado como tal.
+
 ## O ciclo de trabalho
 
 Existem papéis definidos em `.claude/agents/` (produto, mercado, design, GPM,
