@@ -13,5 +13,5 @@
    ========================================================================== */
 var CONFIG = {
   supabaseUrl: 'https://ifnnsttcpawcyyvypczn.supabase.co',
-  supabaseChave: ''
+  supabaseChave: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlmbm5zdHRjcGF3Y3l5dnlwY3puIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwNTU2ODIsImV4cCI6MjEwMzYzMTY4Mn0.hthoNs1Ha1HyY1YdXPPqGEIqtbBmWG74VUbmIqkcLJI'
 };

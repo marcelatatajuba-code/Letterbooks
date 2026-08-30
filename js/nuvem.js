@@ -27,7 +27,36 @@ var Nuvem = (function () {
 
   function base() { return String(CONFIG.supabaseUrl || '').replace(/\/+$/, ''); }
   function anon() { return String(CONFIG.supabaseChave || ''); }
-  function ligada() { return !!(base() && anon()); }
+
+  /* A chave do Supabase e um JWT com o papel escrito dentro. A "anon" nasce
+     para ficar no navegador; a "service_role", que fica logo abaixo dela no
+     painel, IGNORA todas as politicas de RLS — quem tiver essa chave apaga o
+     banco inteiro do console do navegador.
+
+     As duas sao textos parecidos, coladas do mesmo lugar, e trocar uma pela
+     outra e o erro mais facil e mais caro de cometer aqui. Entao o app le o
+     papel e se recusa a subir com a chave errada, em vez de funcionar
+     perfeitamente enquanto expoe tudo. */
+  var papelDaChave = (function () {
+    var t = anon().split('.');
+    if (t.length !== 3) return null;
+    try {
+      var corpo = t[1].replace(/-/g, '+').replace(/_/g, '/');
+      return JSON.parse(atob(corpo + '==='.slice((corpo.length + 3) % 4))).role || null;
+    } catch (e) { return null; }
+  })();
+
+  if (papelDaChave && papelDaChave !== 'anon') {
+    console.error('Letterbooks: a chave em js/config.js e "' + papelDaChave +
+      '", nao "anon". A nuvem fica DESLIGADA — essa chave ignora todas as ' +
+      'regras de acesso do banco e nao pode ir para o navegador. Troque pela ' +
+      'chave "anon public", em Project Settings > API.');
+  }
+
+  function ligada() {
+    return !!(base() && anon()) && papelDaChave !== 'service_role' &&
+           (papelDaChave === null || papelDaChave === 'anon');
+  }
 
   /* --------------------------------------------------------------- sessao */
 
