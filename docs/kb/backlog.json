@@ -1,0 +1,136 @@
+{
+ "raciocinio": "Ordenei por: (1) fidelidade primeiro, (2) dependência, (3) dor, (4) desconto por procedência fraca. Li o código antes — e não só confirmei o que os dois especialistas disseram, achei uma coisa a mais: o prompt() do navegador não está só nas listas (js/app.js:1101, 1139, 1143), está também na edição do perfil (nome, bio e meta — js/app.js:1319, 1321, 1328), o que torna esse item mais caro em identidade do que foi relatado.\n\nO topo da fila (1 a 6) é fidelidade pura e forma uma corrente: sem a descida da nuvem, ter conta não significa nada e a migração por aparelho (jaMigrou no localStorage, js/nuvem.js:436) duplica ou zera diário no segundo celular — é o único item da lista que CORROMPE DADO enquanto espera, por isso vem antes até do que é enganoso. O item 2 vem em seguida porque não é ausência, é mentira de rótulo: o mesmo histograma das SUAS notas aparece idêntico em todo livro do acervo sob o título 'Avaliações' (js/app.js:683 alimentando :707). Consertar o que engana precede acrescentar o que falta. Os itens 3 e 4 são a mesma obra vista de dois lados (tirar a ficha e a resenha do isolamento local) e o 4 destrava o 8; o 5 fecha o buraco de sincronização que faz uma das três abas do topo viver offline; o 6 é o mais barato da corrente e só existe depois do 4 dar endereço às resenhas.\n\nColoquei UM item novo (o 7, 'lendo agora') acima de cinco itens de fidelidade, e assumo a escolha: não é empate, e por isso a regra 1 não decide. É o único gap estrutural que vem de LIVRO e não de filme — um filme é binário, um livro fica três semanas no criado-mudo, e hoje o app só existe depois que a leitura acabou. Além disso destrava dois outros (abandonado, que nasce dentro dele, e clube) e o denominador já está no código (livro.paginas, js/api.js:65). Os cinco itens de fidelidade que ficaram abaixo dele ou são caros e dependentes (notificações, que precisa do 4) ou são higiene sem dependência (privacidade, denúncia, folhas próprias) — nenhum deles fica pior por esperar uma posição.\n\nApliquei o desconto de procedência em dois lugares. O acervo em português foi para o último lugar apesar de ter sido pontuado impacto 5 pelo mercado: a AUSÊNCIA do filtro eu verifiquei eu mesmo (nenhuma ocorrência de 'language' em js/api.js), mas a SOLUÇÃO proposta — que search.json aceita language:por, que work e edition se separam, que covers.openlibrary.org serve capa por ISBN, que 978-85/978-65 são os prefixos brasileiros — é toda conhecimento de treino não confirmado contra a API viva, porque o proxy bloqueou a medição. Por isso o item entra com a medição dos 50 títulos como primeira entrega e um portão de decisão depois dela: se a cobertura for ruim, a conclusão muda de 'filtrar' para 'buscar outra fonte', e aí é outro item, com outro custo. E cortei o leitor de código de barras justamente por procedência de plataforma: o risco recai sobre o alvo declarado do projeto (PWA no iPhone), e a alternativa violaria a regra de não ter build nem dependência.\n\nO que ficou de fora não foi cortado por ser ruim — cortei por dependência ou por sazonalidade, e listei cada um com o motivo. Três deles (importar de fora, avatar, perfil alheio completo) são fortes e devem ser os primeiros da rodada seguinte, assim que a corrente 1-6 estiver no ar.",
+ "backlog": [
+  {
+   "ordem": 1,
+   "titulo": "Trazer o diário da nuvem para o aparelho",
+   "tipo": "fidelidade",
+   "resumo": "Criar em js/nuvem.js as funções que hoje não existem — ler as PRÓPRIAS leituras, marcadores e listas — e um passo de descida na abertura da sessão, que funde com o que já está no localStorage sem duplicar. Junto, trocar a trava jaMigrou (hoje por aparelho, js/nuvem.js:436) por uma marca na conta, no servidor, para o segundo aparelho nunca mais ser convidado a 'Trazer o diário deste aparelho' (js/app.js:2611) e subir um diário vazio por cima do que já está lá. Verificado: Nuvem só exporta feed, feedGeral, leiturasDe e perfilDe (js/nuvem.js:555-596) — nenhuma leitura do próprio diário.",
+   "valor": "Para quem instala o PWA no iPhone depois de criar a conta no computador. Hoje ela entra e encontra um diário vazio, com um botão que pode duplicar ou apagar o que ela já tinha. É a diferença entre 'tenho conta' e 'não tenho conta nenhuma', e é o único item da fila que estraga dado enquanto espera.",
+   "esforco": "G",
+   "depende": "nada"
+  },
+  {
+   "ordem": 2,
+   "titulo": "Nota e histograma da comunidade na ficha, no lugar do seu próprio",
+   "tipo": "fidelidade",
+   "resumo": "Substituir Dados.estatisticas() (js/app.js:683) por um agregado sobre leituras.nota daquele livro, lido da nuvem. O bloco 'Avaliações' (js/app.js:707) passa a mostrar a distribuição de todo mundo e a média da comunidade; a sua nota continua no painel lateral, onde já está. O dado é público por RLS ('diário é público', servidor/esquema.sql:197) — falta só a consulta agregada por livro.",
+   "valor": "Para qualquer pessoa abrindo a ficha de um livro que não leu. Hoje ela vê o SEU histograma geral, idêntico em todo livro do acervo, rotulado como se fosse do livro. Não é uma ausência, é um rótulo que mente — e é a promessa central do original (saber o que o mundo achou antes de ler) invertida em ruído.",
+   "esforco": "M",
+   "depende": "nada"
+  },
+  {
+   "ordem": 3,
+   "titulo": "A rede aparece dentro da ficha do livro",
+   "tipo": "fidelidade",
+   "resumo": "telaLivro (js/app.js:620) hoje só chama API.detalhe e lê o Dados local — zero chamadas à Nuvem. Acrescentar duas consultas por livro: quem você segue que já leu, e as resenhas escritas sobre ele (populares e de quem você segue), cada linha levando à página da resenha. Reaproveita htmlLinhaFeed (js/app.js:2017) e o mesmo select do item 2.",
+   "valor": "Para quem já segue gente e abre um livro que a rede leu. No original é o principal motivo de abrir a ficha. Hoje o social do Letterbooks vive todo preso dentro de #/atividade e nunca encosta no livro — a ficha é uma ilha 100% local.",
+   "esforco": "M",
+   "depende": "item 2 (mesma consulta sobre leituras por livro)"
+  },
+  {
+   "ordem": 4,
+   "titulo": "Uma resenha só, com endereço próprio e compartilhável",
+   "tipo": "fidelidade",
+   "resumo": "Unificar as duas telas desiguais: telaResenha (js/app.js:934, a sua, local, em #/resenha/<id do aparelho>, sem curtida nem comentário) e desenhaLeitura (js/app.js:2259, pública, em #/leitura/<uuid>, com tudo). A sua resenha passa a redirecionar para o endereço público assim que o registro tem remoto (Dados.marcarRemoto já grava isso, js/sinc.js), e o botão Compartilhar oferece o LINK ao lado do cartão de imagem que já existe (cartaoDeCompartilhar, js/app.js:1659).",
+   "valor": "Para quem escreveu uma resenha e quer mandar para alguém. Hoje o único compartilhar entrega um PNG bonito, sem o texto e sem para onde clicar. Também é o pré-requisito de qualquer notificação: não dá para avisar 'comentaram na sua resenha' sem um endereço para onde levar.",
+   "esforco": "M",
+   "depende": "item 1 (a resenha precisa ter subido de forma confiável)"
+  },
+  {
+   "ordem": 5,
+   "titulo": "Listas passam a existir na nuvem — sobem e podem ser lidas",
+   "tipo": "fidelidade",
+   "resumo": "Duas metades. Subida: Dados.criarLista, editarLista e alternarNaLista (js/dados.js:186, 200, 214) passam a chamar anunciar — hoje só leitura, leitura-apagada e marcador chamam (js/dados.js:120, 128, 178) — e Sinc.enviar (js/sinc.js:128) ganha os tipos de lista. Leitura: telaLeitor passa a consultar a tabela listas, que é pública por RLS (servidor/esquema.sql), e a lista alheia ganha tela.",
+   "valor": "Para quem cria uma lista depois de migrar. Hoje ela morre no aparelho e some se a pessoa limpar o navegador — as tabelas listas/lista_itens só recebem dado uma vez na vida, dentro de Nuvem.migrar (js/nuvem.js:537). Uma das três abas do topo do original está, na prática, offline.",
+   "esforco": "M",
+   "depende": "item 1 (mesmo encanamento de fila e de descida)"
+  },
+  {
+   "ordem": 6,
+   "titulo": "A aba Resenhas passa a ser a da rede, não a sua",
+   "tipo": "fidelidade",
+   "resumo": "telaResenhas (js/app.js:1002) hoje filtra Dados.logs() — só o que VOCÊ escreveu, do localStorage. Trocar por Nuvem.feed (js/nuvem.js:317) filtrando quem tem texto, reaproveitando htmlLinhaFeed, com um segmento 'suas' para quem quiser o recorte antigo.",
+   "valor": "Para quem abre a aba esperando ler os outros e encontra o que já viu no Diário. No original, Reviews é da sua rede — é onde você lê gente. É o item mais barato da corrente social e o que faz o app parecer habitado.",
+   "esforco": "P",
+   "depende": "item 4 (as linhas precisam levar a um endereço de resenha)"
+  },
+  {
+   "ordem": 7,
+   "titulo": "Estante \"Lendo agora\" com progresso por página",
+   "tipo": "nova",
+   "resumo": "RECURSO NOVO — o Letterboxd não tem estado intermediário porque filme não tem. Um quinto estado 'lendo', com página atual e data de início: tabela leituras_em_curso (perfil, livro, pagina, total, inicio) com o mesmo RLS das outras, mais um tipo na fila do sinc.js. Barra de progresso na ficha e na home; ao terminar, o registro de leitura já nasce com data de início e de fim. O denominador vem de graça: js/api.js:65 já normaliza number_of_pages_median como livro.paginas. O estado 'abandonado' (com página e motivo) nasce dentro deste item, como a outra saída da leitura em curso — não precisa de linha própria na fila.",
+   "valor": "Para o leitor durante as três semanas em que o livro está no criado-mudo. Hoje o app só existe depois que a leitura acabou, que é o pior padrão de retenção possível. É também o buraco mais visível contra o incumbente local: o Skoob tem barra de progresso e páginas/dia há anos (fonte secundária, mas corroborada em duas fontes independentes). Destrava o clube de leitura, se ele um dia entrar.",
+   "esforco": "M",
+   "depende": "nada (mas ganha muito depois do item 1)"
+  },
+  {
+   "ordem": 8,
+   "titulo": "Notificações de curtida, comentário e nova seguidora",
+   "tipo": "fidelidade",
+   "resumo": "Tabela nova (a 11ª — hoje o esquema tem 10 e nenhuma de notificação), alimentada por gatilho no insert de curtidas, comentarios e seguidores, com RLS de dono; rota e tela novas no roteador (js/app.js:2726, hoje sem nada disso) e um marcador de não-lidas na barra de abas. Cada notificação leva ao endereço público da resenha, que o item 4 cria.",
+   "valor": "Para quem já curtiu, comentou ou seguiu — tudo isso já funciona (js/app.js:2102, 2223, 2259) e ninguém do outro lado fica sabendo. É o motor que faz voltar ao app; sem ele, toda a camada social já construída fica parada. Fica atrás do 7 porque é G, depende do 4, e a dor só aparece quando houver tráfego — que os itens 1 a 6 é que criam.",
+   "esforco": "G",
+   "depende": "item 4 (a notificação precisa de um endereço para onde levar)"
+  },
+  {
+   "ordem": 9,
+   "titulo": "Apagar a conta e uma chave de privacidade do diário",
+   "tipo": "fidelidade",
+   "resumo": "pintarConta (js/app.js:2593) só oferece 'Sair desta conta'; 'Apagar tudo' (telaPerfil) apaga só o aparelho. Acrescentar apagar a conta de verdade (o esquema já tem on delete cascade em todas as referências a perfis) e uma coluna de privacidade em perfis, respeitada nas políticas de select — que hoje são públicas por decisão em bloco (servidor/esquema.sql:184-212), sem chave nenhuma na interface.",
+   "valor": "Para quem entregou e-mail e publica o que lê e depois quer sair, ou quer ler sem virar vitrine. Num app que pede cadastro e torna público o diário por padrão, a porta de saída e o controle de exposição não são detalhe de configuração — são o que se deve a quem entrou.",
+   "esforco": "M",
+   "depende": "nada"
+  },
+  {
+   "ordem": 10,
+   "titulo": "Denunciar resenha e comentário, na tela",
+   "tipo": "fidelidade",
+   "resumo": "O caminho inteiro já está pronto e nunca é chamado: tabela denuncias (servidor/esquema.sql:139), política de insert (:237) e Nuvem.denunciar (js/nuvem.js:426). A palavra 'denunciar' não aparece uma única vez em js/app.js — verificado por grep. Falta a ação na resenha e no comentário, uma folha curta com o motivo, e o aviso de recebido.",
+   "valor": "Para quem lê o feed 'Todo mundo', que mostra texto de estranhos sem nenhum caminho de moderação. O caro já foi feito no servidor; deixar a saída fechada é escolher não ter resposta no dia em que aparecer o primeiro abuso.",
+   "esforco": "P",
+   "depende": "nada"
+  },
+  {
+   "ordem": 11,
+   "titulo": "Tirar o prompt() do navegador de todas as portas",
+   "tipo": "fidelidade",
+   "resumo": "Maior do que foi relatado: prompt() está em telaListas (js/app.js:1101), telaLista (:1139, :1143) E na edição do perfil — nome, bio e meta do ano (:1319, :1321, :1328). Substituir todos por folhas próprias, no padrão de abrirFolhaListas (js/app.js:1904), com nome e descrição no mesmo passo e cancelar de verdade. Aproveitar para trocar os confirm() de apagar (:781, :922, :991, :1147, :1335, :2309) por confirmação do app.",
+   "valor": "Para quem instalou o PWA na tela do iPhone. O prompt do sistema quebra a ilusão de app na hora — cinza, fora da paleta, às vezes em inglês. Num projeto cujo pedido é identidade total com o original, essas são as últimas portas que ainda são do navegador, e são seis, não três.",
+   "esforco": "P",
+   "depende": "nada"
+  },
+  {
+   "ordem": 12,
+   "titulo": "Acervo em português: medir primeiro, filtrar depois",
+   "tipo": "nova",
+   "resumo": "RECURSO NOVO na forma proposta (o original tem filtro de idioma na grade, mas não escolha de edição nem tratamento de ISBN nacional). ENTREGA 1, obrigatória: rodar 50 títulos brasileiros contra a Open Library de um ambiente sem bloqueio de proxy e medir quantos voltam com capa e sinopse — a pesquisa de mercado NÃO conseguiu medir isso (o proxy recusou as chamadas). ENTREGA 2, só se a medição sustentar: passar language:por nas chamadas de js/api.js (hoje a constante CAMPOS, js/api.js:24, não inclui language e nenhuma função filtra — verificado), aba 'em português / todos', escolha da edição em vez da obra, e capa por ISBN quando a obra não tiver. Se a cobertura for ruim, a conclusão muda de 'filtrar' para 'complementar com outra fonte' — e aí é outro item, com outro custo.",
+   "valor": "Para quem busca 'Dom Casmurro' num app cuja interface é toda em português e recebe uma edição inglesa com capa de editora americana. É o único terreno em que o incumbente local ganha por acervo e não por design. Está por último apesar do impacto alto porque a solução inteira repousa em conhecimento de treino não confirmado contra a API viva — por isso a primeira entrega é a medição, não o código.",
+   "esforco": "M",
+   "depende": "nada (mas a entrega 2 depende do resultado da entrega 1)"
+  }
+ ],
+ "cortados": [
+  "Retrato de perfil (upload de foto) — FIDELIDADE, e o mapa é explícito (t084, 'retrato redondo centralizado'). Cortei por dependência, não por mérito: rosto só vale quando há feed, e o feed só fica povoado depois dos itens 1 a 6. Além disso é o item de esforço mais mal estimado do lote — bucket no Supabase Storage, coluna nova em perfis (que não tem nenhuma hoje, servidor/esquema.sql:16), upload e redimensionamento em JS sem build. Primeiro da rodada seguinte.",
+  "Perfil alheio completo (favoritos, estante, listas, histograma) — FIDELIDADE. desenhaLeitor (js/app.js:2166) mostra @, bio, contagens, 10 resenhas e um trilho. Cortei porque é a mesma dor do item 3 (ver a rede) entregue num lugar onde ela dói menos: a decisão de seguir alguém acontece hoje na ficha do livro e no feed, não numa página de perfil que quase ninguém abre antes de seguir. Volta junto com o avatar.",
+  "Feed com mais tipos de evento (curtiu, comentou, seguiu, criou lista) — FIDELIDADE. Cortei para não escrever o mesmo encanamento duas vezes: o item 8 já cria a tabela de eventos e os gatilhos que este item precisaria. Deve ser reavaliado como extensão do 8, não como item separado — CAMPOS_FEED (js/nuvem.js:310) e htmlLinhaFeed (js/app.js:2017) mudam juntos.",
+  "Filtros de atividade — FIDELIDADE, mas só existe depois que o feed tiver mais de um tipo de evento. Filtrar uma coisa só não é filtro.",
+  "Importar de Goodreads, Skoob e CSV — FIDELIDADE (o original importa de Letterboxd, IMDb e CSV) e o item de aquisição mais forte do conjunto. Cortei por sequência: sem o item 1, importar 300 livros para o aparelho e perdê-los na troca de celular é pior do que não importar. É o candidato número 1 da próxima rodada, assim que a descida da nuvem estiver no ar. Hoje Dados.importar exige o formato próprio (d.versao) e exportarArquivo (js/app.js:1373) escreve JSON, não CSV.",
+  "Visor de capa em tela cheia (t030) — FIDELIDADE. É conforto de navegação, não dor: htmlCartao (js/app.js:177) leva à ficha, que já mostra a capa grande. Nenhum outro item depende dele.",
+  "Filtros de grade (Ano, Gênero, País, Idioma) — FIDELIDADE, mas API.explorar (js/api.js:248) não aceita recorte nenhum hoje, e o único filtro que realmente importa aqui (idioma) foi absorvido pelo item 12.",
+  "Livros similares e 'onde ler / pegar emprestado' — FIDELIDADE (o original tem 'filmes similares' e 'onde assistir'). Cortei por dor baixa e por dependência de campos que js/api.js:22 nem pede (ia, availability). Os assuntos clicáveis já dão um caminho lateral.",
+  "Buscar listas e resenhas — FIDELIDADE. htmlEscopos (js/app.js:449) tem três abas. Não faz sentido buscar listas antes do item 5 colocá-las na nuvem, nem buscar resenhas antes do item 4 dar endereço a elas.",
+  "Etiquetas (tags) na resenha — FIDELIDADE. O projeto já tomou a decisão de substituir por releitura + spoiler, e reabrir isso é escolha de produto, não dor de quem usa. Custaria coluna, rota de tag e tela nova.",
+  "Estado vazio com a voz do app — FIDELIDADE de tom. Não é item de fila: é reescrita de texto que se faz de carona em cada tela que os itens 1 a 12 tocarem (htmlVazio, js/app.js:225).",
+  "Ícone do app e ajustes de notificação — FIDELIDADE de configuração. Ajuste de notificação entra dentro do item 8; ícone é troca de manifest e não tem dor.",
+  "Journal (conteúdo editorial) — fora de escopo, e concordo com o especialista: não há redação e não há equivalente aberto para livros. Inventar uma seria mentira de interface.",
+  "Clube de leitura com trava de spoiler por página — NOVA. Cortei por três motivos somados: os números que sustentam a demanda ('2 milhões de brasileiros', 'crescimento de 163%') vêm de blog do setor sem fonte primária; é esforço 5 e o primeiro RLS por grupo do projeto, que é exatamente onde vazamento de dado acontece; e depende inteiramente do item 7 existir antes. Reabrir só depois do 7 no ar e com o dado de mercado comprado.",
+  "Ler o código de barras pela câmera — NOVA. Cortei por risco de plataforma no alvo declarado: o BarcodeDetector provavelmente não existe no Safari do iOS (conhecimento de treino, não verificado nesta sessão), e a alternativa é vendorizar um decodificador de terceiros num projeto cuja regra é sem build e sem dependência. Reabrir só com teste de suporte rodado num iPhone real.",
+  "Trechos e citações com página — NOVA, e boa. Cortei por sequência: o momento em que se guarda um trecho é DURANTE a leitura, e é o item 7 que cria esse momento. Tabela nova mais tela nova, atrás do 7.",
+  "Abandonado com motivo e página — NOVA. Não foi cortado: foi absorvido pelo item 7, como a outra saída da leitura em curso. Não merece linha própria na fila.",
+  "Retrospectiva do ano — NOVA, barata (a matemática está em Dados.estatisticas, js/dados.js:242, e o canvas 1080x1920 em js/app.js:1659) e com bom posicionamento depois do caso Fable, que é o item mais bem corroborado de toda a pesquisa. Cortei por sazonalidade: é uma tela de dezembro e não destrava nada. Agendar para o trimestre da virada, fora desta fila.",
+  "Formato da leitura (papel, e-book, audiolivro) — NOVA. É o item com a melhor fonte de todo o conjunto (Retratos da Leitura no Brasil, 6ª edição, metodologia declarada), mas o impacto é um campo a mais no registro. Se couber, entra como acessório do item 7, não como item próprio.",
+  "Estante física (tenho, empresto, emprestei) — NOVA e barata (um valor a mais no CHECK de marcadores.tipo, servidor/esquema.sql:76). Cortei porque é o Skoob, não o original, e a dor não se compara com nenhum dos 12 — ninguém abandona o app por não conseguir registrar um empréstimo.",
+  "Releitura comparada (como você mudou de ideia) — NOVA e a mais barata da lista: o dado já está gravado (múltiplos logs com nota e o campo relido, verificado em js/dados.js e em servidor/esquema.sql:54-64), falta só ler e desenhar. Cortei por alcance: só existe para quem tem anos de diário, e num app novo isso é ninguém. Guardar para quando houver histórico."
+ ]
+}

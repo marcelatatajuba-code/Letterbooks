@@ -1,0 +1,173 @@
+{
+ "viavel": [
+  {
+   "titulo": "V0 — Os três defeitos de HOJE em que as especificações pisam. Três linhas cada, antes de tudo.",
+   "arquivos": [
+    "/home/user/letterbooks/js/app.js",
+    "/home/user/letterbooks/css/app.css",
+    "/home/user/letterbooks/sw.js"
+   ],
+   "passos": [
+    "(a) htmlHeroi (js/app.js:140) abre com `if (!fundo) return '';`. A rota 'resenha' JÁ está na lista de imersivas (js/app.js:2732), então livro sem capa = .topo escondido + nenhum .voltar desenhado: a pessoa fica presa na tela hoje, não depois. Mover a guarda para dentro — só o <div class=heroi-imagem> é condicional; a casca fica em var(--superficie-2), o mesmo degrau do .capa. O bloco 4 da especificação descreve isso corretamente; é só que não é trabalho novo, é conserto imediato.",
+    "(b) ligarCurtidas (js/app.js:2079) lê `Nuvem.quemSou().id` na primeira linha. quemSou() devolve null sem sessão (js/nuvem.js:94). desenhaLeitura chama ligarCurtidas(tela) sem guarda (js/app.js:2318), de dentro do callback de sucesso do Promise.all — o `.then(ok, err)` de js/app.js:2252 NÃO pega exceção lançada dentro do próprio ok. Visitante sem conta que abre um link recebido estoura TypeError. Acrescentar `if (!Nuvem.entrou()) return;` no topo de ligarCurtidas.",
+    "(c) .voltar está na lista de `position: relative` (css/app.css:1337) mas NÃO na lista de `::after { inset: -13px }` (css/app.css:1341-1344). Mede 40×40 (css:1350). Acrescentar o seletor na segunda lista.",
+    "(d) Subir `var CACHE = 'letterbooks-v13'` (sw.js:16) para v14. Sem isso o navegador serve o app velho e nada acima existe."
+   ],
+   "testes": [
+    "docs/rastreador.py — (a) e (b) são exatamente o que ele mede: 'tela-vazia'/'erro-js' e 'alvo-miudo (mínimo confortável: 40)'. Ele já roda contra o Supabase de mentira (S.montar rota js/config.js), então é seguro.",
+    "docs/testar.py, seção 9b — acrescentar uma asserção com um livro sem capa: `.voltar` conta 1 mesmo sem `.heroi-imagem`.",
+    "docs/testar_social.py, bloco 'quem chega sem conta' (linha 372) — asserção nova: zero pageerror ao abrir a página de uma leitura sem sessão."
+   ]
+  },
+  {
+   "titulo": "V1 — Identidade de leitura entre aparelho e conta. É a fundação do bloco 1 e não pode vir depois das telas.",
+   "arquivos": [
+    "/home/user/letterbooks/servidor/esquema.sql",
+    "/home/user/letterbooks/servidor/provar.sql",
+    "/home/user/letterbooks/js/nuvem.js",
+    "/home/user/letterbooks/js/dados.js",
+    "/home/user/letterbooks/js/sinc.js"
+   ],
+   "passos": [
+    "Constatação que muda o desenho: Nuvem.migrar (js/nuvem.js:508) envia as leituras com `Prefer: return=minimal` e NUNCA chama Dados.marcarRemoto. Depois de migrar, TODA leitura local fica sem `.remoto`. E Nuvem.salvarLeitura (js/nuvem.js:283) sem `log.remoto` faz POST, não PATCH. Ou seja: hoje, quem migra e depois edita uma resenha ganha uma segunda linha no servidor. O item 1 não é só 'falta descer' — o que já existe está duplicando.",
+    "Por isso a fusão precisa de identidade estável, e nem a especificação nem o backlog dizem qual é. A única correta: coluna nova `cliente_id text` em leituras, com `create unique index leituras_cliente on leituras (perfil, cliente_id)`. O id é o `Dados.id()` que a leitura já tem (js/dados.js:80), opaco, gerado no aparelho.",
+    "RLS: nenhuma política muda. leituras já é `for select using (true)` (esquema.sql:197) — cliente_id passa a ser publicamente legível junto com o resto da linha, e por isso ele TEM que continuar opaco (Date.now+random), nunca derivado de e-mail ou de perfil. Escrever isso no comentário da coluna, senão alguém 'melhora' o id um dia.",
+    "Backfill, em SQL, ANTES do primeiro sync: casar as linhas órfãs por (perfil, livro, lido_em). Postgres permite N nulos num índice único, então linha sem cliente_id nunca colide — se o backfill não rodar, o primeiro sync duplica o diário inteiro em vez de falhar visivelmente.",
+    "js/nuvem.js: salvarLeitura passa a mandar cliente_id e usar `?on_conflict=perfil,cliente_id` com `Prefer: resolution=merge-duplicates,return=representation`. migrar() troca `return=minimal` por representation e chama Dados.marcarRemoto por linha. Duas funções de descida novas: minhasLeituras() e meusMarcadores() (hoje Nuvem só exporta feed, feedGeral, leiturasDe e perfilDe — js/nuvem.js:555-596; nenhuma lê o próprio diário).",
+    "js/dados.js: fundir() — recebe as linhas remotas, casa por cliente_id, depois por remoto, e só então insere. Nunca apaga local. Devolve as quatro contagens que as telas do bloco 1 mostram (vieram da conta / subiram daqui / já estavam nos dois / listas)."
+   ],
+   "testes": [
+    "servidor/provar.sql (Postgres local) — é a ÚNICA verificação real desta etapa, porque nenhum mock prova PostgREST. Provar: o índice único, o backfill por (perfil, livro, lido_em), e o caso em que a mesma obra foi lida duas vezes no MESMO dia (o backfill fica ambíguo — decidir e travar o comportamento aqui).",
+    "docs/testar_social.py — o mock (linhas 104-127) hoje ignora `on_conflict` e o Prefer de merge; ele tem que aprender os dois ANTES de qualquer teste, senão o teste passa e a produção duplica. O próprio arquivo já registra essa lição no comentário do `in.(...)`.",
+    "docs/testar_nuvem.py, bloco 'migracao do diario local' (linha 271) — asserção nova: depois de migrar, todo log em localStorage tem `.remoto`.",
+    "docs/jornada_e2e.py — passo novo: Ana registra, migra, EDITA a resenha, e o banco continua com uma linha só. É o caminho que produz o dado estragado hoje."
+   ]
+  },
+  {
+   "titulo": "V2 — #/sincronizar (as seis faces), a seção Sincronização em #/conta, e as duas tarjas",
+   "arquivos": [
+    "/home/user/letterbooks/js/app.js",
+    "/home/user/letterbooks/css/app.css",
+    "/home/user/letterbooks/js/nuvem.js",
+    "/home/user/letterbooks/js/sinc.js",
+    "/home/user/letterbooks/sw.js"
+   ],
+   "passos": [
+    "Rota nova em rotear() (js/app.js:2726-2760) e uma tela só, telaSincronizar(), com máquina de estados de seis faces — não seis funções. Cinco das seis faces (vazio, sem conta, nuvem desligada, offline, erro) são HTML puro sobre componentes existentes: .conta, .linhas, .sem-link, .valor, .vazio, .fila-aviso, .linha-botoes, .meta-barra — todos verificados no CSS. O custo real está na face 2 e no motor, não no desenho.",
+    "contaPorta (js/app.js:2485) hoje chama contaDentro() direto no sucesso, sem trocar o hash. Trocar por ir('#/sincronizar'). Consequência a não esquecer: o cadastro com confirmação de e-mail (js/nuvem.js:170, `{confirmar:true}`) NÃO tem sessão — esse ramo continua pintando a tela de confirmar, não pode cair no sincronizar.",
+    "pintarConta (js/app.js:2593): sai o bloco de migração inteiro (js/app.js:2604-2621, incluindo o `<button class=\"botao destaque\" data-acao=\"migrar\">` e a linha 'Já enviado… em <data>'), entra a seção Sincronização com .linhas + chevron. A ação `migrar` do mapa de acoes (js/app.js:2694) sai junto — deixar a ação órfã é como um botão morto volta a aparecer numa refatoração futura.",
+    "A trava: `letterbooks:migrado:<id>` (js/nuvem.js:434) e Nuvem.jaMigrou (js/nuvem.js:436, exportado em :598) saem. Não vira flag por conta no servidor — vira o cliente_id do V1. Ver o item inviável correspondente.",
+    "Face offline: a especificação diz que 'o mesmo ouvinte window online que o Sinc já usa dispara a sincronização'. Não dispara — o ouvinte de js/sinc.js:178 chama `empurrar`, que só SOBE. É preciso um segundo ouvinte, ou Sinc passa a expor um gancho de 'rede voltou'. Escolher um e escrever qual no comentário.",
+    "Tarja em #/diario (telaDiario, js/app.js:901) e em #/estante (telaEstante, js/app.js:1044): mesma .fila-aviso, mesmo destino, condição `Nuvem.entrou() && este aparelho nunca fundiu`. Duas telas, não três — o feed e o perfil não ganham.",
+    "Marcar as faces como NOVAS no comentário do CSS, com o motivo (o Letterboxd é servidor-primeiro; não existe quadro equivalente no docs/mapa_dados.py). É a regra de identidade do projeto e este bloco inteiro é invenção."
+   ],
+   "testes": [
+    "docs/rastreador.py — a rota nova entra sozinha na varredura assim que houver link a partir de #/conta; ele mede rolagem lateral (a tarja de 373px nos 390), alvo-miudo (o link 'Trazer ›' com ::after inset -13) e tela-vazia por face.",
+    "docs/testar_social.py — faces offline e erro: o mock já sabe cair (`estado['cair']` → rota.abort()), e já existe o bloco 'rede cai no meio' (linha 228) para copiar a forma.",
+    "docs/jornada_e2e.py — o caso da história, que hoje nenhuma suíte anda: Ana cria conta e registra no aparelho 1; limpa o localStorage (aparelho 2), entra com a MESMA conta, e o diário tem que aparecer. Sem isso a fusão não está provada por nada.",
+    "docs/testar.py, seção 12 — as medidas travadas (.topo ≤48, sem rolagem lateral em 384px) valem para a rota nova; acrescentar #/sincronizar à seção em vez de criar suíte à parte."
+   ]
+  },
+  {
+   "titulo": "V3 — Avaliações da comunidade E a rede na ficha, no mesmo item. Separar os dois custa duas vezes o mesmo trabalho.",
+   "arquivos": [
+    "/home/user/letterbooks/js/app.js",
+    "/home/user/letterbooks/css/app.css",
+    "/home/user/letterbooks/js/nuvem.js"
+   ],
+   "passos": [
+    "Fundir os blocos 2 e 3 das especificações e os itens 2 e 3 do backlog. Motivo verificado: os dois reescrevem a mesma variável `blocoNotas` (js/app.js:704), os dois mexem em htmlHistograma (js/app.js:235), e os dois pedem A MESMA consulta ao feed filtrada por livro. Feitos em série, a segunda rodada desfaz a primeira.",
+    "Uma consulta só: Nuvem.publico('feed', '?select=…&livro=eq.<chave>&order=criado_em.desc&limit=60'). Dela saem as três renderizações: as faixas do histograma, a interseção com quemEuSigo(), e as linhas com resenha. A média e a distribuição saem daí, no cliente — NÃO por função de agregação do PostgREST (ver inviável).",
+    "NÃO usar Promise.all para as duas requisições. Nuvem.quemEuSigo (js/nuvem.js:325) passa por comSessao, que REJEITA sem sessão (js/nuvem.js:151). Num Promise.all, o visitante sem conta perde também o histograma — que é justamente a parte que a ficha deve mostrar a quem não tem conta. Duas promessas independentes, cada uma pintando a sua seção.",
+    "Regra de repintura, e ela é a parte cara: desenhaLivro (js/app.js:641) se redesenha inteiro a cada ♥/◷/★ (as ações `quero`, `curtir`, `favorito` chamam desenhaLivro(livro) de novo). Mas desenhaLivro é função de módulo, não está aninhada em telaLivro — então 'guardar as linhas numa variável do escopo de telaLivro' não funciona como escrito. Ou desenhaLivro passa a receber a rede como parâmetro, ou existe um cache de módulo indexado pela chave. Escolher, e não descobrir isso na hora.",
+    "Colisão de nome real, medida: a especificação pede `<span class=\"conta\">` dentro do .bloco-topo. `.conta { max-width: 420px; margin: 0 auto; }` (css/app.css:1074) é seletor de classe nua e pega qualquer elemento; a regra que empurra para a direita é `.secao > h2 .conta` (css:224) e não alcança .avaliacoes. Renomear, ou escrever a regra específica.",
+    "`.avaliacoes-media { font-weight: 300 }` (css/app.css:536) é declaração morta confirmada: os dois @font-face declaram `font-weight: 400 800` (css:30 e :40), então 300 é travado em 400. Trocar por 400 não muda um pixel — e é a diferença entre uma regra que mente e uma que descreve.",
+    "htmlHistograma (js/app.js:235) ganha um parâmetro para o title dizer '3 avaliações' em vez de '3 livros'. O perfil (Dados.estatisticas) continua chamando sem o parâmetro.",
+    "A marca .minha e a .fila-aviso de 'nota só local' vão marcadas como NOVAS no CSS. O histograma em si é fidelidade ao t050 — o conserto é DE QUEM ele é."
+   ],
+   "testes": [
+    "docs/testar_social.py — é a suíte certa, e ela precisa de conserto antes: o ramo `if tab == 'feed'` do mock (linhas 76-93) trata usuario, id e perfil, e IGNORA qualquer outro filtro. Um `livro=eq.` cairia no vazio e o mock devolveria a tabela inteira — o teste passaria mostrando o histograma errado. Ensinar o filtro ao mock é o primeiro passo do item, não o último.",
+    "Caso a semear: três leituras do mesmo livro, por três perfis, com notas diferentes; asserção de que a média na tela é a média das TRÊS, e não Dados.estatisticas() da leitora.",
+    "docs/testar.py, seção 8b (linha 203) QUEBRA com este item: ela afirma `.avaliacoes-media` conta 1 numa ficha onde só existe nota local. Depois desta mudança o bloco vem da rede, que na testar.py não é mockada. Reescrever a seção 8b junto com o código, no mesmo commit.",
+    "docs/rastreador.py — as linhas de resenha na ficha entram na varredura: alvo-miudo no ♥ e no 💬 (o ::after inset -13 e o gap 24 do .feed-acoes já existem, css:1341 e :1348), e rolagem lateral com .resultados sangrando em margin 0 -18px."
+   ]
+  },
+  {
+   "titulo": "V4 — #/resenha/<id> como endereço único, com a folha de compartilhar e a de apagar",
+   "arquivos": [
+    "/home/user/letterbooks/js/app.js",
+    "/home/user/letterbooks/css/app.css"
+   ],
+   "passos": [
+    "O achado central da especificação confere: telaResenha (js/app.js:934) lê Dados.log(id) com o id local de js/dados.js:80, e telaLeitura (js/app.js:2241) lê o uuid remoto pela view feed. Duas telas, dois endereços, o mesmo objeto — e o link mandado para outra pessoa cai em 'Esta resenha não existe mais' (js/app.js:937). A ponte já existe no dado: `l.remoto`, gravado por Dados.marcarRemoto (js/dados.js:139) a partir de js/sinc.js:149.",
+    "telaResenha vira a resolução em três passos descrita. `location.replace('#/resenha/'+remoto)` funciona (mudar só o fragmento dispara hashchange e substitui a entrada de histórico), mas telaResenha precisa RETORNAR na hora, sem pintar — o rotear() em curso não pode desenhar a face B e ser trocado no quadro seguinte.",
+    "Fallback que a especificação não cobre e é onde dói: se o log local tem `.remoto` mas o servidor devolve vazio (apagado noutro aparelho), o redirecionamento leva a 'Não achei esta leitura' e a resenha, INTACTA no localStorage, fica inalcançável a partir do próprio diário da autora. Na resposta vazia, voltar para a face B em vez do estado vazio.",
+    "#/leitura sai do roteador (js/app.js:2757) e o htmlLinhaFeed (js/app.js:2050) passa a apontar 💬 para #/resenha/<uuid>. 'resenha' já está na lista de imersivas (js/app.js:2732) — então o conserto que o bloco 3 pede ('somar || raiz === leitura') morre aqui. Ver colisões.",
+    "Compartilhar: entregarCartao (js/app.js:1802) chama `navigator.share({ files, title })` — não existe `url` em lugar nenhum do arquivo, confirmado. A folha nova põe o link em primeiro e a imagem por último, e o navigator.share da imagem passa a levar `{ files, url }`. Sem clipboard, a linha 1 vira um <input readonly> selecionado — nunca um botão inerte.",
+    "Não desenhar nada que sugira prévia rica: a rota é por hash, o servidor não vê o <id>, e o cartão do WhatsApp vai ser o genérico do index.html para toda resenha. A imagem É a prévia disponível hoje.",
+    "'CONTÉM SPOILER' hoje é style inline com `color:var(--a1)` (js/app.js:971-972) — verde de 'o que você fez' num aviso. Vai para classe com --texto-3.",
+    "Token que não existe: as especificações citam `--perigo` duas vezes. O :root tem --a1/--a2/--a3, e `--a3` é #ff8000, o MESMO token de --curtida (css/app.css:81-85). Ou seja, .botao.perigo (css:880) já desenha 'Apagar' na cor de 'curtida'. Criar --perigo é decisão de paleta, não detalhe de implementação — vai para a dona da paleta antes de entrar no CSS.",
+    "As folhas (compartilhar, apagar) reusam .folha/.folha-sub/.folha-rodape/.espaco, todos verificados (css:908-917), e a sangria .folha-rapida .linhas (css:1188) é o precedente do margin -20px."
+   ],
+   "testes": [
+    "docs/testar.py, seção 9b (linha 233) — é o teste existente do endereço próprio; estender com a face B: sem `.remoto`, a página abre do localStorage, mostra a .fila-aviso e NÃO oferece Compartilhar.",
+    "docs/testar_social.py — o redirecionamento: semear um log local COM `.remoto`, abrir #/resenha/<id local>, e afirmar que location.hash terminou no uuid e que history não voltou para o apelido.",
+    "docs/jornada_e2e.py, passo 10 ('Ana volta e vê o que aconteceu com a resenha dela', linha 172) — é exatamente o caminho deste item; passa a exigir que o endereço seja o mesmo que o Bruno abriu.",
+    "docs/rastreador.py — a folha de apagar substitui um confirm(). O rastreador aceita todo diálogo (`pg.on('dialog', ...)`, rastreador.py:204); com a folha, o caminho destrutivo passa a ser navegável de verdade por ele, o que é ganho de cobertura, não perda."
+   ]
+  }
+ ],
+ "inviavel": [
+  {
+   "titulo": "A contagem exata de avaliações — «1.204 avaliações» no rótulo do bloco (bloco 2)",
+   "porque": "Não existe número exato para imprimir. A ficha lê no máximo uma janela de linhas do feed, e o total só viria no cabeçalho Content-Range com `Prefer: count=exact`. Nuvem.pedir (js/nuvem.js:120-143) devolve SÓ o corpo já parseado e descarta a resposta inteira — nenhum cabeçalho chega a lugar nenhum do app. Imprimir '1.204' a partir de uma janela de 60 é mentir com precisão de milhar. E as duas especificações se contradizem no mesmo elemento: o bloco 3 recusa o número por este exato motivo ('é melhor não contar do que contar errado'). Recortar: nesta rodada o rótulo não traz número. Se o número for inegociável, ele custa o refactor de pedir() para {dados, total}, que passa por ~30 pontos de chamada — item próprio, não linha de outro."
+  },
+  {
+   "titulo": "A barra de progresso determinada da fase 2 — «68 de 118»",
+   "porque": "Mesmo motivo, uma camada acima. Para pintar 68/118 é preciso saber 118 ANTES de baixar, e isso é o mesmo count=exact que o app não consegue ler. Sem ele, o total só se conhece quando a descida termina — e aí a barra não tem mais nada a mostrar. O que cabe hoje é uma barra indeterminada (o anel de .carregando, que já existe, css/app.css:929) com o passo em texto, ou uma barra que só ganha denominador depois da primeira resposta. Escolher uma; não desenhar a de 118."
+  },
+  {
+   "titulo": "A trava por conta no servidor, como o backlog do item 1 descreve",
+   "porque": "O backlog pede 'trocar a trava jaMigrou (por aparelho) por uma marca na conta, no servidor'. Isso não resolve o caso que a história descreve — só apaga o botão. Uma marca por conta diz 'esta conta já migrou uma vez' e continua sem saber QUAIS leituras já subiram; o segundo aparelho para de ser convidado a subir, mas a fusão de mão dupla continua sem critério, e a edição pós-migração continua duplicando (js/nuvem.js:508 manda com return=minimal e nunca grava o remoto). A decisão é por ITEM, não por aparelho nem por conta: é o cliente_id do V1. A especificação (letterbooks:sinc:<id> + 'a decisão de subir passa a ser por item') está certa e o backlog está errado; seguir a especificação."
+  },
+  {
+   "titulo": "Agregado por livro feito no PostgREST (`select=nota.avg()`, `count`) — item 2 do backlog",
+   "porque": "Duas razões independentes. Primeira: o Supabase desliga as funções de agregação do PostgREST por padrão; a consulta volta 400 e Nuvem.erroDe (js/nuvem.js:104) passa a mensagem crua do servidor direto para a tela da leitora. Segunda: nenhum teste veria isso — o mock de docs/testar_social.py (linhas 94-103) só entende `eq.` e `in.`, ignora tudo o mais e devolve a tabela inteira, então a versão agregada passaria verde e falharia na primeira ficha real. A média e a distribuição saem do mesmo select de linhas do V3, somadas no cliente."
+  },
+  {
+   "titulo": "Entrega 1 do item 12 do backlog — medir 50 títulos brasileiros contra a Open Library",
+   "porque": "openlibrary.org está bloqueado pela política de rede do contêiner (CLAUDE.md, primeira seção). Não é limitação do app: o navegador da dona alcança normalmente. A medição tem que ser rodada por ela, ou de fora do contêiner, e o resultado volta como dado de entrada. Nada de código deste item pode começar aqui — e a entrega 2 depende do resultado, então o item inteiro fica parado até a medição existir."
+  }
+ ],
+ "ordem": [
+  "1º — V0, sozinho e primeiro. São quatro consertos de três linhas e todos os quatro itens seguintes pousam em cima deles. O htmlHeroi prende a pessoa na tela HOJE, em qualquer livro sem capa, na rota #/resenha que já é imersiva; adiar isso para 'quando o bloco 4 chegar' é deixar um defeito ativo esperando uma refatoração de porte médio.",
+  "2º — V1 (identidade de leitura + migração cliente_id). Depende do V0 só por higiene. Vem antes de qualquer tela do bloco 1 porque é a única coisa na fila que estraga dado enquanto espera: migrar() não grava o remoto, salvarLeitura sem remoto faz POST, e a edição pós-migração já duplica no servidor. Também é a única migração de esquema da rodada — quanto antes ela estiver provada no Postgres local, mais cedo tudo o mais pode encostar no banco.",
+  "3º — V2 (#/sincronizar + Ajustes + tarjas). Depende inteiramente do V1: as quatro contagens das telas de resultado ('vieram da conta', 'subiram daqui', 'já estavam nos dois') são a saída do fundir(), e sem critério de fusão elas são números inventados. Desenhar as seis faces antes do motor seria pintar a interface de uma decisão que ainda não foi tomada.",
+  "4º — V3 (avaliações da comunidade + rede na ficha). Não depende de V1 nem de V2 — depende só do V0. Poderia ir em 2º se as pessoas fossem outras; fica em 4º porque colide com V4 no roteador e porque V1 é o único item que está corrompendo dado. Dentro dele, a ordem é: ensinar o filtro `livro=eq.` ao mock → consulta → histograma → gente → resenhas.",
+  "5º — V4 (#/resenha/<id> único + folhas). Depende do V1 por um motivo concreto, não protocolar: a face A ('NO AR · quem tem o link lê sem conta') só é verdadeira se `l.remoto` for confiável, e hoje ele fica vazio em todo aparelho que passou por migrar(). Prometer 'está no ar' a partir de um campo que a migração não preenche é a pior variante possível desta história. Depois do V3 porque os dois editam as mesmas seis linhas de rotear() e o mesmo htmlLinhaFeed.",
+  "6º (fora do escopo desta rodada, mas a dependência precisa ficar registrada) — backlog 6 (aba Resenhas da rede) só depois do V4, porque cada linha precisa levar a um endereço de resenha que exista; e backlog 8 (notificações) depois do 6, pelo mesmo motivo, com o agravante de ser a 11ª tabela e mais uma migração de RLS."
+ ],
+ "riscos": [
+  "A fusão vai rodar contra o PostgREST de verdade e é testada contra um mock que ignora `order`, `limit` e `offset` e só entende `eq.` e `in.` (docs/testar_social.py:94-103). Uma fusão que deduplica perfeitamente no mock pode duplicar o diário inteiro na produção. É a mesma classe de erro que o próprio arquivo já registra no comentário do `in.(...)` — 'mock frouxo mente nos dois sentidos'. Consequência: dado da pessoa, não pixel.",
+  "O backfill do cliente_id é o ponto único de falha do V1. Postgres aceita N nulos num índice único, então linha antiga sem cliente_id NÃO colide: se o backfill não rodar, ou rodar depois do primeiro sync, o resultado não é erro — é o diário duplicado em silêncio. E o casamento por (perfil, livro, lido_em) é ambíguo para quem leu a mesma obra duas vezes no mesmo dia, que é raro e existe.",
+  "sw.js é cache-first para a casca do app (var CACHE, sw.js:16). Publicar a migração do banco sem subir a versão do cache entrega o app.js VELHO — que faz POST sem cliente_id — contra o banco já migrado, exatamente no aparelho de quem já usava o app. O aparelho novo pega a versão certa e não vê nada. Bug que só acontece com quem mais confia no produto.",
+  "`--a3` é #ff8000 e é ao mesmo tempo --curtida, --favorito, a cor de .conta-erro (css:1082) e a de .botao.perigo (css:880). Depois do V4 a página da resenha põe [Apagar] laranja logo abaixo de um ♥ laranja, na mesma tela. Nenhuma asserção de DOM vê isso, e a paleta 'cafe' esconde (lá --a3 é rosa). Só aparece na tela de verdade, na paleta de verdade.",
+  "A janela de 60 linhas do V3: num livro muito lido, a média mostrada será a média das 60 leituras mais recentes, apresentada como 'a média'. Nenhuma fixture tem 60 leituras de um livro só, então nenhuma suíte vai ver. Ou o rótulo diz o recorte, ou a média está errada em silêncio justamente nos livros mais populares — que são os que mais gente abre.",
+  "A view `feed` já tem `order by l.criado_em desc` dentro dela (esquema.sql:261) e o app manda `order=` por cima. Funciona hoje; no dia em que a view mudar (e o item 7 do backlog mexe em leitura em curso), a ordenação dupla é o tipo de coisa que passa despercebida por meses.",
+  "Redirecionamento do V4 com `location.replace` durante um rotear() em curso: se telaResenha pintar antes de retornar, o quadro seguinte troca a tela e o foco que pintar() dá em #tela (js/app.js:114) acontece duas vezes. Leitor de tela anuncia dois títulos. Nenhuma suíte mede foco.",
+  "aria-live sobre a região de progresso da fase 2 MAIS aria-valuetext no progressbar: o VoiceOver anuncia os dois a cada passo. Só um teste com leitor de tela real pega, e não existe nenhum na casa.",
+  "Contas de e-mail com confirmação (js/nuvem.js:170) não trazem token. Se o desvio para #/sincronizar for posto antes desse ramo, a pessoa que acabou de criar conta cai numa tela de sincronizar sem sessão — a face 'sem conta', logo depois de ter criado uma. Parece que o cadastro falhou."
+ ],
+ "colisoes": [
+  "js/app.js é o gargalo declarado no CLAUDE.md e é literal: V1 (só nuvem/dados/sinc) é o único item da rodada que não o toca. V0, V2, V3 e V4 todos escrevem nele. Regra: um item por vez em js/app.js, sem exceção.",
+  "rotear(), js/app.js:2726-2760 — três itens editam as MESMAS seis linhas. V2 acrescenta a rota #/sincronizar; o bloco 3 da especificação pede somar `|| raiz === 'leitura'` à lista de imersivas (js/app.js:2732); V4 remove #/leitura do roteador (js/app.js:2757). O conserto pedido pelo bloco 3 conserta uma rota que o V4 apaga. Resolução: NÃO fazer o `|| raiz === 'leitura'`. 'resenha' já está na lista; quando #/leitura for absorvido pelo V4, a imersão vem de graça. Se o V4 escorregar e o bloco 3 for para produção antes, aí sim a linha entra — e sai no V4.",
+  "desenhaLivro(), js/app.js:641-788 — os blocos 2 e 3 das especificações reescrevem a mesma variável `blocoNotas` (js/app.js:704) e ambos precisam da mesma consulta ao feed por livro. Por isso estão fundidos em V3. Feitos como itens 2 e 3 separados do backlog, o segundo desfaz o primeiro e a consulta é escrita duas vezes.",
+  "htmlHistograma(), js/app.js:235 — usado pela ficha E pelo perfil (Dados.estatisticas). O parâmetro novo do title ('avaliações' em vez de 'livros') muda a assinatura de uma função com dois chamadores em telas diferentes. Um item por vez, e o chamador do perfil tem que continuar passando sem o parâmetro.",
+  "telaResenha (js/app.js:934) e telaLeitura/desenhaLeitura (js/app.js:2241-2340) — V4 funde as duas; o bloco 3 da especificação também manda mexer em desenhaLeitura (a imersão). Mesmo trecho, dois itens. V4 é o dono; o bloco 3 não encosta ali.",
+  "css/app.css — o bloco .avaliacoes (css:525-540) é tocado por V3 duas vezes (o .conta e o font-weight); .linhas / .fila-aviso / .sem-link (css:1153-1189, 1315-1321) são tocados por V2 e por V4; a lista de `::after { inset: -13px }` (css:1341-1344) é tocada por V0 e por V2. CSS não tem 'gargalo declarado' mas tem o mesmo problema: três branches abertos nele resolvem conflito no arquivo mais medido do projeto.",
+  "sw.js, linha 16 — TODOS os itens precisam subir a versão do cache. Conflito garantido em qualquer paralelismo. Subir uma vez por item, no commit de fechamento, nunca no meio.",
+  "docs/testar_social.py, o mock (linhas 76-127) — V1 precisa que ele aprenda on_conflict e merge-duplicates; V3 precisa que ele aprenda `livro=eq.` no ramo do feed. Mesmo arquivo, mesma função `servir`. E é o pior lugar para um merge malfeito: um mock com conflito mal resolvido não quebra, ele passa a mentir.",
+  "docs/testar.py, seção 8b (linha 203) — quebra com V3, e só com V3. O commit que muda o histograma é o mesmo que reescreve a seção; não deixar a suíte vermelha entre dois commits, porque o CLAUDE.md manda rodar as quatro suítes antes de todo commit e uma suíte vermelha conhecida é como se para de rodar todas.",
+  "servidor/esquema.sql — só V1 nesta rodada. Mas os itens 7, 8 e 9 do backlog também migram, e migração de RLS é onde vaza dado (CLAUDE.md). Nunca dois itens de esquema abertos ao mesmo tempo, e cada um passa por servidor/provar.sql antes de encostar no Supabase de verdade."
+ ]
+}

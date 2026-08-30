@@ -1,0 +1,139 @@
+{
+ "concorrentes": [
+  {
+   "nome": "Goodreads (Amazon)",
+   "posicionamento": "O incumbente global e o padrão de fato de catalogação. ~150 milhões de contas registradas. Base de dados gigantesca, importação/exportação universal, integração com Kindle. Verificado nesta sessão por fontes secundárias (blogs comparativos de 2026), não por fonte primária.",
+   "forca": "Acervo e massa crítica: quase todo livro existe lá, com resenhas e média de nota. É a origem dos dados de todo mundo — todo concorrente oferece 'importar do Goodreads'. Integração nativa com Kindle registra progresso de leitura sozinha.",
+   "fraqueza": "Interface praticamente congelada desde a compra pela Amazon (2013 — conhecimento de treino). Ainda sem meia-estrela em 2026, pedido pela comunidade há mais de uma década. Recomendação genérica e muito criticada. Não é feito para o leitor brasileiro: acervo e comunidade em inglês."
+  },
+  {
+   "nome": "Skoob (Brasil, hoje do Skeelo)",
+   "posicionamento": "O incumbente LOCAL e o concorrente que realmente importa. Fundado em 2009 por Lindenberg Moreira. Comprado pela Americanas em 2021 e depois vendido ao Skeelo. Alega mais de 10 milhões de usuários — número da própria comunicação do app, não auditado por terceiro.",
+   "forca": "Acervo em português com edições brasileiras e ISBN nacional, que é exatamente onde a Open Library é fraca. Funcionalidades que o Letterbooks não tem: estante com 'lendo' e 'abandonei', barra de progresso por página com velocidade de páginas/dia, meta anual, e as marcações 'tenho', 'troco' e 'emprestei' para troca e empréstimo de livro físico. Comunidade brasileira já formada.",
+   "fraqueza": "Produto antigo, denso e com cara de fórum dos anos 2000 — não tem a economia visual de um Letterboxd. Passou por duas trocas de dono em cinco anos, o que costuma vir com abandono de roadmap. Não é PWA nem instalável com o desenho de app nativo."
+  },
+  {
+   "nome": "The StoryGraph",
+   "posicionamento": "A alternativa 'de dados' ao Goodreads, independente e fundada por uma mulher negra. Passou de 5 milhões de usuários em janeiro de 2026 e ganhou o Apple App Store Award de 2025. Verificado por fontes secundárias.",
+   "forca": "Recomendação por humor (mood) e ritmo (pace) em vez de gênero — a coisa mais copiada do setor. Gráficos ricos do próprio acervo lido. Estante de abandonado (DNF). Avaliação em meia e até quarto de estrela. Avisos de conteúdo. Camada gratuita generosa.",
+   "fraqueza": "Praticamente não é social: é ferramenta de leitor solitário, não rede. Acervo e comunidade em inglês. Depende de importação do Goodreads para ficar utilizável."
+  },
+  {
+   "nome": "Fable",
+   "posicionamento": "O social-first, lançado em 2021. Fontes secundárias afirmam que ultrapassou o Goodreads como app de leitura nº 1 na App Store americana. Modelo freemium (Fable Plus).",
+   "forca": "Clubes de leitura como produto central, incluindo clubes conduzidos por celebridades e especialistas. E-reader interativo com mais de 1 milhão de livros, onde marcação, reação e comentário acontecem dentro do texto. Metas semanais/mensais, sequências diárias (streaks), retrospectiva.",
+   "fraqueza": "Queimou reputação em dezembro de 2024 / janeiro de 2025: as retrospectivas de fim de ano geradas por IA produziram comentários racistas e capacitistas (o caso de Tianna Trammel, com o texto sugerindo 'não esqueça de vir à tona para um autor branco de vez em quando'). Pedido de desculpas público em 01/01/2025 pelo head de produto Chris Gallello e remoção dos recursos de IA. Isso abriu um espaço de posicionamento: 'sem IA' virou argumento de venda."
+  },
+  {
+   "nome": "BookWyrm",
+   "posicionamento": "Rede de leitura descentralizada no Fediverso (ActivityPub), federada com Mastodon. Software livre, auto-hospedável.",
+   "forca": "Dono dos próprios dados, sem empresa no meio. Recomendação humana, não algorítmica. As leituras aparecem no feed do Mastodon de quem já mora lá.",
+   "fraqueza": "Escala pequena e exige que a pessoa escolha uma instância — barreira que mata adoção fora do público técnico. Acervo fragmentado entre instâncias. Praticamente inexistente no Brasil."
+  },
+  {
+   "nome": "Hardcover",
+   "posicionamento": "Alternativa social ao Goodreads com camada gratuita ilimitada de verdade, posicionada para o leitor social. Pouca informação de detalhe apareceu nas buscas — a confiança aqui é baixa.",
+   "forca": "Gratuidade sem paywall nas estatísticas básicas, que é justamente a reclamação contra o Goodreads. Perfil social e listas.",
+   "fraqueza": "Base pequena e pouca presença fora do nicho anglófono. Não encontrei número de usuários confiável nesta sessão."
+  },
+  {
+   "nome": "Literal",
+   "posicionamento": "Alternativa de nicho, apontada como boa escolha para quem vive de leitura social e clube de leitura. Detalhamento escasso nas buscas desta sessão.",
+   "forca": "Estética cuidada e leitura social/clube como eixo, público editorial e literário.",
+   "fraqueza": "Escala pequena, sem presença brasileira relevante. Não consegui verificar estado atual do produto nem números — trate como sinal fraco."
+  }
+ ],
+ "oportunidades": [
+  {
+   "titulo": "Estante \"Lendo agora\" com progresso por página",
+   "descricao": "Hoje o dados.js só conhece querLer, curtidas, favoritos e logs de leitura terminada — não existe estado intermediário em lugar nenhum do código, nem no esquema.sql (marcadores.tipo aceita só 'quero', 'curtida', 'favorito'). Livro não é filme: um filme dura duas horas e o registro é binário, mas um livro fica semanas no criado-mudo. Proposta: um quinto estado, 'lendo', com página atual e data de início; barra de progresso na ficha e na home; página/dia calculada; e ao terminar, o registro de leitura já nasce com data de início e de fim, virando o log que o diário mostra. O api.js já traz number_of_pages_median (normalizado como livro.paginas), então o denominador existe sem trabalho novo. No banco é uma tabela leituras_em_curso (perfil, livro, pagina, total, inicio) com o mesmo RLS das outras, mais um item na fila do sinc.js.",
+   "porqueAgora": "É o buraco mais visível contra o incumbente local: o Skoob tem barra de progresso e velocidade de páginas/dia há anos (verificado nesta sessão), e é disso que o leitor brasileiro já sente falta. Sem isso, o app só existe depois que a leitura acabou — e a pessoa passa semanas sem ter o que fazer nele, que é o pior padrão de retenção possível.",
+   "alcance": 5,
+   "impacto": 5,
+   "confianca": 5,
+   "esforco": 3
+  },
+  {
+   "titulo": "Acervo em português: filtro de idioma, edição brasileira e ISBN 978-85/978-65",
+   "descricao": "Verificado no código: o api.js não passa idioma em nenhuma chamada — a constante CAMPOS não inclui 'language' e nem buscar(), nem porAssunto(), nem emAlta() filtram. O resultado é que uma busca por 'Dom Casmurro' devolve edições em inglês com capa de editora americana num app cuja interface é toda em português. Proposta em três camadas: (1) priorizar language:por na busca, com aba \"em português / todos\"; (2) escolher a EDIÇÃO, não só a obra — a Open Library separa work de edition, e é na edição que mora a capa da Companhia das Letras em vez da Penguin; (3) reconhecer o ISBN brasileiro pelo prefixo (978-85 e 978-65) e, quando a obra não tiver capa, tentar covers.openlibrary.org por ISBN antes de desenhar a lombada de reserva. O app já detecta ISBN de 10/13 dígitos, então metade do caminho está andada.",
+   "porqueAgora": "É a única vantagem que o Skoob tem e que não se compra com design: acervo nacional. Se o Letterbooks mostra capa errada e título em inglês para o clássico brasileiro, perde na primeira busca e não há paleta que salve. ATENÇÃO: eu NÃO consegui medir a cobertura real do português na Open Library nesta sessão — o proxy bloqueou as chamadas diretas a openlibrary.org. Antes de dimensionar, rode um teste com 50 títulos brasileiros e meça quantos voltam com capa e sinopse; se a taxa for ruim, a conclusão muda de \"filtrar\" para \"complementar com outra fonte\".",
+   "alcance": 5,
+   "impacto": 5,
+   "confianca": 4,
+   "esforco": 3
+  },
+  {
+   "titulo": "Retrospectiva do ano, feita de contas e não de IA",
+   "descricao": "Uma tela de fim de ano montada só com o que o dados.js já calcula em estatisticas(): livros e páginas do ano, mês mais lido, distribuição de notas, a nota mais alta, o autor que mais apareceu, quantas releituras. Exportável como imagem no mesmo canvas 1080×1920 que o app.js já usa para o cartão de compartilhar (a função de share existe, com fallback de download). E, no rodapé da tela, uma linha explícita: estes números saíram do seu diário, nenhum texto foi gerado por IA.",
+   "porqueAgora": "Retrospectiva é o pico anual de aquisição de todo app de leitura — e o Fable transformou a dele em crise pública: as retrospectivas por IA de dezembro de 2024 produziram comentários racistas e capacitistas, com pedido de desculpas em 01/01/2025 e remoção dos recursos de IA (verificado nesta sessão). Existe hoje um público que desconfia da retrospectiva automática, e dizer \"são as suas contas, não um texto inventado\" é posicionamento de graça. O custo é baixo porque a matemática e o canvas já estão escritos.",
+   "alcance": 5,
+   "impacto": 4,
+   "confianca": 4,
+   "esforco": 2
+  },
+  {
+   "titulo": "Trechos e citações com página",
+   "descricao": "Um livro deixa frases; um filme deixa cenas que ninguém transcreve. Não existe nada disso no código — a busca por citação, trecho e highlight não retorna uma linha em js/ nem em servidor/. Proposta: uma tabela trechos (perfil, livro, texto, pagina, spoiler, criado_em) espelhando o RLS de leituras; um botão \"guardar trecho\" na ficha do livro; os trechos aparecendo na página da resenha e no perfil; e o mesmo cartão de compartilhar do canvas gerando uma imagem da citação com a capa ao lado. O campo spoiler já é um padrão do app e se reaproveita.",
+   "porqueAgora": "É o conteúdo mais compartilhável que existe em leitura — citação circula em rede social sozinha, com a marca junto, e traz gente de fora. É também o que o Fable atacou pelo caminho caro (e-reader proprietário com 1 milhão de livros) e que aqui sai barato pelo caminho manual. Nenhum dos concorrentes brasileiros trata citação como objeto de primeira classe com endereço próprio.",
+   "alcance": 4,
+   "impacto": 4,
+   "confianca": 4,
+   "esforco": 3
+  },
+  {
+   "titulo": "Abandonado, com o motivo e a página em que parou",
+   "descricao": "O app hoje não tem como registrar um livro que você largou: o diário só aceita leitura concluída. Proposta: fechar uma leitura em curso como abandonada, guardando a página e um motivo curto (ritmo, tradução, não era a hora, não gostei), e uma prateleira \"Abandonados\" na estante. Abandono não entra na média de notas nem na meta do ano, mas conta como dado — inclusive para dizer \"você largou na página 80 da última vez\" quando a pessoa voltar ao mesmo livro.",
+   "porqueAgora": "Abandono é comportamento de LIVRO, não de filme, e é a coisa que o leitor mais tem vergonha de não conseguir registrar. StoryGraph, Fable e Skoob têm prateleira de DNF/abandonei (verificado nesta sessão) — é higiene competitiva, não diferencial. O motivo do abandono, esse sim, quase ninguém pede, e é o dado mais honesto de todo o diário. Custa pouco: é um estado a mais no que a oportunidade de \"lendo agora\" já constrói.",
+   "alcance": 4,
+   "impacto": 3,
+   "confianca": 5,
+   "esforco": 2
+  },
+  {
+   "titulo": "Clube de leitura com ritmo combinado e trava de spoiler por página",
+   "descricao": "Um clube é um livro, uma data de início, um ritmo (capítulos ou páginas por semana) e um grupo. A tela do clube mostra em que página cada pessoa está, e — esta é a parte que ninguém faz direito — o comentário fica AMARRADO à página: você só vê o que foi escrito até onde você já leu. É a extensão natural da trava de spoiler que o app já tem (o campo spoiler existe em leituras e no esquema, e o app já cobre o texto até você tocar). Depende da tabela de progresso da primeira oportunidade; no banco são clubes, clube_membros e clube_mensagens, com RLS por participação — o padrão mais complexo do esquema até hoje, que é público-para-ler.",
+   "porqueAgora": "Clube é o eixo do Fable e a razão da subida dele. No Brasil o sinal também é forte, mas CUIDADO com os números: as cifras de \"2 milhões de brasileiros em clubes\" e \"crescimento de 163%\" que apareceram na busca vêm de blog do setor, sem fonte primária — não invista com base nelas sem checar. O que é sólido é o desenho: nenhum concorrente resolve o spoiler por página, e é a queixa universal de quem participa de leitura conjunta. Esforço 5 porque é a primeira coisa do app com permissão por grupo, e RLS de grupo é onde vazamento acontece.",
+   "alcance": 4,
+   "impacto": 5,
+   "confianca": 3,
+   "esforco": 5
+  },
+  {
+   "titulo": "Ler o código de barras do livro pela câmera",
+   "descricao": "Apontar o celular para a contracapa e cair direto na ficha. O app.js já sabe buscar por ISBN (detecta 10 ou 13 dígitos e troca o parâmetro q por isbn), então falta só a captura. Caminho: BarcodeDetector nativo quando existir, com um decodificador vendorizado como reserva. AVISO DE VIABILIDADE, e ele é sério: pelo meu conhecimento de treino, o BarcodeDetector não está disponível no Safari do iOS — e o alvo declarado deste projeto é o PWA instalado no iPhone. Ou seja, no aparelho que mais importa, isso vira um arquivo de terceiros de peso não trivial dentro de um projeto cuja regra é \"sem build, sem dependência\". Valide o suporte antes de prometer.",
+   "porqueAgora": "Metade do acervo do leitor brasileiro é papel comprado em livraria física ou sebo, e digitar ISBN de treze dígitos no celular é a fricção que faz a pessoa desistir de cadastrar a estante inteira. É o cadastro em massa que enche o perfil vazio no primeiro dia — e perfil vazio é a principal causa de abandono em app de diário. Confiança 2 pela dúvida de plataforma, não pela dúvida de valor.",
+   "alcance": 4,
+   "impacto": 4,
+   "confianca": 2,
+   "esforco": 4
+  },
+  {
+   "titulo": "Estante física: tenho, empresto, emprestei a alguém",
+   "descricao": "Marcar um livro como \"tenho na estante\", \"topo emprestar\" e \"está com fulano desde tal data\", com um lembrete de quem ficou com o quê. No banco é literalmente mais um tipo em marcadores.tipo (hoje limitado a 'quero', 'curtida', 'favorito' por CHECK), mais uma tabela pequena de empréstimo com nome e data. O app.js já tem o padrão de alternar marcador na ficha e a estante já é montada por coleção — encaixa no desenho existente sem tela nova.",
+   "porqueAgora": "Filme não se empresta; livro sim, e é o objeto físico que gera a conversa. O Skoob tem exatamente isso com as marcações 'tenho', 'troco' e 'emprestei' (verificado nesta sessão) e usa para troca entre leitores — é uma expectativa já formada no leitor brasileiro, que hoje encontra um vazio no Letterbooks. Barato porque reaproveita uma tabela que já existe.",
+   "alcance": 3,
+   "impacto": 3,
+   "confianca": 4,
+   "esforco": 2
+  },
+  {
+   "titulo": "Formato da leitura: papel, e-book ou audiolivro (com duração, não página)",
+   "descricao": "Um campo formato no registro de leitura, e a consequência dele: quando é audiolivro, o progresso e a estatística se medem em horas e minutos, não em páginas — porque a Open Library não traz duração de áudio, e o total de páginas de uma edição impressa é o denominador errado. Com isso o perfil ganha \"quanto do seu ano foi ouvido\" ao lado de \"quanto foi lido\", e o filtro do diário passa a separar os três.",
+   "porqueAgora": "O audiolivro está crescendo no Brasil e é o formato que nenhum diário de leitura trata bem. Verificado nesta sessão: a 6ª Retratos da Leitura no Brasil (Instituto Pró-Livro com a Fundação Itaú, 5.504 entrevistados em 208 municípios, campo entre abril e julho de 2024) mostra ouvintes de audiolivro passando de 20% em 2019 para 23% em 2024, com concentração em quem tem ensino superior (44%) e em quem compra livro com frequência (43%) — que é exatamente o público de app de leitura. A Bookwire Brasil registrou receita de audiolivro crescendo cerca de 120% no 1º trimestre de 2025 contra o mesmo trimestre de 2024, com a fatia do áudio indo de 16% para 22%. As projeções de mercado (US$ 111,4 mi em 2024 para US$ 525,1 mi em 2030) apareceram sem fonte identificada na busca — não use esse par de números em decisão.",
+   "alcance": 3,
+   "impacto": 3,
+   "confianca": 4,
+   "esforco": 2
+  },
+  {
+   "titulo": "Releitura comparada: como você mudou de ideia",
+   "descricao": "O app já guarda o essencial e não usa: um livro pode ter vários logs, cada um com nota e data, e existe o campo relido (verificado em dados.js e no esquema.sql). Falta a tela. Proposta: na ficha do livro, quando houver mais de um registro, uma faixa mostrando a linha do tempo das suas notas — 3,5 em 2019, 5 em 2026 — e as duas resenhas lado a lado. E, no perfil, um recorte \"livros que mudaram de nota com você\".",
+   "porqueAgora": "Releitura é comportamento de livro. Gente relê o livro da adolescência de propósito, e a mudança de nota é a coisa mais pessoal que um diário de leitura pode devolver — é conteúdo que ninguém consegue copiar porque depende do histórico da própria pessoa. É a oportunidade mais barata da lista: o dado já está gravado, falta só ler e desenhar. Alcance 2 porque só existe para quem já tem anos de diário, o que num app novo é pouca gente hoje — mas é o que faz a pessoa não migrar depois.",
+   "alcance": 2,
+   "impacto": 3,
+   "confianca": 4,
+   "esforco": 1
+  }
+ ],
+ "procedencia": "LEIA ESTE CAMPO ANTES DE DECIDIR INVESTIMENTO.\n\n=== 1. VERIFICADO LENDO O CÓDIGO NESTA SESSÃO (confiança alta, é fato) ===\nLi /home/user/letterbooks/README.md, js/dados.js (338 linhas, inteiro), js/api.js (trechos), js/app.js (mapa de funções de tela e trechos de perfil, estante, atividade), js/nuvem.js (superfície exportada), servidor/esquema.sql (inteiro), e rodei greps de ausência sobre js/, servidor/ e index.html.\nConfirmado que EXISTE: 20 telas roteadas por hash; estante de quatro prateleiras (querLer, lidos, curtidas, favoritos); múltiplos logs por livro com campo relido e campo spoiler; meta anual (perfil.meta.ano/total) com barra de progresso no perfil; histograma de notas em meia-estrela; cartão de compartilhar desenhado em canvas 1080x1920 com Web Share e fallback de download (js/app.js, por volta das linhas 1656-1803); nuvem Supabase completa com seguir, curtir, comentar, denunciar, feed e feedGeral; 10 tabelas com RLS e view feed com security_invoker.\nConfirmado que NÃO EXISTE (grep retornou zero em js/, servidor/ e index.html): \"lendo agora\" ou qualquer estado de leitura em curso; progresso por página; abandonado/DNF; citação/trecho/highlight; clube; audiolivro ou formato de leitura; empréstimo; leitor de código de barras ou uso de câmera; retrospectiva/wrapped; humor/mood; aviso de conteúdo. Confirmado também que o js/api.js NÃO passa filtro de idioma em nenhuma chamada — a constante CAMPOS não inclui 'language' e nenhuma das funções de busca filtra por português.\n\n=== 2. VERIFICADO POR BUSCA NA WEB NESTA SESSÃO (fontes secundárias, não primárias) ===\nRodei 6 buscas. O que veio delas, e a ressalva de cada coisa:\n- Skoob: fundado em janeiro de 2009 por Lindenberg Moreira; comprado pela Americanas em 2021 e depois vendido ao Skeelo; alega \"mais de 10 milhões de pessoas\". Funcionalidades confirmadas em duas fontes independentes (Tecnoblog e blogs de leitura): estante com lendo/abandonei, barra de progresso com páginas lidas por dia, meta anual, marcações \"tenho\"/\"troco\"/\"emprestei\" para troca de livro, resenhas. RESSALVA: o número de 10 milhões é da comunicação do próprio app na App Store, é contagem de cadastro e não de uso, e não achei auditoria independente.\n- Goodreads: cerca de 150 milhões de contas registradas; sem meia-estrela ainda em 2026; críticas a interface parada e recomendação genérica. RESSALVA: os 150 milhões vieram de blogs comparativos de 2026, não de comunicado da Amazon. Trate como ordem de grandeza.\n- StoryGraph: passou de 5 milhões de usuários em janeiro de 2026; Apple App Store Award de 2025; recomendação por mood e pace, prateleira de DNF, meia e quarto de estrela. RESSALVA: mesma origem secundária.\n- Fable: lançado em 2021; fontes secundárias dizem que ultrapassou o Goodreads como app de leitura nº1 na App Store; clubes com celebridades; e-reader interativo com mais de 1 milhão de livros; Fable Plus.\n- Caso Fable / IA: este é o item mais bem corroborado da pesquisa — apareceu em cinco fontes distintas (Book Riot, AI Incident Database incidente 882, Complex, Lit Hub, Daily Dot). Retrospectivas geradas por IA em dezembro de 2024 produziram texto racista e capacitista; caso público de Tianna Trammel; desculpas em 01/01/2025 pelo head de produto Chris Gallello; recursos de IA removidos.\n- BookWyrm: ActivityPub, auto-hospedável, federa com Mastodon.\n- Retratos da Leitura no Brasil, 6ª edição: Instituto Pró-Livro com a Fundação Itaú, 5.504 entrevistados em 208 municípios, campo entre abril e julho de 2024; 53% dos brasileiros não leem livros; ouvintes de audiolivro de 20% (2019) para 23% (2024), mais fortes entre superior completo (44%) e compradores frequentes (43%). Esta é a fonte mais sólida do bloco — é pesquisa com metodologia declarada.\n- Bookwire Brasil: receita de audiolivro cresceu cerca de 120% no 1º trimestre de 2025 contra o 1º de 2024; fatia do áudio de 16% (1T24) para 22% (1T25). Fonte é o blog da própria Bookwire, que é parte interessada no mercado de áudio.\n\n=== 3. NÚMEROS QUE APARECERAM E QUE EU RECOMENDO NÃO USAR ===\n- \"Clubes de leitura reúnem mais de 2 milhões de brasileiros\" e \"clubes cresceram 163% no Brasil\": vieram de um blog do setor (literafan), sem fonte primária citada. Não achei corroboração. Se a decisão sobre clube de leitura depender do tamanho do mercado, encomende esse dado antes.\n- \"Mercado brasileiro de audiolivro: US$ 111,4 milhões em 2024, projeção de US$ 525,1 milhões em 2030\": apareceu no snippet sem instituição identificada. Projeção de consultoria sem nome é a categoria de número que mais custa caro. Ignore ou compre a fonte.\n- Hardcover e Literal: as buscas trouxeram quase nada de substância e nenhum número de usuários. As fichas desses dois na minha resposta são as mais fracas do conjunto — trate como sinal, não como análise.\n\n=== 4. O QUE EU TENTEI VERIFICAR E FALHEI ===\n- Tentei medir empiricamente a cobertura de português na Open Library chamando openlibrary.org/search.json direto (contagem de language:por contra language:eng, e uma busca por \"machado de assis\"). O PROXY DE REDE BLOQUEOU: três conexões recusadas com connect_rejected por política da organização. Portanto NÃO tenho medida real da cobertura do acervo brasileiro. A oportunidade nº2 (acervo em português) está fundamentada no código e no raciocínio, não em medição — e ela é justamente a de maior impacto declarado. Antes de dimensionar essa frente, rode o teste dos 50 títulos brasileiros de um ambiente sem esse bloqueio.\n- Tentei abrir a página da Wikipédia do Skoob para conferir número de usuários e histórico de propriedade contra fonte enciclopédica: en.wikipedia.org também está bloqueado pelo proxy de egresso. O histórico Americanas → Skeelo ficou apoiado só em fontes secundárias.\n\n=== 5. CONHECIMENTO DE TREINO, NÃO VERIFICADO NESTA SESSÃO (pode estar desatualizado) ===\n- Que a Open Library separa \"work\" de \"edition\" e permite buscar capa por ISBN em covers.openlibrary.org/b/isbn/, e que search.json aceita o filtro language:por. É a base técnica da oportunidade nº2 e eu não consegui confirmar contra a API viva.\n- Que os prefixos de ISBN brasileiro são 978-85 e 978-65.\n- Que o BarcodeDetector não é suportado no Safari do iOS. É o motivo da confiança 2 na oportunidade do código de barras, e é exatamente o tipo de fato de plataforma que muda de um ano para o outro — confirme antes de descartar ou aprovar essa frente.\n- Que a Amazon comprou o Goodreads em 2013."
+}

@@ -394,6 +394,18 @@ def rodar():
         pg.wait_for_selector('.conta', timeout=8000)
         checa('a aba de atividade explica que precisa de conta',
               'Entre na sua conta' in pg.inner_text('.conta'))
+
+        # O visitante que abre um link recebido tomava TypeError: ligarCurtidas
+        # lia Nuvem.quemSou().id, que e null sem sessao — e a excecao nascia
+        # DENTRO do callback de sucesso, onde o tratamento de erro do Promise
+        # nao alcanca. Erro assim nao aparece na tela: a pagina so para.
+        estouros = []
+        pg.on('pageerror', lambda e: estouros.append(str(e)[:160]))
+        pg.goto(BASE + '#/leitura/L1', wait_until='networkidle')
+        pg.wait_for_selector('.resenha', timeout=10000)
+        pg.wait_for_timeout(900)
+        checa('sem conta, abrir uma leitura nao estoura javascript',
+              not estouros, '; '.join(estouros[:2]))
         nav.close()
 
     print('\n' + '-' * 60)

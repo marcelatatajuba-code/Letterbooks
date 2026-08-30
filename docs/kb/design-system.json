@@ -1,0 +1,367 @@
+{
+ "componentes": [
+  {
+   "nome": "Trilho — fileira horizontal de capas",
+   "classe": ".trilho (+ .trilho .cartao, .trilho .cartao-legenda, .trilho-vazio)",
+   "quando": "USAR na home e em qualquer lugar onde a seção é uma AMOSTRA de um recorte maior, com um destino atrás dela (o chevron do h2). É o padrão de rolagem lateral do original: uma seção = um trilho. O esqueleto .trilho-vazio ocupa o mesmo lugar enquanto a rede responde, para a home não pular. NÃO USAR quando o conjunto é finito e o usuário precisa VER tudo (estante, resultado de busca, lista fechada) — trilho esconde o fim e não tem paginação; nem para linhas com texto, porque .trilho .cartao-legenda { display:none } apaga o título e sobra só a capa.",
+   "anatomia": "display:flex; gap:7px; overflow-x:auto; scroll-snap-type:x proximity; margin 0 -20px + padding 2px 20px (sangra até a borda da tela) + scroll-padding-left:20px para o snap respeitar o recuo; scrollbar escondida (scrollbar-width:none + ::-webkit-scrollbar{display:none}). Item: .cartao com flex:0 0 104px (92px ≤720px) e scroll-snap-align:start. Ancorado ao layout por margem negativa igual ao padding de .pagina (-20px desktop, -18px ≤720)."
+  },
+  {
+   "nome": "Grade de capas",
+   "classe": ".grade, .grade.miuda, .fileira",
+   "quando": "USAR quando o conjunto é o conteúdo da tela, não uma amostra: estante, resultado de explorar, itens de uma lista. .grade.miuda para densidade alta (72px). .fileira é a variante FIXA de 4 colunas do perfil (favoritos, atividade recente) — ela apaga a legenda de propósito. NÃO USAR .grade para busca de livro: capa de livro identifica mal e boa parte do acervo da Open Library não tem capa — busca é .resultado (lista). NÃO USAR .fileira fora do perfil: 4 colunas fixas quebram em telas estreitas com item largo.",
+   "anatomia": "display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:14px 11px. .miuda: minmax(72px,1fr), gap 10px 8px. ≤520px: minmax(84px,1fr). .fileira: repeat(4,1fr), gap 9px, + .fileira .cartao-legenda{display:none}."
+  },
+  {
+   "nome": "Capa",
+   "classe": ".capa (+ .capa-fundo, .capa-imagem, .capa-vazia, .selos)",
+   "quando": "USAR sempre que um livro aparece como imagem, em qualquer tamanho. É o átomo do sistema — nunca desenhar uma capa fora dele. NÃO USAR com border-radius próprio: quem precisa de canto diferente sobrescreve pelo pai (.livro-capa zera, .resultado-capa/.feed-capa põem 3px). NÃO USAR em tamanho onde .capa-vazia não cabe texto sem antes entrar na lista de exceção da linha 316.",
+   "anatomia": "position:relative; aspect-ratio:2/3; border-radius:var(--raio); overflow:hidden; background:var(--superficie-2). Dentro: .capa-fundo (mesma imagem, object-fit:cover, blur(12px) saturate(1.5) brightness(.6), scale 1.25) preenche a caixa, e .capa-imagem (object-fit:contain) vai inteira por cima — capa de livro tem proporção imprevisível. Sem capa: .capa-vazia, lombada com border-left:3px solid var(--borda-2) e o título em 6 linhas; nas miniaturas (.cel-capa, .pilha, .feed-capa, .resultado-capa) o texto some e sobra a lombada. Hover/foco pelo .cartao: box-shadow 0 0 0 2px var(--a1) + translateY(-2px)."
+  },
+  {
+   "nome": "Cartão de capa",
+   "classe": ".cartao, .cartao-legenda",
+   "quando": "USAR como o envelope clicável de toda capa em trilho, grade ou fileira. É ele que carrega o :hover e o :focus-visible da capa. NÃO USAR para os cartões de texto: .cartao-lista e .cartao-resenha compartilham o prefixo mas são outra família — não herdam nada de .cartao.",
+   "anatomia": "display:block. .cartao-legenda: -webkit-box com line-clamp:2, 12px/1.35, var(--texto-2), margin-top 6px; ganha var(--texto) no hover do pai. A legenda existe por desvio consciente do original (livro se reconhece menos pela capa que filme por pôster) e é desligada em .trilho e .fileira."
+  },
+  {
+   "nome": "Segmentos — controle segmentado",
+   "classe": ".segmentos (e a duplicata .perfil-atalhos)",
+   "quando": "USAR para trocar de recorte DENTRO da mesma tela, quando as opções são poucas (2 a 4) e mutuamente exclusivas: seções do topo, abas de atividade, entrar/criar conta. NÃO USAR para navegar para outra tela (isso é .linhas ou .abas-pe), nem com mais de 4 segmentos — flex:1 comprime até o texto virar reticências. NÃO USAR .perfil-atalhos: é o mesmo componente com outro nome (ver inconsistências).",
+   "anatomia": "display:flex; padding:2px; background:var(--superficie); border-radius:8px. Item: flex:1; padding 5px 6px; border-radius 6px; 12.5px/600. Separador fino entre inativos via a + a::before (border-left 1px var(--borda), 20%–80% de altura), escondido dos dois lados da ativa. Ativa: background var(--superficie-2) + color var(--texto) — sem acento. Margem: -4px 0 20px no topo, 0 -8px 16px ≤720px."
+  },
+  {
+   "nome": "Linhas — lista de ajuste/navegação",
+   "classe": ".linhas, .linhas .valor, .linhas .chevron, .linhas .perigo, .linhas .sem-link, .linhas-conta",
+   "quando": "USAR sempre que a tela for uma lista de opções ou de contagens: ajustes, conta, atalhos, o bloco de números do perfil, o miolo da folha rápida. Substituiu as fileiras de botões em caixa alta — é o padrão de lista do app. NÃO USAR para conteúdo (livro, resenha, pessoa): isso é .resultado ou .feed-linha. NÃO USAR dentro de container que já tenha padding lateral próprio sem zerar a margem negativa.",
+   "anatomia": "margin 0 -18px (sangra até a borda ≤720; ≥721px vira margin 0 + max-width 460px). Cada filho (button/a/span): width 100%, flex, gap 10px, padding 13px 18px, border-bottom 1px var(--borda), 14.5px; o primeiro ganha border-top. .valor à direita em var(--texto-3) 13.5px; .chevron depois; .valor + .chevron ganha 6px. .perigo em var(--a3). :active pinta var(--superficie). Em .linhas-conta o <i> do .valor guarda o recorte do ano com ::before \" / \"."
+  },
+  {
+   "nome": "Resultado — linha de busca",
+   "classe": ".resultados, .resultado, .resultado-capa, .resultado-inicial, .resultado-texto",
+   "quando": "USAR em toda busca e em toda lista de pessoas. Capa pequena à esquerda, título em negrito, \"ano, de Fulano\" embaixo. NÃO USAR grade de capas no lugar dele para busca de livro — foi decisão explícita do projeto. NÃO USAR para atividade social: aquilo é .feed-linha, que é frase, não ficha.",
+   "anatomia": "Container .resultados com margin 0 -18px (≥721px: 0 + max-width 620px). Linha: flex, align center, gap 12px, padding 10px 18px, border-bottom 1px var(--borda), hover pinta var(--superficie). Âncora esquerda: .resultado-capa 44px (capa com raio 3px) OU .resultado-inicial, círculo 44px com a inicial em var(--texto-2). .resultado-texto b: 15px/700 com line-clamp 2; span: 12.5px var(--texto-3)."
+  },
+  {
+   "nome": "Linha de feed",
+   "classe": ".feed-linha, .feed-avatar, .feed-frase, .feed-resenha, .feed-acoes, .feed-capa",
+   "quando": "USAR em toda a camada social: a atividade é uma FRASE (\"fulana leu Burning ★★★★\"), não um cartão. Cabem dez na tela; em cartão cabem duas. NÃO USAR quando o texto da resenha é o conteúdo principal — aí é .cartao-resenha ou a página .resenha. NÃO USAR fora do feed só para reaproveitar o avatar (o .comentario já reusa .feed-avatar e redefine o tamanho).",
+   "anatomia": "grid 34px 1fr auto, gap 11px, align:start, padding 14px 0, border-bottom 1px var(--borda). .feed-avatar: círculo 34px, background var(--superficie-2), color var(--a2), 14px/700. .feed-frase 14.5px/1.45 var(--texto-2), com .alvo em var(--texto)/700 (hover var(--a2)). .feed-resenha: bloco recuado com background var(--superficie) e raio var(--raio). .feed-acoes: flex, gap 24px (folga imposta pelo bloco de alvos de toque), 12.5px, com <time> empurrado por margin-left:auto; .feed-curtir.curtido em var(--curtida). .feed-capa 42px à direita, raio 3px. ≤720px: colunas 30px, gap 9px, capa 36px."
+  },
+  {
+   "nome": "Botão",
+   "classe": ".botao, .botao.destaque, .botao.perigo, .linha-botoes",
+   "quando": "USAR para ação explícita fora de contexto de lista: rodapé de folha, estado vazio, formulário. .destaque para a ação primária (uma por tela). .perigo para destrutivo. NÃO USAR em barra de navegação, em linha de lista ou dentro de célula de tabela — ali os padrões são .abas-pe, .linhas e .cel-acoes. NÃO empilhar dois .destaque na mesma folha.",
+   "anatomia": "inline-flex centrado, gap 7px, padding 8px 15px, min-height 34px, background var(--superficie-2), raio var(--raio), 11.5px/700 versalete com tracking .07em, cor var(--texto-2). Hover: background var(--borda) + var(--texto). .destaque: background var(--a1) sobre var(--sobre-a1), hover só brightness(1.1). .perigo: sem fundo, texto var(--a3). .linha-botoes agrupa com flex-wrap e gap 9px."
+  },
+  {
+   "nome": "Campo de formulário",
+   "classe": ".campo, .campo > span, .campo input, .campo textarea, .marcador",
+   "quando": "USAR em todo formulário do app (conta, resenha, lista, ajustes): rótulo em versalete acima, campo abaixo. NÃO USAR para busca — a busca tem dois desenhos próprios e deliberados (.topo-busca no cabeçalho, .busca-grande na tela de busca), que não são .campo.",
+   "anatomia": "Bloco: display block, margin-bottom 14px. Rótulo (.campo > span): 10.5px/700 versalete, tracking .09em, var(--texto-3), margin-bottom 6px. Controle: width 100%, padding 9px 11px, background var(--fundo-2), border 1px var(--borda), raio var(--raio); foco troca a borda por var(--a1) sem outline. textarea: min-height 120px, resize vertical, line-height 1.6. .marcador é a linha de caixa de seleção: flex, gap 9px, input 16px com accent-color var(--a1)."
+  },
+  {
+   "nome": "Folha — camada modal",
+   "classe": ".folha-fundo, .folha, .folha-sub, .folha-rodape, .folha-rapida (+ .rapida-capa, .rapida-acoes, .rapida-acao, .rapida-nota)",
+   "quando": "USAR para qualquer coisa que interrompe a tela sem trocar de rota: registrar leitura, editar resenha, confirmar apagar. .folha-rapida é a variante estreita e centrada da ação sobre um livro (capa + 4 ações + nota). NÃO USAR para conteúdo navegável ou compartilhável — isso pede rota própria (#/resenha/…), porque folha não tem URL nem botão voltar. NÃO USAR .folha-rapida para formulário longo: 360px e text-align:center não seguram campos.",
+   "anatomia": "Fundo: fixed inset 0, z-index 60, rgba(6,8,10,.8), flex centralizado, padding 20px, animação surge .14s. Painel: max-width 540px, max-height 88vh, overflow-y auto, background var(--fundo-2), raio var(--raio-g), sombra var(--sombra), padding 20px, animação sobe .16s (translateY 10px). h2 19px/700 + .folha-sub 12.5px var(--texto-3). Rodapé: flex gap 9px, margin-top 20px, padding-top 16px, border-top 1px var(--borda); .espaco empurra o resto para a direita. .folha-rapida: max-width 360px, .rapida-capa 118px, .rapida-acoes grid de 4 com gap 4px, .rapida-acao coluna com glifo 24px e raio 10px."
+  },
+  {
+   "nome": "Tabela do diário",
+   "classe": ".tabela-rolagem, .tabela-diario, .cel-mes, .cel-dia, .cel-capa, .cel-livro, .cel-ano, .cel-nota, .cel-marca, .cel-acoes, .faixa-mes, .linha-resenha, .resenha-texto, .spoiler-aviso",
+   "quando": "USAR só no diário. É tabela de verdade (<table>), não grade fingindo tabela, porque a célula do mês atravessa as linhas daquele mês com rowspan. NÃO USAR como padrão de lista genérico — para qualquer outra lista o sistema tem .linhas, .resultado e .feed-linha. NÃO acrescentar coluna sem decidir o que ela faz ≤720px, onde .cel-mes, .cel-ano e .cel-acoes somem e a .faixa-mes de largura inteira toma o lugar do mês.",
+   "anatomia": "Wrapper .tabela-rolagem com overflow-x:auto. thead th: 10px/700 versalete tracking .09em, border-bottom var(--borda). td: padding 10px 8px, border-bottom var(--borda), vertical-align middle; hover da linha em rgba(255,255,255,.022). .cel-mes: 56px, background var(--superficie), border-right, <b> versalete 11px + <span> 10px. Larguras fixas: dia 34px, capa 40px (capa 36px), ano 60px, nota 96px, marca 62px, ações 96px. .cel-marca a expande o toque por padding 12px 8px com margem negativa igual. ≤720px: thead some, .faixa-mes vira display:table-row, células caem para 5px de padding, dia 26px, capa 28px, nota e marca viram width 1%."
+  },
+  {
+   "nome": "Escopos — pílulas de filtro",
+   "classe": ".escopos, .escopos a",
+   "quando": "USAR no topo de uma tela de resultado para trocar O QUE está sendo buscado/filtrado (livros | autores). NÃO USAR para navegar entre telas (é .segmentos ou .linhas), nem para muitas opções — as pílulas quebram em duas linhas e o filtro vira parágrafo. NÃO confundir com .assunto: mesma forma de pílula, mas .assunto é etiqueta de conteúdo, não estado de filtro.",
+   "anatomia": "flex, gap 8px, wrap, margin-bottom 18px. Pílula: padding 6px 14px, border-radius 999px, background var(--superficie), 13px/600, var(--texto-2). Hover sobe para var(--superficie-2)/var(--texto). Ativa: background var(--a1) com texto var(--sobre-a1)."
+  },
+  {
+   "nome": "Selos — marcadores sobre a capa",
+   "classe": ".selos, .selos i",
+   "quando": "USAR para dizer o estado do livro SEM sair da capa, em trilho e grade: ◉ lido, ♥ curtido, ◷ quero ler. NÃO USAR nas capas miniatura (diário, pilha, feed, resultado): a fita de 10px cobre metade de uma capa de 28–46px. NÃO acrescentar selo que não seja um dos três estados do trio de acentos — selo é a leitura visual da paleta.",
+   "anatomia": "position:absolute colado no pé da capa (inset auto 0 0 0), flex com gap 5px, padding 4px 5px, sobre linear-gradient(to top, rgba(0,0,0,.85), transparent), fonte 10px/1. Os <i> perdem o itálico (font-style:normal). ATENÇÃO: a cor de cada selo hoje NÃO está aqui — vem em style inline do js/app.js (linhas 179–181)."
+  },
+  {
+   "nome": "Abas do pé",
+   "classe": ".abas-pe, .abas-pe a, .abas-pe a span, .aba-mais",
+   "quando": "USAR como a única navegação primária ≤720px — ela aparece quando .topo-nav e .topo-fim se recolhem. Cinco lugares no máximo, quatro ícones mais o \"+\" central. NÃO acrescentar item: estante e listas vivem dentro do perfil por decisão de arquitetura. NÃO rotular os ícones em texto visível: o nome vive no aria-label e o span é visualmente escondido, para a barra ganhar os 12px da legenda.",
+   "anatomia": "fixed no rodapé, z-index 40, background var(--fundo-2), border-top 1px var(--borda), padding-bottom env(safe-area-inset-bottom); display:none, vira flex ≤720px. Item: flex:1, padding 14px 2px, svg 22px com fill:currentColor, cor var(--texto-3); ativa em var(--a2). .aba-mais: 42px, círculo com border 2px var(--a1) e cor var(--a1), único elemento colorido da barra, :active scale(.94). .pagina compensa com padding-bottom calc(68px + safe-area)."
+  },
+  {
+   "nome": "Herói — fundo formado pela capa",
+   "classe": ".heroi, .heroi-imagem, .heroi::after, .sobre-heroi, .voltar, body.imersiva",
+   "quando": "USAR no topo das três telas imersivas — ficha do livro, resenha e lista — onde a imagem sangra até o topo e o cabeçalho sai. NÃO USAR em tela sem uma imagem única e dominante (home, busca, ajustes): sem capa o herói vira faixa cinza. SEMPRE que houver herói ≤720px tem que haver .voltar: com o topo escondido, o chevron sobre a foto é o único caminho de volta.",
+   "anatomia": "Faixa de 300px que sangra para fora de .pagina por margin calc(-50vw + 50%) e devolve o recuo por padding calc(50vw - 50%). .heroi-imagem: inset -40px, background cover center 30%, filter blur(30px) saturate(2.2) brightness(.45), scale 1.15 — brilho baixo + saturação alta porque capa de livro costuma ser clara e desfocar branco dá cinza lavado. ::after: gradiente de var(--fundo-rgb) .5 → .35 → .82 → var(--fundo) sólido. O conteúdo sobe por margem negativa: -170px (.livro-colunas), -200px (.lista-cabecalho.sobre-heroi), -190px (.resenha.sobre-heroi). .voltar: 40px, círculo rgba(0,0,0,.38) com backdrop-filter blur(6px), top +env(safe-area-inset-top) na imersiva."
+  },
+  {
+   "nome": "Painel lateral de ações",
+   "classe": ".painel, .painel-acoes, .painel-acoes .acao, .painel-nota, .painel-botao, .painel-bloco, .bloco-topo, .histograma, .barra-acao",
+   "quando": "USAR só na ficha do livro, terceira coluna, ≥721px. ≤720px ele some inteiro e o mesmo trabalho passa para .barra-acao (pílula flutuante) que abre a .folha-rapida. NÃO duplicar as ações do painel em outro lugar da ficha: são três superfícies para o mesmo conjunto e só uma pode estar visível.",
+   "anatomia": "background var(--superficie), raio var(--raio-g), overflow hidden, sticky em top calc(var(--topo-h) + 16px). .painel-acoes: grid de 3, cada .acao é coluna com glifo 19px e rótulo 9.5px/700 versalete; ativa colore o glifo por estado (.lido→var(--a1), .curtir→var(--curtida), .quero→var(--quero)). Blocos separados por border-top 1px var(--fundo-2). .histograma: flex align-end, altura 46px, colunas com min-height 2px em var(--superficie-2), preenchidas em var(--a1); .histograma-media 15px/700."
+  }
+ ],
+ "inconsistencias": [
+  {
+   "onde": "css/app.css linhas 729–730 vs 1340–1344 (.secao > h2 a.seta::after) + js/app.js 322 e 329",
+   "problema": "BUG VISÍVEL, não só inconsistência. O chevron das seções da home é desenhado inteiramente por ::after: `.secao > h2 a.seta::after { content: \"›\"; font-size: 22px; }` (linha 730). O bloco \"alvos de toque\" redeclara o MESMO seletor com a MESMA especificidade 587 linhas depois: `content: \"\"; position:absolute; inset:-13px` (1340–1344). A regra posterior vence e apaga o glifo. Como o <a class=\"seta\"> é renderizado vazio no app.js (linha 322: `...esc(titulo) + '\"></a>'`) e o link tem font-size:0 (linha 729), o resultado é um link invisível de área 26×26px — perde o chevron E não chega aos 44px que o bloco existe para garantir.",
+   "correcao": "Separar os dois papéis em pseudo-elementos diferentes: manter ::after como glifo e usar ::before para a área de toque. Ex.: `.secao > h2 a.seta { position:relative; display:inline-grid; place-items:center; min-width:44px; min-height:44px; }` e `.secao > h2 a.seta::before { content:\"\"; position:absolute; inset:0; }`, removendo `.secao > h2 a.seta::after` da lista da linha 1340."
+  },
+  {
+   "onde": "css/app.css 1350–1351 (.voltar 40×40) e 1055–1056/1351 (.aba-mais 38→42px), dentro do bloco \"alvos de toque\"",
+   "problema": "O bloco que existe para impor o mínimo de 44px entrega 40px e 42px. E .aba-mais tem width/height declarados duas vezes (38px na linha 1056, 42px na 1351), o que já sinaliza que a correção foi colada por cima em vez de aplicada na origem.",
+   "correcao": "Levar os dois a 44px na declaração original (linha 1056 e 1126) e apagar as linhas 1350–1351. Se o desenho de 38/40px for intencional, manter o tamanho VISUAL e crescer só a área, como o resto do bloco faz: `.voltar::before, .aba-mais::before { content:\"\"; position:absolute; inset:-3px; }`."
+  },
+  {
+   "onde": "css/app.css 872 (.botao { min-height: 34px })",
+   "problema": "O botão canônico do sistema — usado em rodapé de folha, estado vazio e formulário, inclusive no celular — tem 34px, 10px abaixo do mínimo declarado de 44px, e não está na lista de exceções do bloco de alvos de toque. Mesmo caso em .fichas button (~20px de altura, linhas 400–404), .escopos a (~31px, 1196–1200), .spoiler-aviso (~29px, 664–667), .assunto (~28px, 431–434), .seletor-estrelas .est (26×26px, 334–337) e .seletor-estrelas .limpar (texto 11px sem padding, 345–348) — todos tocáveis ≤720px.",
+   "correcao": "Subir .botao para min-height:44px (o padding 8px 15px já pode ficar) e incluir os demais no bloco de alvos de toque com o mesmo pseudo-elemento por inset. Para .seletor-estrelas .est, que é a nota — o toque mais caro de errar do app — subir para 44×44px de verdade e centrar o ★ dentro, em vez de esticar a área."
+  },
+  {
+   "onde": "css/app.css 634–644 (.cel-marca a { padding: 12px 8px; margin: -12px 0 -12px -8px }) vs 1334–1344",
+   "problema": "Duas técnicas diferentes para o mesmo problema, no mesmo arquivo. .cel-marca a cresce por padding + margem negativa (chegando a ~37px, ainda abaixo de 44); todo o resto cresce por ::after com inset:-13px. Quem for tocar em um alvo novo não sabe qual padrão seguir.",
+   "correcao": "Escolher o pseudo-elemento por inset como padrão único (é o que não muda o fluxo nem o desenho) e reescrever .cel-marca a por ele, elevando o inset para chegar aos 44px."
+  },
+  {
+   "onde": "css/app.css 831–854 (.segmentos, .perfil-atalhos) e js/app.js 1230",
+   "problema": "Um único componente com dois nomes. Todas as 8 regras de .segmentos vêm duplicadas com .perfil-atalhos no seletor, e .perfil-atalhos aparece uma vez só no app inteiro (js/app.js:1230). O CSS carrega o dobro de seletores para uma variante que não existe: as declarações são idênticas, byte a byte.",
+   "correcao": "Trocar `class=\"perfil-atalhos\"` por `class=\"segmentos\"` em js/app.js:1230 e apagar as sete ocorrências de .perfil-atalhos do CSS. Se o perfil realmente precisar de margem diferente, isso é um modificador de uma linha: `.segmentos.no-perfil { margin: 0 0 26px; }`."
+  },
+  {
+   "onde": "css/app.css 496–500 (.bloco) e 528–532 (.avaliacoes)",
+   "problema": "Dois componentes idênticos. .bloco: padding-top 20 / margin-top 20 / border-top 1px var(--borda) + `> .rotulo { display:block; margin-bottom:12px }`. .avaliacoes: exatamente as mesmas quatro declarações, mudando só margin-top de 20 para 24. E o app.js confirma que são a mesma coisa — ambos são renderizados como `<section class=\"…\"><span class=\"rotulo\">…` (linhas 664, 677, 1245, 1252 vs 708, 1283).",
+   "correcao": "Manter .bloco como o componente e transformar .avaliacoes em conteúdo dele: `<section class=\"bloco\"><span class=\"rotulo\">Avaliações</span><div class=\"avaliacoes-linha\">…`. Sobram só .avaliacoes-linha, .avaliacoes-grafico e .avaliacoes-media, que são o miolo de verdade. Isso apaga 5 linhas e uma decisão a menos por tela."
+  },
+  {
+   "onde": "css/app.css 880–881 (.botao.perigo), 936–937 (.erro), 1083–1088 (.conta-erro)",
+   "problema": "O mesmo papel — erro/destrutivo — pintado com TRÊS cores diferentes, duas delas hardcoded e vindas de paletas aposentadas. .botao.perigo:hover e .erro usam rgba(212,100,155,…) = #d4649b, um rosa que não existe em nenhum :root do arquivo. .conta-erro usa rgba(224,160,184,…) = #e0a0b8, que é o --a3 do tema \"cafe\" (linha 114), não do tema ativo. Como o --a3 ativo é #ff8000, hoje a tela mostra texto LARANJA sobre fundo ROSA nos três casos.",
+   "correcao": "Criar um token de estado — `--perigo: #ff5c5c;` (ou o valor medido que a dona escolher) — e derivar os fundos dele com color-mix, ou pelo menos com um `--perigo-rgb`. Trocar as três cores fixas por esse token em .botao.perigo, .erro, .conta-erro, .linhas .perigo e .comentario-apagar:hover. Nenhum rgba() literal deve sobrar no arquivo."
+  },
+  {
+   "onde": "css/app.css 81 e 86 (--a3 / --curtida) vs 880, 936, 1084, 1169, 1312",
+   "problema": "Quebra direta da REGRA DE IDENTIDADE dos acentos. O comentário do :root (linhas 55–58) fixa: laranja = o que você gostou (curtida, favorito). Mas var(--a3) também pinta destrutivo e erro: .botao.perigo (880), .erro (936), .conta-erro (1084), .linhas .perigo (1169) e .comentario-apagar:hover (1312). O botão de apagar do usuário fica exatamente da mesma cor do coração de favorito.",
+   "correcao": "Reservar --a3 para afeto, como está escrito, e mover erro/destrutivo para o token --perigo novo do item anterior. Um acento por trabalho, sem exceção — é a regra que segura o resto."
+  },
+  {
+   "onde": "css/app.css 181 (.topo-nav a.ativa), 406 (.fichas button.ativa), 850–852 (.segmentos a.ativa), 1052 (.abas-pe a.ativa), 1202 (.escopos a.ativa)",
+   "problema": "Cinco indicadores de \"onde você está\", quatro tratamentos e três cores. .topo-nav e .abas-pe seguem a regra e usam var(--a2). Mas .fichas button.ativa usa border-bottom-color: var(--a1) — VERDE para uma aba ativa, exatamente o que a regra reserva para \"o que você fez\". .escopos a.ativa usa background var(--a1). E .segmentos a.ativa não usa acento nenhum (só var(--superficie-2)). Ler o app não ensina qual cor significa \"você está aqui\".",
+   "correcao": "Padronizar por forma, não por tela: sublinhado de aba (.topo-nav, .fichas) sempre em var(--a2); pílula preenchida (.escopos, .segmentos) sempre em var(--a2) com um --sobre-a2 novo, ou sempre neutra em var(--superficie-2) — mas a mesma escolha nas duas. A correção mínima e mais barata é trocar var(--a1) por var(--a2) na linha 406 e na 1202."
+  },
+  {
+   "onde": "css/app.css 138 (:focus-visible), 191 (.topo-busca input:focus), 710 (.busca-grande input:focus), 895 (.campo input:focus)",
+   "problema": "Quatro estilos de foco para campos de texto. O global é outline 2px var(--a1); .campo troca a borda por var(--a1) e mata o outline; .topo-busca troca a borda por var(--borda-2) (nenhum acento, foco quase invisível) e também mata o outline; .busca-grande só troca o fundo, sem borda nem outline. Além de inconsistente, o caso de .topo-busca e .busca-grande é problema de acessibilidade: `outline: none` sem substituto forte.",
+   "correcao": "Um só desenho de foco, e derivado do papel: foco é \"onde você está\" → var(--a2). Definir `--foco: 0 0 0 2px var(--a2)` e aplicar por box-shadow em todos os controles, mantendo o :focus-visible global como rede de segurança. Nenhum `outline:none` sem par."
+  },
+  {
+   "onde": "css/app.css 552–563 (.livro-colunas { padding-bottom: 112px }) e 1134–1150 (.livro-colunas { padding-bottom: 128px })",
+   "problema": "Duas regras contraditórias para a mesma propriedade, no mesmo breakpoint (@media max-width:720px), separadas por 580 linhas — e os comentários se contradizem: um diz \"~46px\" justificando 112, o outro diz \"46px\" justificando 128. Vence 128 por ordem. Ninguém consegue ajustar isso com confiança sem descobrir a segunda regra por acaso.",
+   "correcao": "Apagar a declaração da linha 562 e manter a de 1149 com um comentário único. De modo geral: o arquivo tem SETE blocos @media (max-width:720px) espalhados (linhas 251, 552, 972, 1064, 1113, 1134, 1281). Consolidar em um bloco por breakpoint, no fim do arquivo, elimina a classe inteira desse tipo de conflito."
+  },
+  {
+   "onde": "css/app.css 91 (--topo-h: 54px) vs 980 (.topo { height: 46px } dentro de @media max-width:720px)",
+   "problema": "O token mente no celular. --topo-h continua 54px enquanto a barra real mede 46px, porque a altura foi escrita direto na media query em vez de redefinir a variável. Hoje não aparece porque o único consumidor (.painel, linha 441, top: calc(var(--topo-h) + 16px)) está display:none ≤720px — é uma armadilha latente: o próximo sticky que usar o token nasce 8px errado.",
+   "correcao": "Trocar a linha 980 por uma redefinição do token no breakpoint — `:root { --topo-h: 46px; }` dentro do @media — e deixar `.topo { height: var(--topo-h) }` valendo nos dois tamanhos."
+  },
+  {
+   "onde": "css/app.css — 28 tamanhos de fonte distintos, nenhum token; ver 448 (9.5px), 590 (10.5px), 875 (11.5px), 408 (14.5px), 663 (13.5px), 720 (15.5px), 536 (34px), 387 (31px)",
+   "problema": "A camada de cor é 100% tokenizada; a camada de tipo é 100% literal. São 28 valores em passos de 0,5px — 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 15.5, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 30, 31, 34, 38 — o que não é escala, é medição caso a caso. Meio pixel não se distingue na tela e garante que dois elementos do mesmo papel nunca fiquem iguais.",
+   "correcao": "Publicar a escala como token (11 degraus cobrem tudo que existe hoje): --t-micro 10, --t-rotulo 11, --t-legenda 12, --t-meta 13, --t-corpo-2 14, --t-corpo 15, --t-secao 16, --t-titulo 20, --t-numero 22, --t-pagina 25, --t-livro 31. Arredondar os 0,5px para o degrau vizinho e substituir os 28 literais. Corrigir de passagem .avaliacoes-media (linha 536), que pede font-weight:300 — a Inter variável do projeto vai só de 400 a 800 (linha 30), então o 300 é declaração morta que o navegador trava em 400."
+  },
+  {
+   "onde": "css/app.css — espaçamento: praticamente todo inteiro de 3 a 12 px mais 14, 16, 18, 20, 22, 24, 26 e 30, sem token nenhum; gaps em 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26 e 30",
+   "problema": "Não há grade de espaçamento. Os quatro gaps de grade de capa sozinhos são quatro: .trilho 7px (linha 239), .fileira 9px (503), .grade.miuda 10px 8px (264) e .grade 14px 11px (262). Isso é o que faz duas seções vizinhas parecerem desalinhadas sem que ninguém consiga apontar onde.",
+   "correcao": "Adotar uma escala de 4 com meio-passo onde a medição do original pede: 4, 6, 8, 12, 16, 20, 24, 32, publicada como --e1..--e8. Onde o valor veio de medir o vídeo (os 7px do trilho, os 9px da fileira), manter o número e comentar que é medida do original — mas ainda como token nomeado, para ser deliberado em vez de acidental."
+  },
+  {
+   "onde": "css/app.css — raios: 88, 264, 432, 546, 588, 697, 706, 790, 833, 837, 942, 1080, 1214, 1279",
+   "problema": "Existem dois tokens (--raio 4px, --raio-g 8px) e onze valores em uso: 0, 1px, 3px, 4px, 6px, 8px, 10px, var(--raio), var(--raio-g), 50%, 999px. Vários deles são o token escrito à mão: .conta-texto code usa 4px (1080) em vez de var(--raio); .segmentos usa 8px (833) em vez de var(--raio-g). E .resultado-capa .capa (1214) e .feed-capa .capa (1279) usam 3px, um valor fora de qualquer escala, para dizer só \"um pouco menos que a capa normal\".",
+   "correcao": "Fechar o vocabulário em cinco: --raio-p 2px (miniatura), --raio 4px, --raio-g 8px, --raio-pilula 999px e 50% para círculo. Trocar 4px→var(--raio), 8px→var(--raio-g), 3px→var(--raio-p), 6px→var(--raio), 10px→var(--raio-g), 1px→var(--raio-p)."
+  },
+  {
+   "onde": "css/app.css — 14 blocos reimplementam o versalete: 144, 176, 205, 402, 418, 425, 449, 468, 606, 623, 651, 693, 875, 888",
+   "problema": "O componente .rotulo existe na linha 142 (11px/700, tracking .1em, uppercase, var(--texto-3)) e é copiado à mão 13 vezes com valores levemente diferentes: cinco letter-spacings (.05 / .07 / .08 / .09 / .1em) e seis tamanhos (9.5 / 10 / 10.5 / 11 / 11.5 / 12px). É a mesma voz tipográfica soando de treze jeitos.",
+   "correcao": "Fixar dois degraus e só dois: rótulo padrão (11px, tracking .09em) e rótulo miúdo (10px, tracking .09em, para .painel-acoes .acao e .cel-mes span). Aplicar via `.rotulo` e `.rotulo.miudo`, ou via um placeholder de propriedades — mas com um único par de valores, não treze."
+  },
+  {
+   "onde": "css/app.css 443–456 (.painel-acoes .acao) e 582–597 (.rapida-acao)",
+   "problema": "O mesmo componente — botão em coluna, glifo em cima, rótulo embaixo, colorido por estado — implementado duas vezes com valores diferentes (9.5px/700/tracking .05em/sem raio/gap 6/glifo 19px contra 10.5px/600/sem tracking/raio 10px/gap 7/glifo 24px) E com duas convenções de seletor para o mesmo estado: classe (.acao.ativa.lido / .curtir / .quero) contra atributo (.rapida-acao.ativa / [data-r=\"curtir\"] / [data-r=\"quero\"]). Quem for acrescentar um quarto estado precisa fazer o trabalho duas vezes, de dois jeitos.",
+   "correcao": "Um componente `.acao-estado` com uma variante de tamanho (`.acao-estado.grande` para a folha), e uma convenção só de estado — data-atributo, que já é o que o app.js gera. As três regras de cor viram: `.acao-estado.ativa[data-r=\"lido\"] .glifo { color: var(--a1) }` e assim por diante, escritas uma vez."
+  },
+  {
+   "onde": "js/app.js 179–181 vs css/app.css 320–326 (.selos)",
+   "problema": "O componente .selos define geometria e fundo no CSS, mas a semântica de cor — que é justamente a regra do trio de acentos — está em style inline no JS: `style=\"color:var(--a1)\"`, `style=\"color:var(--curtida)\"`, `style=\"color:var(--quero)\"`. A regra mais importante do sistema mora fora da folha de estilo, no meio de uma concatenação de string, invisível para quem lê o CSS.",
+   "correcao": "Emitir classe em vez de style — `<i class=\"selo-lido\">◉</i>` etc. — e trazer as três cores para o bloco .selos do CSS, ao lado das outras regras de estado. Além de corrigir a origem, isso permite tirar `style-src 'unsafe-inline'` do horizonte se um dia houver CSP."
+  },
+  {
+   "onde": "css/app.css 682 (.avatar color var(--a1)), 1248 (.feed-avatar color var(--a2)), 1218 (.resultado-inicial color var(--texto-2)), 746 (.autor-retrato-vazio color var(--a1))",
+   "problema": "Quatro implementações de \"inicial dentro de um círculo\", com três cores de texto diferentes — e duas delas gastam acentos reservados. Pessoa não é \"o que você fez\" (a1) nem \"onde você está\" (a2); o sistema não tem cor para pessoa, então cada tela pegou emprestada uma. Os tamanhos também não formam escala: 26, 30, 34, 44, 76, 96px em seis lugares.",
+   "correcao": "Um componente .avatar com variantes de tamanho (--avatar-d controlado por classe: .mini 28, .p 34, .m 44, .g 76, .gg 96) e uma cor só, neutra — var(--texto-2) sobre var(--superficie-2) — devolvendo --a1 e --a2 aos seus trabalhos declarados."
+  },
+  {
+   "onde": "css/app.css 459, 466, 472 (border-top: 1px solid var(--fundo-2)); 156 (.topo border rgba(255,255,255,.05)); 613 (hover rgba(255,255,255,.022)); 865 (.pilha .capa rgba(255,255,255,.06))",
+   "problema": "Existem --borda e --borda-2 para linhas, mas o .painel usa um token de SUPERFÍCIE (--fundo-2) como cor de borda em três lugares, e outros quatro pontos usam branco com alfa cru. Trocar o tema pelo :root — que o cabeçalho do arquivo promete ser \"o único lugar onde as cores moram\" — não alcança nenhum desses.",
+   "correcao": "Trocar `var(--fundo-2)` por `var(--borda)` nas linhas 459, 466 e 472 (ou criar --borda-fraca se o contraste tiver que ser mais baixo dentro do painel), e substituir os quatro rgba(255,255,255,…) por tokens: --borda-sutil e --realce-linha. Depois disso a promessa do cabeçalho volta a ser verdade."
+  },
+  {
+   "onde": "css/app.css 1315–1320 (.fila-aviso)",
+   "problema": "Componente morto. `.fila-aviso` não aparece em nenhum lugar de js/*.js nem de index.html — zero ocorrências. O arquivo carrega o desenho de um aviso de fila de sincronização que nada renderiza.",
+   "correcao": "Ou ligar ao js/sinc.js, que é onde a fila existe de verdade, ou apagar as 6 linhas. Manter CSS sem consumidor é o começo de um sistema em que ninguém confia no que está escrito."
+  },
+  {
+   "onde": "css/app.css 237–254 (.trilho) e 1097–1116 (.trilho-vazio)",
+   "problema": "O trilho e o seu esqueleto repetem a mesma geometria em quatro blocos: gap 7px, margin 0 -20px, padding 2px 20px, item de 104px — e depois os dois repetem de novo os valores de ≤720px (-18px, 92px). Qualquer ajuste de medida do trilho precisa ser feito em quatro lugares, e o esqueleto que sair de sincronia produz exatamente o pulo de layout que ele existe para evitar.",
+   "correcao": "Extrair as três medidas para tokens locais no :root (--capa-l 104px, --trilho-gap 7px, --sangria 20px), redefinidos uma vez no breakpoint, e usá-los nos dois componentes. Quatro blocos viram dois, e o esqueleto não pode mais divergir do conteúdo."
+  },
+  {
+   "onde": "css/app.css 598 (.rapida-nota) e 1185–1187 (.rapida-nota); 962 e 969 (.livro-titulo, ambos dentro do mesmo @media max-width:940px)",
+   "problema": "Regras duplicadas para o mesmo seletor no mesmo contexto. .rapida-nota é declarada na 598 (margin 14px 0 0; font-size 20px) e de novo na 1185 (margin 16px 0 4px; text-align left) — só a margem é sobrescrita, o font-size:20px da primeira continua valendo por acidente, o que torna impossível ler o componente em um lugar só. .livro-titulo { font-size: 24px } aparece duas vezes no mesmo bloco de media query (962 e 969), a segunda sem efeito nenhum.",
+   "correcao": "Fundir cada par numa declaração só, no lugar onde o componente é definido. Apagar a linha 969. Uma regra de higiene vale mais que as duas correções: um seletor, um lugar no arquivo."
+  },
+  {
+   "onde": "css/app.css — largura de capa em 14 valores: 249 (104px), 253 (92px), 261 (96px), 264 (72px), 581 (118px), 629 (36px), 811 (104px), 821 (76px), 865 (46px), 953 (112px), 1011 (28px), 1021 (96px), 1023 (84px), 1213 (44px), 1278 (42px), 1284 (36px), 380 (200px)",
+   "problema": "A capa é o átomo do app e aparece em quatorze larguras diferentes — 28, 36, 42, 44, 46, 72, 76, 84, 92, 96, 104, 112, 118, 200 — sem nenhuma relação entre elas e sem um único token. Várias estão a 2px de distância uma da outra (42 e 44, 36 e 36 em contextos distintos, 92 e 96), diferença que nenhum olho lê como intenção mas que impede qualquer alinhamento entre telas.",
+   "correcao": "Fixar cinco degraus e forçar tudo neles: --capa-xs 32 (célula do diário), --capa-p 44 (linha de resultado e feed), --capa-m 72 (grade miúda e pilha), --capa-g 104 (trilho, grade, resenha) e --capa-gg 200 (ficha do livro, 112 no responsivo). Cada um dos quatorze valores atuais cai em um desses cinco sem mudança perceptível."
+  }
+ ],
+ "regras": [
+  "REGRA DE IDENTIDADE DOS ACENTOS (a regra que segura todas as outras). São três acentos e cada um tem um trabalho FIXO, medido nos pixels do original: VERDE --a1 #00e054 = o que você FEZ (ação primária, lido, salvar, registrar, estrelas, barra de meta, histograma preenchido). AZUL --a2 #40bcf4 = ONDE VOCÊ ESTÁ (aba ativa do topo, aba ativa do pé, link, foco). LARANJA --a3 #ff8000 = o que você GOSTOU (curtida, favorito). Nenhum acento pode assumir um segundo papel. Se um estado novo não couber em nenhum dos três, ele NÃO ganha acento — ganha superfície (--superficie-2) ou um token de estado próprio (--perigo). Nada de acento decorativo.",
+  "TEXTO SOBRE ACENTO. Só existe --sobre-a1 (#08120b). Portanto: acento como FUNDO só é permitido com --a1 (.botao.destaque, .botao-registrar, .escopos a.ativa). Azul e laranja entram como TEXTO, BORDA ou GLIFO, nunca como preenchimento de área com texto por cima — não há par de contraste definido para eles. Quem quiser fundo azul ou laranja tem que criar --sobre-a2 / --sobre-a3 antes, e medir o contraste.",
+  "ESCALA TIPOGRÁFICA. Onze degraus, nada entre eles, nunca meio pixel: 10 (rótulo miúdo), 11 (rótulo/versalete padrão), 12 (legenda de capa), 13 (meta, data, contagem), 14 (corpo secundário, resenha em lista), 15 (corpo, base do body), 16 (título de seção), 20 (título de folha e de cartão de lista), 22 (número grande do perfil), 25 (título de página), 31 (título do livro, cai para 24 ≤940px e 21 ≤520px). Meio pixel não se distingue na tela e só garante que dois elementos do mesmo papel fiquem diferentes.",
+  "PESO E TRACKING. Quatro pesos, porque a Inter do projeto é variável de 400 a 800 e nada fora disso existe: 400 corpo, 600 ênfase leve (segmentos, pílulas), 700 títulos e rótulos, 800 marca e títulos de página. Peso 300 é declaração morta — o navegador trava em 400. Tracking segue o tamanho, não o gosto: negativo nos títulos (-.02em a -.032em, mais fechado quanto maior), zero no corpo, e .09em fixo em TODO versalete — um valor só, não cinco.",
+  "VERSALETE É COMPONENTE, NÃO ESTILO. Todo rótulo em caixa alta passa por .rotulo (11px/700/.09em/var(--texto-3)) ou por .rotulo.miudo (10px). Reescrever font-size + font-weight + letter-spacing + text-transform à mão é proibido: hoje isso está feito em 14 lugares com 5 trackings e 6 tamanhos diferentes, e é a razão de a mesma voz soar de treze jeitos.",
+  "ESPAÇAMENTO. Escala de 4 com dois meios-passos herdados da medição do vídeo: 4, 6, 8, 12, 16, 20, 24, 32. Ritmo vertical fixo: 24px entre seções (.secao), 10px do título ao conteúdo, 20px de respiro interno em bloco com divisória. Os valores que vieram de medir o original e não caem na escala — os 7px do trilho, os 9px da fileira — continuam, mas como token nomeado e comentado, para serem deliberados e não acidentais.",
+  "RAIO. Cinco valores, e só: --raio-p 2px (miniatura de capa em lista e feed), --raio 4px (padrão — capa, botão, campo, caixa de aviso), --raio-g 8px (superfície que agrupa — folha, painel, capa da ficha, estado vazio), 999px (pílula — escopo, barra de ação flutuante, busca grande, aviso flutuante) e 50% (círculo — avatar, voltar, aba-mais). Nenhum número solto: 3, 6 e 10px que existem hoje são o mesmo desejo escrito errado.",
+  "ALVO DE TOQUE: 44×44 CSS, SEM EXCEÇÃO. Vale para tudo que responde a clique ou toque e é visível ≤720px. A área cresce por pseudo-elemento invisível com INSET negativo, nunca por largura fixa centrada: 44px centrado em controle colado na margem direita vaza para fora da tela e cria rolagem lateral (foi o que o rastreador pegou). Com margem de página de 18px, inset:-13px é o teto seguro. O desenho não muda um pixel — só a área.",
+  "FOLGA ENTRE ALVOS. Duas áreas de toque vizinhas nunca podem se sobrepor. Como a área cresce 13px para cada lado, o gap mínimo entre dois controles lado a lado é 24px (é por isso que .feed-acoes tem gap 24px, não 16px). Ao acrescentar um controle numa fileira existente, conferir a folga antes do tamanho.",
+  "UM PADRÃO DE LISTA POR TIPO DE CONTEÚDO, e não um por tela. Opção ou ajuste → .linhas. Livro ou pessoa em busca → .resultado. Atividade social → .feed-linha (frase, não cartão). Registro de leitura → .tabela-diario. Amostra de um recorte maior → .trilho. Conjunto que o usuário precisa ver inteiro → .grade. Se uma tela nova não couber em nenhum desses seis, o certo é discutir o padrão, não criar o sétimo.",
+  "DENSIDADE DE APLICATIVO, NÃO DE SITE. A régua é: três seções acima da dobra no celular. Tudo que foi medido no vídeo vale contra o gosto — 29px de altura no segmentado, 7px entre pôsteres, 46px de topo, 18px de margem lateral. Tipo grande e folga larga são exatamente o que faz uma tela de celular parecer site encolhido.",
+  "SUPERFÍCIES SOBEM, BORDAS SÃO BORDAS. A escada é --fundo (página) < --fundo-2 (topo, barra de abas, folha, campo) < --superficie (painel, pílula inativa, hover de linha) < --superficie-2 (estado ativo, pressionado, vazio de capa). Divisória usa --borda; divisória forte ou traço, --borda-2. Token de superfície NUNCA vira cor de borda, e branco com alfa cru nunca substitui nenhum dos dois — senão trocar o tema pelo :root deixa de trocar o tema inteiro, que é a promessa escrita no cabeçalho do arquivo.",
+  "ESTADO VEM DE TOKEN, NÃO DE STRING. Cor de estado (lido, curtido, quero, erro) mora no CSS, ligada por classe ou data-atributo. Nada de `style=\"color:var(--a1)\"` concatenado no app.js: a regra mais importante do sistema tem que ser legível na folha de estilo.",
+  "TELA IMERSIVA TEM SAÍDA. Se .heroi existe ≤720px, .voltar existe — o topo está escondido por body.imersiva e o chevron sobre a imagem é o único caminho de volta. E toda barra fixa (abas-pe, barra-acao) cobra sua altura de volta em padding-bottom do conteúdo, com env(safe-area-inset-bottom) somado. Barra que cobre o fim da página é bug, não detalhe.",
+  "FEATURE NOVA VEM MARCADA. Onde o Letterbooks se afasta do original de propósito, o CSS diz isso em comentário, com o motivo e o caminho de volta — como já fazem .cartao-legenda (\"para voltar à grade só de capas, troque este display por none\"), .resultado (\"uma grade de capas até serve para filme; para livro, não\") e o tema \"cafe\" inteiro. Desvio documentado é feature; desvio silencioso vira dívida que ninguém sabe se foi escolha ou erro."
+ ],
+ "tokens": [
+  {
+   "nome": "--fundo",
+   "valor": "#14181c",
+   "papel": "Fundo da página e de todo o app. Lido direto do pixel do vídeo do original. Também é o theme-color do index.html e o fim do gradiente do herói."
+  },
+  {
+   "nome": "--fundo-rgb",
+   "valor": "20, 24, 28",
+   "papel": "O mesmo --fundo em componentes RGB, para os usos com transparência que rgba() exige: o gradiente de quatro paradas do .heroi::after e o fundo da pastilha .ordem. Existe porque não dá para interpolar hex em rgba()."
+  },
+  {
+   "nome": "--fundo-2",
+   "valor": "#1b2228",
+   "papel": "Primeiro degrau acima do fundo: barra do topo, barra de abas do pé, corpo da .folha, fundo dos campos de formulário e do <code>. É a superfície de casca — o que emoldura, não o que carrega conteúdo."
+  },
+  {
+   "nome": "--superficie",
+   "valor": "#22282e",
+   "papel": "Superfície de conteúdo agrupado: .painel da ficha, pílula inativa (.escopos, .assunto), trilho de .segmentos, .capa-vazia, .feed-resenha, hover de .resultado, .fila-aviso, célula do mês do diário."
+  },
+  {
+   "nome": "--superficie-2",
+   "valor": "#2c3440",
+   "papel": "Superfície elevada e estado ativo: segmento ativo, .botao base, .barra-acao, fundo de avatar, coluna vazia do histograma, .meta-barra, hover de pílula, fundo da .capa antes da imagem carregar."
+  },
+  {
+   "nome": "--borda",
+   "valor": "#34404a",
+   "papel": "Divisória padrão em toda lista, tabela, bloco e rodapé de folha. É o traço de 1px que separa itens sem desenhar caixa — o recurso estrutural mais usado do sistema."
+  },
+  {
+   "nome": "--borda-2",
+   "valor": "#445566",
+   "papel": "Traço forte: lombada da .capa-vazia, borda do .spoiler-aviso, anel do carregando, foco do campo do topo, estrela vazia do seletor. Onde a divisória precisa ser lida como objeto, não como separação."
+  },
+  {
+   "nome": "--texto",
+   "valor": "#ddeeff",
+   "papel": "Texto primário e estado de destaque. Também é o hover de quase todo elemento secundário — subir de --texto-2 para --texto é o gesto padrão de hover no app."
+  },
+  {
+   "nome": "--texto-2",
+   "valor": "#99aabb",
+   "papel": "Texto de corpo longo e secundário: sinopse, resenha, legenda de capa, frase do feed, descrição de lista. É a cor de leitura, não de interface."
+  },
+  {
+   "nome": "--texto-3",
+   "valor": "#667788",
+   "papel": "Texto terciário: rótulo em versalete, meta, data, contagem, chevron, glifo inativo, placeholder. Se é informação de apoio que não se lê primeiro, é este."
+  },
+  {
+   "nome": "--a1",
+   "valor": "#00e054",
+   "papel": "VERDE — o acento de \"o que você fez\". Medido no botão Save da folha de registro do original (#00d749 no vídeo, #00e054 sem a compressão). Ação primária, lido, salvar, estrelas, histograma, barra de meta, foco global, anel de hover da capa."
+  },
+  {
+   "nome": "--a2",
+   "valor": "#40bcf4",
+   "papel": "AZUL — o acento de \"onde você está\". Medido na aba ativa do original. Sublinhado da nav do topo, ícone da aba ativa do pé, hover de link no feed, inicial do avatar de feed."
+  },
+  {
+   "nome": "--a3",
+   "valor": "#ff8000",
+   "papel": "LARANJA — o acento de \"o que você gostou\". Medido na faixa PRO do original. Curtida e favorito. HOJE também está pintando erro e destrutivo, o que quebra a regra do trabalho fixo (ver inconsistências)."
+  },
+  {
+   "nome": "--sobre-a1",
+   "valor": "#08120b",
+   "papel": "O único par de contraste definido: texto que fica POR CIMA da cor de ação. Usado em .botao.destaque, .botao-registrar e .escopos a.ativa. Não existe equivalente para --a2 nem --a3 — por isso azul e laranja não podem virar fundo com texto em cima."
+  },
+  {
+   "nome": "--estrela",
+   "valor": "var(--a1)",
+   "papel": "Apelido semântico do verde para a nota: .estrelas e o preenchimento do .seletor-estrelas. Existe para que trocar a cor da nota seja uma linha, sem caçar ★ pelo arquivo."
+  },
+  {
+   "nome": "--curtida",
+   "valor": "var(--a3)",
+   "papel": "Apelido semântico do laranja para afeto: coração do feed, marcador do diário, selo da capa, glifo ativo do painel e da folha rápida."
+  },
+  {
+   "nome": "--quero",
+   "valor": "var(--a2)",
+   "papel": "Apelido semântico do azul para \"quero ler\". É o apelido mais discutível do conjunto: quero-ler é um estado da estante, não \"onde você está\", então empresta o acento de navegação para uma intenção."
+  },
+  {
+   "nome": "--raio",
+   "valor": "4px",
+   "papel": "Raio padrão: capa, botão, campo, caixa de erro, feed-resenha, spoiler, selos. É o canto de tudo que é item."
+  },
+  {
+   "nome": "--raio-g",
+   "valor": "8px",
+   "papel": "Raio de superfície que agrupa: .folha, .painel, .livro-capa (a capa grande da ficha), estado .vazio."
+  },
+  {
+   "nome": "--sombra",
+   "valor": "0 10px 30px rgba(0, 0, 0, .5)",
+   "papel": "Sombra única de elevação, para o que flutua acima da página: .folha, .livro-capa e .aviso-flutuante. Não há segundo nível — o resto do app usa borda ou superfície para separar, não sombra."
+  },
+  {
+   "nome": "--topo-h",
+   "valor": "54px",
+   "papel": "Altura da barra do topo, consumida pelo sticky do .painel (top: calc(var(--topo-h) + 16px)). ATENÇÃO: não é redefinida ≤720px, onde a barra real mede 46px — o token está desatualizado no celular."
+  },
+  {
+   "nome": "--sans",
+   "valor": "'Inter', -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
+   "papel": "A família única do app. Inter é a grotesca livre mais próxima da Graphik do original (mesmo x-alto generoso, mesmo espaçamento fechado). Hospedada localmente em /fontes, não por CDN, para o PWA funcionar offline. Variável de 400 a 800 num arquivo — pesos fora dessa faixa não existem."
+  },
+  {
+   "nome": "color-scheme",
+   "valor": "dark",
+   "papel": "Declara o app como escuro para o navegador, o que corrige os controles nativos (scrollbar, autofill, input de data) sem CSS extra. Não é cor, mas é token de tema."
+  },
+  {
+   "nome": "[data-tema=\"cafe\"] (paleta alternativa)",
+   "valor": "--fundo #16110e, --fundo-2 #1d1713, --superficie #271f19, --superficie-2 #332920, --borda #43362b, --borda-2 #55463a, --texto #f4ede4, --texto-2 #b3a595, --texto-3 #82756a, --a1 #ff7a3d, --a2 #a8b864, --a3 #e0a0b8, --sobre-a1 #1f0d04",
+   "papel": "Tema completo alternativo (\"coral sobre café\"), da fase em que o pedido era \"cores diferentes do original\". Liga-se com uma linha: <html lang=\"pt-BR\" data-tema=\"cafe\">. Prova que o sistema é tokenizado de verdade na cor — e serve de teste: qualquer cor hardcoded no arquivo aparece na hora que se troca o tema."
+  }
+ ]
+}

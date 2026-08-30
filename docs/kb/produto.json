@@ -1,0 +1,522 @@
+{
+ "features": [
+  {
+   "nome": "Home em trilhos horizontais (Films — início)",
+   "area": "Livros",
+   "noOriginal": "Abre direto no conteúdo, um trilho por seção, sem chamada de capa.",
+   "noLetterbooks": "telaInicio (js/app.js:271) monta seis trilhos: leituras recentes, quero ler, em alta, e quatro preguiçosos (secaoPreguicosa app.js:327, ligarPreguicosas app.js:336, que só vão à rede a 300px da tela).",
+   "estado": "completo",
+   "evidencia": "js/app.js:271 telaInicio / js/app.js:336 ligarPreguicosas"
+  },
+  {
+   "nome": "Aba Reviews (resenhas de quem você segue)",
+   "area": "Livros",
+   "noOriginal": "A aba Reviews mostra as resenhas da sua rede, não as suas.",
+   "noLetterbooks": "telaResenhas (js/app.js:1002) filtra Dados.logs() — só o que VOCÊ escreveu, do localStorage. Nenhuma chamada a Nuvem.feed aqui. As resenhas alheias só existem na aba Atividade.",
+   "estado": "parcial",
+   "evidencia": "js/app.js:1002 telaResenhas"
+  },
+  {
+   "nome": "Aba Lists (listas)",
+   "area": "Livros",
+   "noOriginal": "Cada lista é nome, autor e uma tira de capas; listas de qualquer pessoa aparecem aqui.",
+   "noLetterbooks": "telaListas (js/app.js:1074) lê Dados.estado().listas — só as suas, só deste aparelho. A pilha de capas sobrepostas existe. Não há leitura da tabela 'listas' da nuvem em lugar nenhum do app.js.",
+   "estado": "parcial",
+   "evidencia": "js/app.js:1074 telaListas; nenhuma ocorrência de Nuvem.publico('listas') em js/app.js"
+  },
+  {
+   "nome": "Journal (conteúdo editorial)",
+   "area": "Livros",
+   "noOriginal": "Pautas, seleções e ensaios escritos pela redação do Letterboxd.",
+   "noLetterbooks": "Não existe e não deve existir: não há redação, e não há equivalente aberto para livros. Inventar uma seria mentira de interface.",
+   "estado": "fora-de-escopo",
+   "evidencia": "docs/mapa_dados.py t003"
+  },
+  {
+   "nome": "Popular This Week — grade de quatro colunas",
+   "area": "Livros",
+   "noOriginal": "Grade coladas de borda a borda com o que está em alta.",
+   "noLetterbooks": "telaExplorar (js/app.js:584) + RECORTES.populares (js/api.js:206, sort=readinglog) + htmlGrade (app.js:201).",
+   "estado": "completo",
+   "evidencia": "js/app.js:584 telaExplorar; js/api.js:206 RECORTES"
+  },
+  {
+   "nome": "Visor de capa em tela cheia",
+   "area": "Livros",
+   "noOriginal": "Tocar numa capa da grade abre o pôster em tela cheia, com Assistido/Curtir/Nota/Quero ver embaixo, e desliza para o próximo título.",
+   "noLetterbooks": "Não existe. htmlCartao (js/app.js:177) sempre navega para a ficha (#/livro/…); não há rota nem folha de visor no roteador (app.js:2726).",
+   "estado": "ausente",
+   "evidencia": "js/app.js:177 htmlCartao; roteador js/app.js:2726 sem rota de visor"
+  },
+  {
+   "nome": "Filtros de grade (Ano, Gênero, País, Idioma, Duração)",
+   "area": "Livros",
+   "noOriginal": "Folha Cancelar | Filtros | Concluir aplicada sobre qualquer grade.",
+   "noLetterbooks": "Não existe. telaExplorar só pagina; API.explorar (js/api.js:248) aceita apenas o recorte fixo, sem parâmetro de filtro.",
+   "estado": "ausente",
+   "evidencia": "js/app.js:584 telaExplorar; js/api.js:248 explorar"
+  },
+  {
+   "nome": "Ficha do filme → ficha do livro",
+   "area": "Livros",
+   "noOriginal": "Imagem até o topo sem cabeçalho, chevron sobre a foto, título à esquerda e pôster à direita, ano e direção em dois níveis, barra de ação fixa.",
+   "noLetterbooks": "desenhaLivro (js/app.js:641) com htmlHeroi (app.js:140), livro-colunas, sinopse esmaecida, assuntos clicáveis, tabela de detalhes, painel lateral e barra-acao fixa no celular.",
+   "estado": "completo",
+   "evidencia": "js/app.js:641 desenhaLivro"
+  },
+  {
+   "nome": "Nota média e histograma da comunidade na ficha",
+   "area": "Livros",
+   "noOriginal": "A ficha mostra a distribuição de notas de TODOS os membros e a média da comunidade. É o motivo principal de abrir a ficha.",
+   "noLetterbooks": "A seção 'Avaliações' de desenhaLivro usa `var e = Dados.estatisticas()` (js/app.js:683) e monta blocoNotas com e.faixas/e.media (app.js:707) — ou seja, o SEU histograma global, idêntico em todo livro, rotulado como se fosse do livro. O dado da comunidade existe no banco (leituras.nota, select público por RLS) e não é consultado.",
+   "estado": "parcial",
+   "evidencia": "js/app.js:683 e js/app.js:707 desenhaLivro; servidor/esquema.sql:197 política \"diário é público\""
+  },
+  {
+   "nome": "Quem você segue leu / resenhas do livro na ficha",
+   "area": "Livros",
+   "noOriginal": "A ficha traz resenhas populares, resenhas de amigos e quem da sua rede assistiu.",
+   "noLetterbooks": "Não existe. telaLivro (js/app.js:620) e desenhaLivro não fazem nenhuma chamada à Nuvem; a ficha é uma ilha 100% local.",
+   "estado": "ausente",
+   "evidencia": "js/app.js:620 telaLivro — só API.detalhe e Dados"
+  },
+  {
+   "nome": "Folha de ação (barra Avaliar, registrar, resenhar)",
+   "area": "Livros",
+   "noOriginal": "A barra fixa abre um cartão com Assistido/Curtir/Quero ver, fileira de estrelas tocáveis e as linhas Registrar / Adicionar a uma lista / Compartilhar.",
+   "noLetterbooks": "abrirFolhaRapida (js/app.js:1521) com as quatro ações, meia-estrela por metade do toque (notaDoToque app.js:1573), 'Registrar outra leitura' para releitura, listas e compartilhar.",
+   "estado": "completo",
+   "evidencia": "js/app.js:1521 abrirFolhaRapida"
+  },
+  {
+   "nome": "Página de resenha com endereço próprio",
+   "area": "Livros",
+   "noOriginal": "Imagem de fundo, autoria, nota, data, texto, curtidas, comentários e etiquetas.",
+   "noLetterbooks": "Duas telas separadas e desiguais: telaResenha (js/app.js:934) é a SUA resenha local (#/resenha/<id local>) e não tem curtida, comentário nem link público; desenhaLeitura (js/app.js:2259, rota #/leitura/<uuid>) tem curtidas e comentários mas só existe depois de sincronizar e não é oferecida em nenhum lugar da tela local.",
+   "estado": "parcial",
+   "evidencia": "js/app.js:934 telaResenha vs js/app.js:2259 desenhaLeitura"
+  },
+  {
+   "nome": "Elenco e equipe → página do autor",
+   "area": "Livros",
+   "noOriginal": "Clicar num nome do elenco abre a pessoa e a filmografia dela.",
+   "noLetterbooks": "htmlAutoria (js/app.js:64) linka cada nome quando a Open Library dá o id; telaAutor (js/app.js:1157) mostra retrato, datas, biografia recolhível e a grade de obras, com contagem de quantas você leu.",
+   "estado": "completo",
+   "evidencia": "js/app.js:1157 telaAutor; js/api.js:265 autor / js/api.js:283 obrasDo"
+  },
+  {
+   "nome": "Filmes similares / relacionados",
+   "area": "Livros",
+   "noOriginal": "A ficha sugere títulos parecidos.",
+   "noLetterbooks": "Não há bloco de similares. O mais perto são os assuntos clicáveis da ficha, que caem numa busca por texto (desenhaLivro, app.js ~700).",
+   "estado": "ausente",
+   "evidencia": "js/app.js:641 desenhaLivro — bloco 'Assuntos' leva a #/buscar, não a similares"
+  },
+  {
+   "nome": "Onde assistir → onde ler/pegar emprestado",
+   "area": "Livros",
+   "noOriginal": "A ficha lista serviços onde o filme está disponível.",
+   "noLetterbooks": "Não existe. A Open Library tem o equivalente natural (emprestar no Internet Archive, edições, ISBN), e api.js não usa nada disso — CAMPOS (js/api.js:22) nem pede ia/availability.",
+   "estado": "ausente",
+   "evidencia": "js/api.js:22 CAMPOS"
+  },
+  {
+   "nome": "Busca por termo livre",
+   "area": "Buscar",
+   "noOriginal": "Campo de busca com resultados em lista: miniatura, título em negrito, 'ano, de Fulano'.",
+   "noLetterbooks": "telaBusca (js/app.js:474) + htmlLinhaLivro (app.js:463); API.buscar (js/api.js:76) detecta ISBN de 10/13 dígitos e troca o campo de consulta.",
+   "estado": "completo",
+   "evidencia": "js/app.js:474 telaBusca; js/api.js:76 buscar"
+  },
+  {
+   "nome": "Explorar por (recortes com chevron)",
+   "area": "Buscar",
+   "noOriginal": "Lista de recortes editoriais abaixo do campo de busca.",
+   "noLetterbooks": "telaBuscaVazia (js/app.js:410) monta a lista a partir de API.recortes(); seis recortes definidos em RECORTES (js/api.js:205): populares, avaliados, recentes, clássicos, literatura brasileira, poesia.",
+   "estado": "completo",
+   "evidencia": "js/app.js:410 telaBuscaVazia; js/api.js:205 RECORTES"
+  },
+  {
+   "nome": "Pílulas de escopo da busca",
+   "area": "Buscar",
+   "noOriginal": "Films | Cast, Crew or Studios | Members — o mesmo termo em índices diferentes.",
+   "noLetterbooks": "htmlEscopos (js/app.js:449) com Livros, Autores e (quando a nuvem está ligada) Leitores; buscaDeAutores (app.js:505) usa search/authors.json e buscaDeLeitores (app.js:538) usa Nuvem.procurarLeitores (nuvem.js:349).",
+   "estado": "completo",
+   "evidencia": "js/app.js:449 htmlEscopos; js/app.js:505 e js/app.js:538"
+  },
+  {
+   "nome": "Buscar listas e resenhas",
+   "area": "Buscar",
+   "noOriginal": "A busca também devolve listas e resenhas, não só títulos e pessoas.",
+   "noLetterbooks": "Não existe. htmlEscopos (js/app.js:449) tem exatamente três abas e nenhuma delas consulta 'listas' ou o texto das resenhas.",
+   "estado": "ausente",
+   "evidencia": "js/app.js:449 htmlEscopos"
+  },
+  {
+   "nome": "Buscas recentes",
+   "area": "Buscar",
+   "noOriginal": "As últimas buscas, para repetir sem redigitar.",
+   "noLetterbooks": "htmlBuscasRecentes (js/app.js:1506) + Dados.registrarBusca/esquecerBuscas (js/dados.js, MAX_BUSCAS 8), guardadas no aparelho. Aparecem na tela de busca e dentro da folha de escolha.",
+   "estado": "completo",
+   "evidencia": "js/app.js:1506 htmlBuscasRecentes; js/dados.js registrarBusca"
+  },
+  {
+   "nome": "Adicionar um filme (o que o ⊕ abre)",
+   "area": "Registrar",
+   "noOriginal": "Campo de busca e as buscas recentes, e emenda direto no registro.",
+   "noLetterbooks": "abrirFolhaEscolha (js/app.js:1825), ligada ao #botao-registrar e ao #aba-mais (app.js:2765-2766), com debounce de 350ms e grade miúda de capas que emenda em abrirFolhaRegistro.",
+   "estado": "completo",
+   "evidencia": "js/app.js:1825 abrirFolhaEscolha"
+  },
+  {
+   "nome": "Folha de registro (data, nota, curtir, resenha)",
+   "area": "Registrar",
+   "noOriginal": "Eu vi… com data, nota, curtir, resenha e etiquetas.",
+   "noLetterbooks": "abrirFolhaRegistro (js/app.js:1387): nota em meias-estrelas com teclado (estrelasBotoes app.js:1494), data com max=hoje, resenha, 'Já tinha lido antes' (releitura) e 'A resenha tem spoiler' no lugar das etiquetas.",
+   "estado": "completo",
+   "evidencia": "js/app.js:1387 abrirFolhaRegistro"
+  },
+  {
+   "nome": "Etiquetas (tags) na resenha",
+   "area": "Registrar",
+   "noOriginal": "Cada registro aceita tags livres, e cada tag vira uma página navegável.",
+   "noLetterbooks": "Substituídas por releitura + spoiler. Não há campo de tag em abrirFolhaRegistro, coluna de tag em servidor/esquema.sql, nem rota de tag no roteador.",
+   "estado": "ausente",
+   "evidencia": "js/app.js:1387 abrirFolhaRegistro; servidor/esquema.sql:54 tabela leituras"
+  },
+  {
+   "nome": "Releitura como linha nova no diário",
+   "area": "Registrar",
+   "noOriginal": "Rewatch: o mesmo filme pode ter várias entradas, cada uma uma linha.",
+   "noLetterbooks": "Dados.registrar (js/dados.js) empilha em estado.logs; a folha rápida separa 'Escrever ou editar' de 'Registrar outra leitura' (js/app.js:1560-1563) justamente para não duplicar por engano; o banco segue a mesma regra (chave não é perfil+livro, ver comentário em js/nuvem.js:260).",
+   "estado": "completo",
+   "evidencia": "js/dados.js registrar; js/nuvem.js:260 salvarLeitura"
+  },
+  {
+   "nome": "Editar e apagar um registro",
+   "area": "Registrar",
+   "noOriginal": "Cada linha do diário abre para edição e pode ser apagada.",
+   "noLetterbooks": "Botões editar/apagar em cada linha de tabelaDiario (js/app.js:805), ligados em telaDiario (app.js:901), desenhaLivro e telaResenha; Dados.apagarLog anuncia 'leitura-apagada' e a Sinc apaga no servidor (js/sinc.js:154).",
+   "estado": "completo",
+   "evidencia": "js/app.js:805 tabelaDiario; js/sinc.js:154 apagarLeitura"
+  },
+  {
+   "nome": "Curtir, Quero ver (watchlist) e Favoritar",
+   "area": "Registrar",
+   "noOriginal": "Coração, watchlist e quatro favoritos no perfil.",
+   "noLetterbooks": "Dados.alterna com as coleções querLer/curtidas/favoritos e limite MAX_FAVORITOS=4 (js/dados.js); disponíveis no painel da ficha (acaoPainel app.js:789) e na folha rápida.",
+   "estado": "completo",
+   "evidencia": "js/dados.js alterna/MAX_FAVORITOS; js/app.js:789 acaoPainel"
+  },
+  {
+   "nome": "Adicionar a uma lista",
+   "area": "Registrar",
+   "noOriginal": "Linha da folha de ação que abre as listas com marcação.",
+   "noLetterbooks": "abrirFolhaListas (js/app.js:1904): caixas de seleção por lista e campo para criar uma lista nova ali mesmo.",
+   "estado": "completo",
+   "evidencia": "js/app.js:1904 abrirFolhaListas"
+  },
+  {
+   "nome": "Compartilhar",
+   "area": "Registrar",
+   "noOriginal": "Compartilha o link do filme ou da resenha.",
+   "noLetterbooks": "cartaoDeCompartilhar (js/app.js:1659) desenha no canvas uma imagem 1080x1920 com capa, título, autoria e nota e entrega pela folha do sistema (entregarCartao app.js:1790). É RECURSO NOVO, não existe no Letterboxd. O que o original faz — mandar um link — não existe: a resenha local não tem endereço público.",
+   "estado": "parcial",
+   "evidencia": "js/app.js:1659 cartaoDeCompartilhar"
+  },
+  {
+   "nome": "Feed de atividade de quem você segue",
+   "area": "Atividade",
+   "noOriginal": "O feed: quem você segue registrou, com o texto em uma linha e a resenha citada.",
+   "noLetterbooks": "telaAtividade (js/app.js:1959) com abas Seguindo/Todo mundo; htmlLinhaFeed (app.js:2017) monta a frase ('fulana leu Título ★★★★'), tempo relativo (quandoFoi app.js:2065), curtir e comentar. Dados de Nuvem.feed (js/nuvem.js:317) e feedGeral (nuvem.js:332) sobre a view 'feed'. O mapa_dados.py ainda marca t074 como 'falta' — está desatualizado.",
+   "estado": "completo",
+   "evidencia": "js/app.js:1959 telaAtividade; js/nuvem.js:317 feed"
+  },
+  {
+   "nome": "Eventos do feed além de leitura (curtiu, comentou, seguiu, criou lista)",
+   "area": "Atividade",
+   "noOriginal": "O feed mistura tipos: 'X curtiu a resenha de Y', 'X seguiu Z', 'X adicionou à lista'.",
+   "noLetterbooks": "O feed é só leitura. CAMPOS_FEED (js/nuvem.js:310) só traz colunas de leitura, e htmlLinhaFeed só sabe montar 'leu/releu'. Curtidas, comentários e seguidas ficam invisíveis para a rede.",
+   "estado": "parcial",
+   "evidencia": "js/nuvem.js:310 CAMPOS_FEED; js/app.js:2017 htmlLinhaFeed"
+  },
+  {
+   "nome": "Filtros de atividade",
+   "area": "Atividade",
+   "noOriginal": "Escolher quais tipos de evento entram no feed.",
+   "noLetterbooks": "Não existe. telaAtividade só tem as duas abas Seguindo/Todo mundo. Só faz sentido depois que o feed tiver mais de um tipo de evento.",
+   "estado": "ausente",
+   "evidencia": "js/app.js:1959 telaAtividade"
+  },
+  {
+   "nome": "Curtir resenha",
+   "area": "Atividade",
+   "noOriginal": "Coração na resenha alheia, com contagem.",
+   "noLetterbooks": "alternarCurtida (js/app.js:2102) é otimista e reverte em erro; ligarCurtidas (app.js:2079) acende os corações numa consulta só; Nuvem.curtir/descurtir (nuvem.js:397/404) e tabela curtidas com RLS (servidor/esquema.sql:116, políticas em :223).",
+   "estado": "completo",
+   "evidencia": "js/app.js:2102 alternarCurtida; js/nuvem.js:397 curtir"
+  },
+  {
+   "nome": "Comentar resenha",
+   "area": "Atividade",
+   "noOriginal": "Fio de comentários abaixo da resenha.",
+   "noLetterbooks": "telaLeitura/desenhaLeitura (js/app.js:2241/2259) carregam Nuvem.comentarios (nuvem.js:409) e o formulário aparece só para quem entrou; htmlComentario (app.js:2340) mostra o × para apagar o próprio. A página carrega sem conta, de propósito.",
+   "estado": "completo",
+   "evidencia": "js/app.js:2259 desenhaLeitura; js/nuvem.js:415 comentar"
+  },
+  {
+   "nome": "Seguir e deixar de seguir",
+   "area": "Atividade",
+   "noOriginal": "Botão Follow no perfil alheio.",
+   "noLetterbooks": "atualizarBotaoSeguir (js/app.js:2209) e alternarSeguir (app.js:2223) sobre Nuvem.sigo/seguir/deixarDeSeguir (nuvem.js:362/368/375).",
+   "estado": "completo",
+   "evidencia": "js/app.js:2223 alternarSeguir"
+  },
+  {
+   "nome": "Listas de seguidores e de quem você segue",
+   "area": "Atividade",
+   "noOriginal": "Cada contagem do perfil abre a lista de gente.",
+   "noLetterbooks": "telaGente (js/app.js:2409) nas rotas #/seguidores/<id> e #/seguindo/<id>, alimentada por Nuvem.publico('seguidores') e um segundo select em 'perfis'.",
+   "estado": "completo",
+   "evidencia": "js/app.js:2409 telaGente"
+  },
+  {
+   "nome": "Perfil de outra pessoa",
+   "area": "Atividade",
+   "noOriginal": "O perfil alheio mostra favoritos, diário, listas, watchlist, resenhas e estatísticas.",
+   "noLetterbooks": "telaLeitor/desenhaLeitor (js/app.js:2127/2166) mostram avatar-inicial, @, bio, botão seguir, contagens sociais, até 10 resenhas e um trilho de 16 leituras recentes. Falta: favoritos, estante/quero ler, listas, diário completo e histograma — nada disso é consultado, embora marcadores e listas sejam públicos por RLS.",
+   "estado": "parcial",
+   "evidencia": "js/app.js:2166 desenhaLeitor; servidor/esquema.sql:203 e :207 políticas públicas"
+  },
+  {
+   "nome": "Notificações",
+   "area": "Atividade",
+   "noOriginal": "Aviso de curtida, comentário, nova seguidora, menção.",
+   "noLetterbooks": "Não existe: nenhuma tela, nenhuma rota, nenhuma tabela. servidor/esquema.sql tem 10 tabelas e nenhuma de notificação.",
+   "estado": "ausente",
+   "evidencia": "js/app.js:2726 rotear (sem rota de notificações); servidor/esquema.sql"
+  },
+  {
+   "nome": "Denunciar conteúdo",
+   "area": "Atividade",
+   "noOriginal": "Report em resenha e comentário.",
+   "noLetterbooks": "O caminho está pronto no servidor e na nuvem — tabela denuncias (servidor/esquema.sql:139), política de insert (:237) e Nuvem.denunciar (js/nuvem.js:426) — mas nenhuma tela chama: 'denunciar' não aparece uma vez sequer em js/app.js.",
+   "estado": "parcial",
+   "evidencia": "js/nuvem.js:426 denunciar; grep 'denunciar' em js/app.js: zero ocorrências"
+  },
+  {
+   "nome": "Perfil (retrato, lugar, favoritos, atividade recente, histograma)",
+   "area": "Perfil",
+   "noOriginal": "Retrato redondo centralizado, lugar, quatro favoritos, atividade recente e histograma de notas.",
+   "noLetterbooks": "telaPerfil (js/app.js:1219) tem tudo na ordem certa — atalhos, avatar, favoritos (fileira), atividade recente (htmlAtividade app.js:249), histograma (htmlHistograma app.js:235), meta e bloco de dados. O 'retrato' é a inicial do nome num círculo: não há upload de foto, e a tabela perfis (servidor/esquema.sql:16) não tem coluna de avatar.",
+   "estado": "parcial",
+   "evidencia": "js/app.js:1238 telaPerfil (div class=avatar com a inicial); servidor/esquema.sql:16 perfis"
+  },
+  {
+   "nome": "Contagens do perfil que também são caminhos",
+   "area": "Perfil",
+   "noOriginal": "Cada número é uma linha com chevron: Filmes, Resenhas, Listas, Quero ver, Curtidas.",
+   "noLetterbooks": "Bloco linhas-conta em telaPerfil (js/app.js ~1258) com linhaAjuste (app.js:392): Leituras, Obras, Resenhas, Listas, Quero ler, Curtidas — cada uma com destino. Páginas fica sem chevron de propósito. Seguidores/Seguindo entram depois pela nuvem (enfeitarPerfilComANuvem app.js:2367).",
+   "estado": "completo",
+   "evidencia": "js/app.js:1219 telaPerfil; js/app.js:392 linhaAjuste"
+  },
+  {
+   "nome": "Diário agrupado por mês",
+   "area": "Perfil",
+   "noOriginal": "Tabela com a célula do mês atravessando as linhas; dia, capa, título e nota.",
+   "noLetterbooks": "telaDiario (js/app.js:901) + tabelaDiario (app.js:805) com rowspan no computador e faixa de mês de largura inteira no celular (as duas no HTML, o CSS escolhe), linha extra para a resenha e botão de spoiler.",
+   "estado": "completo",
+   "evidencia": "js/app.js:805 tabelaDiario"
+  },
+  {
+   "nome": "Criar e editar lista (nome, descrição, itens, ordem)",
+   "area": "Perfil",
+   "noOriginal": "Folha própria com nome, descrição e a coleção de itens, com ordem editável.",
+   "noLetterbooks": "Existe o modelo completo em Dados (criarLista/editarLista/alternarNaLista) e a lista numerada (htmlGrade com numerar, js/app.js:201), mas a interface é prompt()/confirm() nativos: telaListas 'nova-lista' (app.js:1101) e telaLista renomear/descrever (app.js:1135-1143). Não há reordenar itens.",
+   "estado": "parcial",
+   "evidencia": "js/app.js:1101 telaListas; js/app.js:1135 telaLista"
+  },
+  {
+   "nome": "Estado vazio com a voz do app",
+   "area": "Perfil",
+   "noOriginal": "O vazio tem piada e personalidade ('And like that, poof. He's gone.').",
+   "noLetterbooks": "htmlVazio (js/app.js:225) é usado em toda parte, mas o texto explica o que a tela faz em vez de ter voz. Ex.: telaListas (app.js:1093) 'Uma lista pode ser \"Li na praia\"…'.",
+   "estado": "parcial",
+   "evidencia": "js/app.js:225 htmlVazio"
+  },
+  {
+   "nome": "Watchlist → Quero ler / Estante",
+   "area": "Perfil",
+   "noOriginal": "Grade de quatro colunas com o que você quer ver.",
+   "noLetterbooks": "telaEstante (js/app.js:1044) vai além do original: quatro seções — Quero ler, Lidos, Curtidos, Favoritos — cada uma em grade, com contagem (secaoEstante app.js:1064).",
+   "estado": "completo",
+   "evidencia": "js/app.js:1044 telaEstante"
+  },
+  {
+   "nome": "Ajustes (notificações, privacidade, ícone do app)",
+   "area": "Perfil",
+   "noOriginal": "Linhas de ajuste com valor e chevron, cobrindo perfil, conta, notificações, privacidade e ícone do app.",
+   "noLetterbooks": "telaConta (js/app.js:2456) cobre perfil (usuário, nome, bio, lugar), sessão e migração; telaPerfil cobre nome/bio/meta/exportar/importar/apagar tudo. Faltam notificações, privacidade e ícone do app — e não há como apagar a conta, só sair (pintarConta app.js:2593).",
+   "estado": "parcial",
+   "evidencia": "js/app.js:2593 pintarConta — só o botão 'Sair desta conta'"
+  },
+  {
+   "nome": "Meta de leitura do ano",
+   "area": "Perfil",
+   "noOriginal": "NOVO — não existe no Letterboxd; o mais próximo é a contagem de filmes do ano.",
+   "noLetterbooks": "Seção 'Meta de <ano>' com barra de progresso em telaPerfil (js/app.js ~1280), editável por 'editar-meta'; contas em Dados.estatisticas (noAno, meta). O banco até tem meta_ano/meta_total em perfis (servidor/esquema.sql:16), mas o app nunca lê nem grava essas colunas.",
+   "estado": "completo",
+   "evidencia": "js/app.js:1219 telaPerfil; js/dados.js estatisticas"
+  },
+  {
+   "nome": "Instalar como app (PWA)",
+   "area": "Sistema",
+   "noOriginal": "App nativo de loja.",
+   "noLetterbooks": "manifest.webmanifest (display standalone, ícones 192/512/maskable, atalhos para Diário e Estante) + metas apple-mobile-web-app em index.html. Instala na tela do iPhone.",
+   "estado": "completo",
+   "evidencia": "manifest.webmanifest; index.html linhas 8-14"
+  },
+  {
+   "nome": "Funcionar offline",
+   "area": "Sistema",
+   "noOriginal": "O app nativo abre offline e guarda o que já foi visto.",
+   "noLetterbooks": "sw.js com duas estratégias: cache-first para a casca (CACHE letterbooks-v13) e rede-primeiro com reserva para o acervo (CACHE_REDE, só openlibrary.org/archive.org). O diário nem passa pelo SW — vive no localStorage. O Supabase é deliberadamente excluído do cache, para não servir o diário de quem entrou antes num aparelho compartilhado.",
+   "estado": "completo",
+   "evidencia": "sw.js — variável 'acervo' e o comentário sobre aparelho compartilhado"
+  },
+  {
+   "nome": "Conta: criar, entrar, sair, recuperar senha",
+   "area": "Sistema",
+   "noOriginal": "Conta com e-mail e senha.",
+   "noLetterbooks": "contaPorta (js/app.js:2485) é um formulário só para entrar e criar, com trava de botão contra duplo toque; Nuvem.cadastrar/entrar/sair/recuperarSenha (nuvem.js:173/187/200/206); erros do Supabase traduzidos em erroDe (nuvem.js:106); a chave é validada e a nuvem se desliga se for service_role (nuvem.js:44-57).",
+   "estado": "completo",
+   "evidencia": "js/app.js:2485 contaPorta; js/nuvem.js:106 erroDe"
+  },
+  {
+   "nome": "Sincronizar o que você registra para a nuvem",
+   "area": "Sistema",
+   "noOriginal": "Tudo mora no servidor por definição.",
+   "noLetterbooks": "Local primeiro, sempre: Dados anuncia, Sinc enfileira no localStorage e esvazia quando dá (js/sinc.js:54 enfileirar, :83 empurrar, :170 ligar em online/visibilitychange). Mas a fila só entende três tipos (js/sinc.js:128): leitura, leitura-apagada e marcador. LISTAS não sobem: Dados.criarLista/alternarNaLista não chamam anunciar (js/dados.js), então uma lista criada depois da migração nunca chega ao servidor.",
+   "estado": "parcial",
+   "evidencia": "js/sinc.js:128 enviar; js/dados.js criarLista (sem anunciar)"
+  },
+  {
+   "nome": "Trazer da nuvem para o aparelho (segundo aparelho, navegador limpo)",
+   "area": "Sistema",
+   "noOriginal": "Entrou, está tudo lá.",
+   "noLetterbooks": "Não existe. Nenhuma função lê as PRÓPRIAS leituras/marcadores/listas de volta: Nuvem só expõe feed, feedGeral, leiturasDe, perfilDe (nuvem.js:317-344) e o app só as usa para telas sociais. Nuvem.migrar (nuvem.js:475) é mão única e roda uma vez por conta (jaMigrou, nuvem.js:436).",
+   "estado": "ausente",
+   "evidencia": "js/nuvem.js:475 migrar; js/nuvem.js retorna nenhuma função de leitura do próprio diário"
+  },
+  {
+   "nome": "Migração do diário local para a conta",
+   "area": "Sistema",
+   "noOriginal": "Não se aplica — não há modo local no original.",
+   "noLetterbooks": "NOVO. Nuvem.migrar (js/nuvem.js:475) sobe livros → leituras → marcadores → listas em lotes de 50, com progresso, sem apagar nada do aparelho, e marca a data para não duplicar. Interface em pintarConta (app.js:2593, bloco 'Trazer o diário deste aparelho').",
+   "estado": "completo",
+   "evidencia": "js/nuvem.js:475 migrar; js/app.js:2593 pintarConta"
+  },
+  {
+   "nome": "Exportar e importar os dados",
+   "area": "Sistema",
+   "noOriginal": "Exporta CSV nas configurações e importa de Letterboxd/IMDb/CSV.",
+   "noLetterbooks": "exportarArquivo (js/app.js:1373) baixa um JSON próprio e Dados.importar (js/dados.js) lê de volta o mesmo formato. Não exporta CSV e não importa nada de fora — quem vem de Goodreads ou Skoob não tem porta de entrada.",
+   "estado": "parcial",
+   "evidencia": "js/app.js:1373 exportarArquivo; js/dados.js importar (exige d.versao)"
+  },
+  {
+   "nome": "Privacidade do perfil e do diário",
+   "area": "Sistema",
+   "noOriginal": "Dá para marcar registros como privados e limitar quem vê.",
+   "noLetterbooks": "Tudo é público por decisão de esquema: 'perfis são públicos', 'diário é público', 'marcadores são públicos', 'listas são públicas' (servidor/esquema.sql:184-212). Não há chave de privacidade em lugar nenhum da interface.",
+   "estado": "ausente",
+   "evidencia": "servidor/esquema.sql:184-212 políticas RLS"
+  },
+  {
+   "nome": "Apagar a conta",
+   "area": "Sistema",
+   "noOriginal": "Existe nas configurações.",
+   "noLetterbooks": "Só 'Sair desta conta' (pintarConta, js/app.js:2593) e 'Apagar tudo' local (telaPerfil, ação 'limpar'). A conta e os dados no servidor permanecem, sem caminho na tela.",
+   "estado": "ausente",
+   "evidencia": "js/app.js:2593 pintarConta; js/app.js:1219 telaPerfil ação limpar"
+  }
+ ],
+ "lacunas": [
+  {
+   "titulo": "Nada desce da nuvem: entrar em outro aparelho mostra um diário vazio",
+   "porque": "Hoje a sincronização é mão única. Sinc sobe leituras e marcadores (js/sinc.js:128) e Nuvem.migrar sobe o resto uma vez (js/nuvem.js:475), mas não existe nenhuma função que leia o SEU diário de volta — Nuvem só sabe ler feed, feedGeral, leiturasDe e perfilDe. Na prática: você cria conta no computador, migra, instala o PWA no iPhone, entra — e o app está vazio. Pior, ele te oferece 'Trazer o diário deste aparelho' de novo (jaMigrou é por aparelho, no localStorage, js/nuvem.js:436), o que sobe um diário vazio ou duplica o que já está lá. É a diferença entre 'tenho conta' e 'não tenho conta nenhuma'.",
+   "esforco": "G"
+  },
+  {
+   "titulo": "A nota da comunidade não existe — a ficha mostra o SEU histograma e chama de 'Avaliações'",
+   "porque": "Em desenhaLivro, `var e = Dados.estatisticas()` (js/app.js:683) alimenta o bloco 'Avaliações' (js/app.js:707). Isso é a distribuição das SUAS notas em geral: o mesmo gráfico, com o mesmo número grande ao lado, aparece idêntico em todo livro do acervo — inclusive em livro que você nunca leu. É a promessa central do Letterboxd (saber o que o mundo achou antes de ler) invertida em ruído, e é enganosa porque o rótulo diz o contrário. O dado já está no banco e é público por RLS (servidor/esquema.sql:197): falta um select agregado sobre leituras por livro.",
+   "esforco": "M"
+  },
+  {
+   "titulo": "A ficha do livro é uma ilha: ninguém da sua rede aparece nela",
+   "porque": "telaLivro (js/app.js:620) só chama API.detalhe e lê o Dados local — zero chamadas à Nuvem. Então você segue dez leitoras, três resenharam o livro que você está abrindo, e a ficha não diz nada. No original é o principal motivo de abrir a ficha: ver as resenhas dos amigos ali, no contexto. Sem isso, o social do Letterbooks vive todo dentro de uma aba (#/atividade) e nunca encosta no livro.",
+   "esforco": "M"
+  },
+  {
+   "titulo": "Listas não existem na nuvem depois da migração — nem sobem, nem aparecem para ninguém",
+   "porque": "Dados.criarLista e Dados.alternarNaLista não chamam anunciar (js/dados.js), então a Sinc nunca fica sabendo; e Sinc.enviar (js/sinc.js:128) só conhece leitura e marcador. As tabelas listas/lista_itens só recebem dado no migrar (js/nuvem.js:537), uma vez na vida. Resultado: toda lista criada depois disso morre no aparelho, some se você limpar o navegador, e nenhuma tela lê as listas de outra pessoa (telaLeitor não consulta 'listas'). Uma das três abas do topo do original está, na prática, offline.",
+   "esforco": "M"
+  },
+  {
+   "titulo": "A sua resenha não tem link para mandar para alguém",
+   "porque": "São duas telas desconectadas: telaResenha (js/app.js:934) é a sua, local, em #/resenha/<id do aparelho> — não abre para mais ninguém, e não tem curtida nem comentário; desenhaLeitura (js/app.js:2259) é a versão pública em #/leitura/<uuid>, com tudo, mas só existe depois de sincronizar e nenhuma tela sua oferece esse endereço. Você escreve a melhor resenha da sua vida e o único botão de compartilhar entrega uma imagem PNG (cartaoDeCompartilhar, js/app.js:1659) — bonita, mas sem o texto e sem para onde clicar.",
+   "esforco": "M"
+  },
+  {
+   "titulo": "Ninguém tem rosto: o feed inteiro é letra em círculo",
+   "porque": "Todo avatar do app é a inicial do nome (js/app.js:1238, :2035, :2172, :2267, :2346) e a tabela perfis não tem coluna de foto (servidor/esquema.sql:16). Num feed social, é isso que faz uma lista de linhas parecer gente ou parecer tabela. E o mapa é explícito sobre o original: 'retrato redondo centralizado' (t084). Precisa de bucket no Supabase Storage + coluna + upload; é trabalho, mas é o que separa 'protótipo social' de 'rede'.",
+   "esforco": "M"
+  },
+  {
+   "titulo": "Sem notificações, a reciprocidade não fecha",
+   "porque": "Curtir, comentar e seguir já funcionam (js/app.js:2102, :2259, :2223), mas nada avisa a pessoa do outro lado — não há tabela de notificação nas 10 do esquema, nem rota no roteador (js/app.js:2726). Alguém comenta a sua resenha e você só descobre se abrir aquela leitura por acaso. É o motor que faz voltar ao app; sem ele, a camada social já construída fica parada.",
+   "esforco": "G"
+  },
+  {
+   "titulo": "O feed só sabe dizer 'leu'",
+   "porque": "CAMPOS_FEED (js/nuvem.js:310) traz apenas colunas de leitura e htmlLinhaFeed (js/app.js:2017) só monta 'fulana leu/releu Título ★★★★'. Curtidas, comentários, novas seguidas e listas criadas não geram linha nenhuma. O feed do original é vivo porque mistura tipos; este mostra uma coisa só, e num acervo de leitores lentos isso significa um feed que quase não se mexe.",
+   "esforco": "M"
+  },
+  {
+   "titulo": "O perfil alheio é raso demais para dar vontade de seguir",
+   "porque": "desenhaLeitor (js/app.js:2166) mostra @, bio, contagens, 10 resenhas e um trilho de leituras. Não mostra os quatro favoritos, a estante, as listas nem o histograma — que é justamente o que faz você decidir se aquela pessoa lê como você. Os dados são todos públicos por RLS (servidor/esquema.sql:203, :207); falta consultar.",
+   "esforco": "M"
+  },
+  {
+   "titulo": "Tocar numa capa da grade nunca abre a capa",
+   "porque": "htmlCartao (js/app.js:177) leva sempre à ficha, e não há visor em tela cheia (t030 do mapa). Em livro isso dói mais do que em filme: a capa é onde mora o título, muitas capas do acervo são ilegíveis no tamanho da grade, e htmlCapa (js/app.js:160) já resolve o encaixe com contain sobre o borrado — falta só a tela que mostra inteiro, com as ações embaixo e o deslizar para o próximo.",
+   "esforco": "M"
+  },
+  {
+   "titulo": "Criar e renomear lista abre caixinha do navegador",
+   "porque": "telaListas (js/app.js:1101) e telaLista (js/app.js:1135-1143) usam prompt(). Num PWA instalado na tela do iPhone, o prompt do sistema quebra a ilusão de app na hora — cinza, em inglês em alguns casos, sem a descrição no mesmo passo, sem cancelar de verdade. O app inteiro tem folhas próprias bem feitas (abrirFolhaListas, js/app.js:1904); esta é a única porta que ainda é do navegador.",
+   "esforco": "P"
+  },
+  {
+   "titulo": "A aba Resenhas mostra só as suas",
+   "porque": "telaResenhas (js/app.js:1002) filtra Dados.logs(). No original, Reviews é da sua rede — é onde você lê os outros. Aqui ela repete o que o Diário já mostra, e as resenhas alheias ficam escondidas dentro de #/atividade. Os dados já estão à mão (Nuvem.feed, js/nuvem.js:317): é basicamente reaproveitar htmlLinhaFeed.",
+   "esforco": "P"
+  },
+  {
+   "titulo": "Denunciar existe no servidor e não existe na tela",
+   "porque": "Tabela denuncias, política de insert (servidor/esquema.sql:139 e :237) e Nuvem.denunciar (js/nuvem.js:426) estão prontos, e a palavra 'denunciar' não aparece nenhuma vez em js/app.js. Enquanto o feed geral ('Todo mundo') mostra texto de estranhos, não há nenhum caminho de moderação para quem usa — e o caro já foi feito.",
+   "esforco": "P"
+  },
+  {
+   "titulo": "Não há como apagar a conta, nem tornar o diário privado",
+   "porque": "pintarConta (js/app.js:2593) só oferece 'Sair desta conta'; 'Apagar tudo' (telaPerfil) apaga só o aparelho. E o esquema é público por decisão em todas as tabelas (servidor/esquema.sql:184-212), sem chave de privacidade em lugar nenhum. Para um app que pede e-mail e publica o que a pessoa lê, a porta de saída e o controle de exposição não são detalhe de configuração.",
+   "esforco": "M"
+  },
+  {
+   "titulo": "Nenhuma porta de entrada para quem já tem diário em outro lugar",
+   "porque": "Dados.importar (js/dados.js) exige o formato próprio (d.versao) e exportarArquivo (js/app.js:1373) escreve JSON. O original importa de Letterboxd, IMDb e CSV. Quem já mantém Goodreads ou Skoob há anos chega no Letterbooks e encontra um diário vazio, com a alternativa de redigitar 300 livros — que é o mesmo que não chegar.",
+   "esforco": "M"
+  }
+ ],
+ "observacoes": "Três avisos antes de usar este inventário.\n\n1) docs/mapa_dados.py está DESATUALIZADO em relação ao código. Ele marca t074 (feed de amigos) e t082 como 'falta' e diz que a resenha foi reconstruída 'menos as curtidas e os comentários' — mas hoje existem telaAtividade (js/app.js:1959), telaLeitor (:2127), telaLeitura com comentários (:2241), telaGente (:2409), seguir (:2223) e curtir (:2102). A camada social do mapa já nasceu. O que o mapa ainda acerta: t030 (visor de capa) e t034 (filtros) continuam ausentes; t090 e t102 continuam parciais.\n\n2) O achado mais incômodo não está no mapa: o bloco 'Avaliações' da ficha do livro (js/app.js:683 e :707) mostra o histograma global do próprio usuário, não as notas daquele livro. Não é uma lacuna de feature — é uma tela que afirma uma coisa e mostra outra, e é a mais fácil de tomar por pronta em revisão visual, porque o gráfico está lá, bonito, no lugar certo.\n\n3) Sobre a regra de identidade. Encontrei três coisas que NÃO existem no Letterboxd e estão no Letterbooks: o cartão de imagem para compartilhar (cartaoDeCompartilhar, js/app.js:1659), a meta de leitura do ano com barra de progresso (telaPerfil), e todo o modo local com migração para a conta (js/nuvem.js:475). As três estão marcadas como novas no campo noOriginal das entradas correspondentes. Vale manter essa marcação em qualquer material de apresentação: a aba Estante também vai além do original (o Letterboxd só tem watchlist; aqui são quatro seções, js/app.js:1044), e a busca por Autores/Leitores substitui — não copia — o escopo 'Cast, Crew or Studios'.\n\nCoisas que verifiquei e estão sólidas, para não gastarem tempo revisando: a ordem local-primeiro da Sinc com fila persistida (js/sinc.js), a recusa de subir com chave service_role (js/nuvem.js:44-57), a exclusão deliberada do Supabase do cache do service worker (sw.js), o PATCH que recria a leitura se a linha sumiu (js/nuvem.js:260) e a limpeza de assuntos duplicados da Open Library (js/api.js:161 limparAssuntos)."
+}

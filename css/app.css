@@ -362,6 +362,10 @@ img { display: block; max-width: 100%; }
    topo da ficha, que lia como tela inacabada. O brilho baixo e a saturacao
    alta transformam a capa clara numa atmosfera escura com a cor dela, em vez
    de um borrao cinza. */
+/* Livro sem capa: a casca continua, com o degrau de superficie, para o
+   chevron de voltar ter onde pousar. */
+.heroi-vazio { background: var(--superficie-2); }
+
 .heroi-imagem {
   position: absolute; inset: -40px;
   background-size: cover; background-position: center 30%;
@@ -1141,6 +1145,7 @@ img { display: block; max-width: 100%; }
   /* O fundo do app ocupa quase metade da tela e e bem mais presente do que
      o meu era: com 220px e opacidade .75 a capa desfocada sumia. */
   .heroi { height: 300px; }
+
   .heroi-imagem { filter: blur(22px) saturate(2.2) brightness(.45); }
   .heroi + .livro-colunas { margin-top: -150px; }
 
@@ -1339,7 +1344,8 @@ img { display: block; max-width: 100%; }
 
 .secao > h2 a.seta::after,
 .feed-acoes button::after, .feed-acoes a::after,
-.comentario-apagar::after {
+.comentario-apagar::after,
+.voltar::after {
   content: ""; position: absolute; inset: -13px;
 }
 

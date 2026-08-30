@@ -1,0 +1,147 @@
+{
+ "posicionamento": "Letterbooks é o diário de leitura de quem lê em português — um lugar onde cada livro terminado vira uma linha com data, nota de meia em meia estrela e o que você achou na época. Não é um leitor de e-books, não é uma loja e não é uma rede de recomendação por algoritmo: é o registro do que passou pelas suas mãos, escrito por você, guardado primeiro no seu aparelho. A arquitetura de navegação e a gramática de avaliação são declaradamente inspiradas no Letterboxd; o acervo é o catálogo aberto da Open Library; a parte social existe e é opcional. É um app da web que instala na tela de início do iPhone — sem loja, sem download, sem cadastro obrigatório. O site de apresentação existe para uma pessoa entender, em trinta segundos e sem criar conta, que ela está diante de um caderno e não de um serviço.",
+ "promessa": "Um ano depois você ainda vai saber o que leu, quando terminou e o que achou naquele dia — não o que acharia hoje.",
+ "tomDeVoz": [
+  "Fala com quem lê, nunca sobre o sistema: 'você registra', não 'o app permite registrar'. Se a frase começa com o nome do produto como sujeito de um verbo de capacidade, reescreve.",
+  "Verbo no infinitivo nos botões, como já é no app: Registrar leitura, Criar conta, Entrar, Compartilhar. Nada de 'Vamos lá!', 'Bora?' ou primeira pessoa do plural fingindo intimidade.",
+  "Concreto em vez de adjetivo. Não 'experiência elegante de leitura', e sim 'a célula do mês atravessa as linhas daquele mês'. Toda promessa tem que apontar para algo que existe na tela.",
+  "Diz o preço de cada escolha. 'Sem conta, nada sai do seu navegador — e some se você limpar os dados do site.' Honestidade sobre limitação é o que separa isto de material de marketing.",
+  "Português do Brasil, direto e sem gerundismo. Frases curtas. Travessão em vez de parênteses. Ponto final em vez de reticências animadas.",
+  "Sem exclamação, sem emoji, sem CAPS de entusiasmo. O único destaque tipográfico é escala e cor.",
+  "A inspiração é dita, nunca escondida, e nunca vendida como parentesco: 'inspirado no Letterboxd', jamais 'o Letterboxd dos livros, oficial'. Feature que não vem de lá é marcada como nossa, em voz alta.",
+  "Nunca usa 'usuário'. É 'você', ou 'quem lê'."
+ ],
+ "paleta": [
+  {
+   "hex": "#14181c",
+   "papel": "Fundo da página inteira. É a cor medida no vídeo do app original e a mesma do theme-color e do background_color do manifesto — a tela do site e a tela do app começam idênticas, sem emenda visível quando alguém abre o Letterbooks a partir daqui."
+  },
+  {
+   "hex": "#1b2228",
+   "papel": "Segundo plano: faixas de seção alternadas, o bloco do aviso de independência, o fundo atrás dos exemplos de tela. É o que dá respiro sem introduzir uma cor nova."
+  },
+  {
+   "hex": "#22282e",
+   "papel": "Superfície de cartão. Todo bloco que se lê como objeto — os quatro cartões de 'o que aqui é nosso', as caixas do diagrama de sincronização — vive nesta cor."
+  },
+  {
+   "hex": "#2c3440",
+   "papel": "Superfície elevada: cabeçalho da tabela do diário na seção de destaque, estado de foco, chips de navegação interna do site."
+  },
+  {
+   "hex": "#34404a",
+   "papel": "Borda e traço. Linhas do diagrama, divisórias da tabela, contorno de botão secundário. Nunca é texto."
+  },
+  {
+   "hex": "#ddeeff",
+   "papel": "Texto principal: títulos e corpo. No site ele carrega a escala grande do herói, que o app não tem."
+  },
+  {
+   "hex": "#99aabb",
+   "papel": "Texto secundário: subtítulos, legendas de exemplo, numeração das listas."
+  },
+  {
+   "hex": "#667788",
+   "papel": "Texto terciário e versalete. É o cinza dos rótulos em caixa alta (AVALIAÇÕES, FAVORITOS, DETALHES), o mês na coluna alta do diário, e o 'books' da marca. É também o texto do aviso de independência."
+  },
+  {
+   "hex": "#00e054",
+   "papel": "Verde — o que você fez. Estrelas, botão de ação primária ('Abrir o Letterbooks'), a marca de leitura concluída, a primeira caixa do diagrama de sincronização. Papel fixo, herdado do app: não vira decoração nem cor de destaque genérica."
+  },
+  {
+   "hex": "#40bcf4",
+   "papel": "Azul — onde você está. Links do site, seção ativa na navegação interna, numeração dos três passos de instalação. Nunca é botão de ação."
+  },
+  {
+   "hex": "#ff8000",
+   "papel": "Laranja — o que você gostou. Curtida (♥), favorito (★) e, no site, a tarja NOVO dos recursos que não vêm do Letterboxd. Este segundo uso é a única extensão de papel que o site faz, e é coerente: laranja já é a cor do que é escolhido a dedo."
+  },
+  {
+   "hex": "#08120b",
+   "papel": "Texto por cima do verde. Existe só para o rótulo dentro do botão primário ficar legível — verde puro com texto branco não passa em contraste."
+  }
+ ],
+ "tipografia": "Inter, de Rasmus Andersson, sob SIL Open Font License — a mesma do app, hospedada no próprio site em dois arquivos woff2 (latin e latin-ext, variável de 400 a 800), nunca por CDN. É a grotesca livre mais próxima da Graphik do original: mesmo x-alto generoso, mesmo espaçamento fechado, desenhada para interface. Ajustes do app que o site herda: letter-spacing −0.006em no corpo, font-feature-settings 'kern' 1 e 'liga' 1. A liberdade do site está na ESCALA, não na fonte. Escala do site (o app não vai além de 19px): herói 64px/1.02 peso 800 com letter-spacing −0.032em no computador, 34px/1.08 no celular; título de seção 34px peso 800, letter-spacing −0.022em; olho/subtítulo 20px peso 400 em #99aabb com line-height 1.5; corpo 17px/1.65 (o app usa 15px/1.5 — aqui se lê parágrafo, não interface); rótulo versalete 11px peso 700, letter-spacing 0.09em, caixa alta, cor #667788. A marca sempre em peso 800 com letter-spacing −0.028em, 'Letter' em #ddeeff e 'books' em #667788 — exatamente como está em .marca b e .marca b i no app. Medida de leitura travada em 62ch para não virar parede de texto no monitor largo.",
+ "secoesDoSite": [
+  {
+   "secao": "heroi",
+   "titulo": "Todo livro que você leu, e o que você achou na época.",
+   "texto": "O Letterbooks é um diário de leitura. Você busca o livro, dá de meia a cinco estrelas, marca o dia em que terminou e escreve o que quiser. Um ano depois está tudo lá, com a nota daquele dia. Abre no navegador, instala na tela de início do iPhone e funciona sem internet. Você pode começar agora, sem conta.",
+   "visual": "Fundo #14181c sangrando na tela toda. A marca grande no alto — as três lombadas em verde, azul e laranja sobre a prateleira clara, ao lado de Letterbooks com 'books' em #667788. O título em Inter 800 a 64px, que é uma escala que o app nunca usa, seguido do olho a 20px em #99aabb. Os dois botões lado a lado: o primeiro em verde #00e054 com texto #08120b, o segundo só com borda #34404a. Ao fundo, à direita e cortado pela margem, um recorte de verdade do diário em tabela, a 35% de opacidade, com a coluna do mês atravessando as linhas — o produto aparece antes de qualquer promessa."
+  },
+  {
+   "secao": "diario",
+   "titulo": "O diário é uma tabela, e é isso que faz ele valer.",
+   "texto": "Cada leitura é uma linha: mês, dia, capa, título, ano, nota. A célula do mês atravessa todas as linhas daquele mês, então o seu ano se lê de cima para baixo sem você contar nada. Releu o mesmo livro? É uma linha nova, com o ↺ do lado — a leitura antiga não é sobrescrita, e as duas notas continuam contando no histograma. Escreveu resenha? O ≡ abre ela no endereço dela. Marcou spoiler? Fica coberto até alguém tocar.",
+   "visual": "O momento de destaque da página, e a única seção que sangra de borda a borda. Uma tabela de diário real, dez linhas, dois meses, sobre #1b2228: JAN e FEV na célula alta à esquerda em versalete #667788, capas pequenas, notas em estrelas #00e054, ♥ em #ff8000 e ↺ e ≡ em #667788 ao lado da nota. Cabeçalho em #2c3440. No celular a tabela rola dentro do próprio contêiner com overflow-x auto — a página nunca rola de lado."
+  },
+  {
+   "secao": "meia-estrela",
+   "titulo": "De meia em meia estrela.",
+   "texto": "A metade esquerda da estrela vale meia nota, a metade direita vale a estrela inteira. Pelo teclado, as setas sobem e descem de 0,5 em 0,5 e o controle anuncia o valor em voz alta. Dois livros de quatro estrelas quase nunca são a mesma coisa — a meia estrela é onde essa diferença cabe.",
+   "visual": "Cinco estrelas grandes em #00e054 sobre #1b2228, a quinta preenchida pela metade, com o cursor parado exatamente na divisa para mostrar de onde vem o meio ponto. Ao lado, o rótulo versalete SUA NOTA em #667788 e 4,5 grande em #ddeeff. Funciona de verdade: passar o mouse ou arrastar o dedo muda as estrelas ali mesmo, sem sair da página."
+  },
+  {
+   "secao": "ficha-do-livro",
+   "titulo": "A capa vira o cenário.",
+   "texto": "Na ficha, o fundo é a própria capa do livro, ampliada e desfocada — cada livro chega com a cor dele. Embaixo vêm a sinopse, que esmaece no fim em vez de cortar no meio da frase, os assuntos, os detalhes e o histograma das suas notas com a média grande ao lado. No computador as ações ficam num painel à direita: Lido, Curtir, Quero ler, Registrar leitura, Adicionar a uma lista, Favoritar e Compartilhar. No celular o painel dá lugar a uma barra fixa que abre o cartão com as quatro funções.",
+   "visual": "Dois recortes de tela reais lado a lado — computador em três colunas (capa | texto | painel) e celular com a barra de ação fixa. Sem moldura de aparelho fotorrealista: só a tela, raio 8px e a sombra 0 10px 30px rgba(0,0,0,.5) que o app já usa. O painel direito legível o bastante para os nomes dos botões serem lidos."
+  },
+  {
+   "secao": "estante-e-listas",
+   "titulo": "Quatro prateleiras fixas e quantas listas você quiser.",
+   "texto": "A estante tem lugares definidos: quero ler, lidos, curtidos e favoritos. As listas são suas — “para reler em dezembro”, “os que a minha avó me deu”, “abandonados sem culpa”. Nelas a ordem importa, então as capas vêm numeradas, e a capa do primeiro livro vira o fundo do cabeçalho da lista.",
+   "visual": "Uma grade de capas com 1, 2, 3 grandes em #99aabb no canto inferior de cada uma, e o título sob a capa. Ao lado, os quatro nomes de prateleira empilhados em versalete #667788, com a contagem em #ddeeff à direita, no mesmo desenho das linhas de ajuste do perfil."
+  },
+  {
+   "secao": "atividade",
+   "titulo": "Se você quiser, tem gente do outro lado.",
+   "texto": "Com conta, seu perfil e seu diário ficam públicos, você segue outras pessoas e a aba Atividade traz duas listas: Seguindo e Todo mundo. Dá para curtir a resenha de alguém e comentar nela. E-mail e senha não são públicos. E nada disso é obrigatório: o diário funciona inteiro sem conta nenhuma.",
+   "visual": "Três linhas de feed empilhadas sobre #14181c: avatar circular, a frase em #ddeeff (“Marina leu”), o título do livro como link em #40bcf4, as estrelas em #00e054, duas linhas da resenha em #99aabb e as ações ♥ em #ff8000 e Comentar. A capa do livro pequena na ponta direita de cada linha."
+  },
+  {
+   "secao": "offline-e-dados",
+   "titulo": "Escreve primeiro, sincroniza depois.",
+   "texto": "O que você escreve é salvo no aparelho na hora, antes de qualquer coisa depender da rede. Depois entra numa fila e sobe sozinho quando der. No metrô, no avião, com a operadora ruim: o app abre e o seu diário está lá. Sem conta, nada sai do seu navegador — e some se você limpar os dados do site, por isso existe Exportar diário, que baixa tudo num arquivo, e Importar diário, que lê esse arquivo de volta em outro aparelho.",
+   "visual": "Um diagrama sóbrio de três caixas ligadas por setas: APARELHO, FILA, NUVEM, em versalete. A primeira caixa em #22282e com borda #00e054 e um ✓ verde — o que já aconteceu; as outras duas com borda #34404a e setas na mesma cor, para deixar claro que só a primeira é garantida. Nenhum desenho de nuvem: a palavra basta."
+  },
+  {
+   "secao": "acervo",
+   "titulo": "Mais de 40 milhões de edições, sem chave e sem cadastro.",
+   "texto": "Os livros vêm da Open Library, o catálogo aberto do Internet Archive. Você busca por título, autor ou ISBN — cola um ISBN de 10 ou 13 dígitos e ele procura pelo campo certo, não pelo texto solto. Tocar no nome de quem escreveu abre a pessoa inteira: retrato, datas, biografia e todas as obras dela no acervo, já marcadas com o que você leu. Nem toda obra tem capa cadastrada lá; quando falta, o app desenha uma lombada com o título em vez de mostrar um retângulo cinza.",
+   "visual": "Um trilho de capas reais rolando de lado, sem legenda, no ritmo da home do app. Entre elas, de propósito, uma lombada desenhada — o que o app realmente mostra quando não há imagem — para a promessa e a tela baterem."
+  },
+  {
+   "secao": "o-que-e-nosso",
+   "titulo": "O que aqui é nosso, e não veio de lá.",
+   "texto": "A arquitetura de navegação e a avaliação em meia estrela são declaradamente inspiradas no Letterboxd. Estas quatro coisas não são, e por isso vêm marcadas. A capa aparece inteira, com uma cópia desfocada dela mesma atrás, porque capa de livro não tem proporção fixa como pôster de cinema tem. As grades mostram o título embaixo da capa, porque livro se reconhece muito menos pela capa do que filme por pôster. O cartão de compartilhar é desenhado no seu próprio aparelho, num canvas, e não passa por servidor nenhum. E Exportar diário existe porque um diário que você não consegue levar embora não é seu.",
+   "visual": "Quatro cartões em #22282e, dois por linha no computador e empilhados no celular, cada um com uma tarja NOVO em #ff8000 (versalete 11px, texto #14181c) no canto superior. Sem ícone: só a tarja, um título de três palavras e o parágrafo. É o contrato de honestidade da marca, e ele fica visível, não numa nota de rodapé."
+  },
+  {
+   "secao": "instalar",
+   "titulo": "Ele mora na tela de início, não na App Store.",
+   "texto": "O Letterbooks é um app da web. No iPhone: abra no Safari, toque em Compartilhar e depois em Adicionar à Tela de Início. O ícone entra junto dos outros, abre em tela cheia, sem barra de navegador, e continua funcionando sem sinal. No Android e no computador, o próprio navegador oferece instalar. Não tem loja, não tem download e não tem atualização para baixar — quando algo melhora, já está lá na próxima vez que você abre.",
+   "visual": "Três passos numerados em linha, números grandes em #40bcf4 (azul é onde você está, e aqui é literalmente onde você está no processo). No terceiro passo, o ícone real do app, icons/icone-192.png, com o raio de canto do iOS, ao lado do botão de instalação."
+  },
+  {
+   "secao": "aviso",
+   "titulo": "Projeto independente.",
+   "texto": "O Letterbooks não tem vínculo com o Letterboxd, não é feito por eles e não fala por eles. A inspiração é declarada: a arquitetura de navegação e a gramática de avaliação vêm de lá. Os livros são da Open Library, do Internet Archive. Não há rastreador, não há anúncio e não há revenda de dado nenhum.",
+   "visual": "Bloco de texto miúdo, 13px em #667788, sobre #1b2228, largura travada em 62ch, com uma borda superior de 1px em rgba(255,255,255,.05) — a mesma linha que separa o cabeçalho do app do conteúdo. Sem caixa de alerta, sem ícone de atenção: é uma nota adulta, não um aviso legal escondido."
+  },
+  {
+   "secao": "rodape",
+   "titulo": "Letterbooks",
+   "texto": "Feito no Brasil, em português. HTML, CSS e JavaScript servidos exatamente como estão no repositório: sem framework, sem etapa de build, sem rastreador. Acervo da Open Library. Tipografia Inter, de Rasmus Andersson, sob SIL Open Font License 1.1. Paleta e proporções medidas em pixel, não estimadas no olho.",
+   "visual": "A marca em tamanho pequeno (as três lombadas a 22px e Letterbooks com 'books' em #667788), os links em #40bcf4 numa linha só, e nada mais. Fundo #14181c, o mesmo do topo — a página fecha na cor em que abriu."
+  }
+ ],
+ "nomeDosBotoes": [
+  "Abrir o Letterbooks",
+  "Começar sem conta",
+  "Criar conta",
+  "Entrar",
+  "Instalar na tela de início",
+  "Ver o código no GitHub"
+ ]
+}

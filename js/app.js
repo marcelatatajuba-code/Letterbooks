@@ -138,9 +138,13 @@
   /* A imagem de fundo das telas de detalhe, com o chevron de voltar por cima
      — nelas o cabecalho com a marca sai, e este vira o unico jeito de voltar. */
   function htmlHeroi(fundo) {
-    if (!fundo) return '';
-    return '<div class="heroi">' +
-      '<div class="heroi-imagem" style="background-image:url(' + esc(fundo) + ')"></div>' +
+    /* A casca NUNCA e condicional: so a imagem e. A rota ja escondeu o
+       cabecalho da marca, e o chevron de voltar mora aqui dentro — devolver
+       string vazia quando o livro nao tem capa deixava a pessoa presa na tela,
+       sem nenhum caminho de volta. Sem capa, sobra o degrau de superficie. */
+    return '<div class="heroi' + (fundo ? '' : ' heroi-vazio') + '">' +
+      (fundo ? '<div class="heroi-imagem" style="background-image:url(' +
+               esc(fundo) + ')"></div>' : '') +
       '<button class="voltar" data-acao="voltar" aria-label="Voltar">' +
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"' +
         ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
@@ -2077,6 +2081,11 @@
   /* O estado de "curti" nao vem no feed: seria uma subconsulta por linha. Vem
      numa consulta so, depois, e os corações acendem juntos. */
   function ligarCurtidas(raiz) {
+    /* Sem conta nao ha o que acender, e quemSou() devolve null: seguir daqui
+       estourava TypeError no visitante que abriu um link compartilhado — e a
+       excecao nasce DENTRO do callback de sucesso, onde o tratamento de erro
+       do Promise nao alcanca. */
+    if (!Nuvem.entrou()) return;
     var botoes = Array.prototype.slice.call(raiz.querySelectorAll('[data-acao=curtir-leitura]'));
     if (!botoes.length) return;
 

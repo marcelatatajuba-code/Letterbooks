@@ -362,6 +362,17 @@ with sync_playwright() as pw:
     ok(pg.eval_on_selector('.capa-imagem', "e => getComputedStyle(e).objectFit") == 'contain',
        'a capa de verdade usa contain, nao cover')
 
+    print('14. livro sem capa nao prende a pessoa na tela')
+    # A rota da ficha e imersiva: o cabecalho da marca sai. O chevron de voltar
+    # mora dentro do heroi, e o heroi so era desenhado quando havia capa —
+    # entao livro sem capa era tela sem NENHUM caminho de volta.
+    pg.goto(BASE + '#/livro/' + urllib.parse.quote('/works/OL_SEM_CAPA', safe=''))
+    pg.wait_for_timeout(1500)
+    ok(pg.locator('.voltar').count() == 1, 'o chevron de voltar existe mesmo sem capa')
+    ok(pg.locator('.heroi-imagem').count() == 0, 'e nao ha imagem de fundo para desenhar')
+    cx = pg.locator('.voltar').first.bounding_box()
+    ok(cx and cx['width'] >= 36, 'o chevron tem caixa de verdade (%.0fpx)' % (cx['width'] if cx else 0))
+
     print('11. persistencia')
     d = json.loads(pg.evaluate("() => localStorage.getItem('letterbooks:v1')"))
     ok(len(d['logs']) == 1 and d['logs'][0]['nota'] == 4.5, 'registro gravado com 4,5')
