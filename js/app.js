@@ -2369,6 +2369,20 @@
       arroba.innerHTML = '@' + esc(p.usuario) +
         (p.local ? ' · ' + esc(p.local) : '') +
         (p.bio ? '<br>' + esc(p.bio) : '');
+
+      /* O nome da conta manda. Sem isto o perfil mostrava "Leitora" — o nome
+         padrao do modo local — para quem estava entrada como outra pessoa, e
+         o app dizia dois nomes diferentes para a mesma pessoa na mesma tela
+         (o @ da conta embaixo de um nome que nao era o dela). */
+      var nome = p.nome || p.usuario;
+      var h1 = tela.querySelector('.perfil-nome');
+      var av = tela.querySelector('.avatar');
+      if (h1) h1.textContent = nome;
+      if (av) av.textContent = nome.trim().charAt(0).toUpperCase();
+      if (Dados.estado().perfil.nome !== nome) {
+        Dados.estado().perfil.nome = nome;
+        Dados.salvar();
+      }
     }).catch(function () {});
 
     Nuvem.contagemSocial(eu.id).then(function (c) {

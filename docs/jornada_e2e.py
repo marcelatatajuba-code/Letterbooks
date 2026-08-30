@@ -135,6 +135,11 @@ def rodar():
               'nao aparece "Seguindo" em lugar nenhum do meu perfil')
         checa('o meu perfil mostra o meu @', '@bruno' in meu,
               'o @ so existe na tela de conta')
+        # Ja mostrou "@bruno" embaixo do nome "Leitora" — o padrao do modo
+        # local. Dois nomes para a mesma pessoa, na mesma tela.
+        checa('e o nome e o da conta, nao o padrao local',
+              'Bruno' in pg.inner_text('.perfil-nome'),
+              pg.inner_text('.perfil-nome'))
 
         print('\n7b. e a contagem abre a lista de quem eu sigo')
         pg.click('#meu-numeros a[href^="#/seguindo"], .linhas a[href^="#/seguindo"]')
