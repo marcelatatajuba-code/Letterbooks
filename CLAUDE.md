@@ -43,6 +43,7 @@ Depois, de dentro de `docs/`:
 | `python3 jornada_e2e.py` | a jornada inteira com DUAS contas, do cadastro ao comentário |
 | `python3 testar_regressao.py` | as FORMAS de dado que já quebraram: livro sem capa, leitura órfã, perfil só com @, resenha no limite do corte |
 | `python3 rastreador.py` | anda o app sozinho: cobertura, acessibilidade, alvos de toque |
+| `psql ... -f servidor/provar-v2.sql` | a identidade das listas, num Postgres de verdade |
 | `node testar-chave.js` | a trava que recusa a chave errada do Supabase |
 | `node testar-assuntos.js` | a limpeza de assuntos da Open Library |
 
@@ -79,6 +80,12 @@ motivo. Foi assim que a suíte nasceu já achando dois defeitos vivos.
 curtida, favorito, o botão "Apagar" e a caixa de erro — quatro significados num
 token. `--perigo` existe só para o que vai sumir, e não aparece por decoração
 em lugar nenhum.
+
+**Fila é array que troca embaixo de você.** `enfileirar()` substitui o array
+inteiro quando uma mudança supera outra. Tirar o item enviado por POSIÇÃO
+(`shift()`) descartava justamente o que tinha acabado de entrar. Tire por
+identidade, sempre — e desconfie de qualquer código que assume que o índice 0
+de agora é o mesmo de antes do `await`.
 
 **Meça, não olhe.** Três vezes seguidas o layout foi ajustado no olho e errou
 do mesmo jeito: peça grande demais, densidade de site num aplicativo. O que
@@ -163,7 +170,7 @@ completa, use a skill `/ciclo`. Para só verificar, `/verificar`.
 **Quando parar de dar voltas:** não é quando o backlog acabar — ele sempre
 volta a encher. É quando `python3 docs/processo/portoes.py` fechar os dois
 portões que ele mede (fidelidade e solidez). Hoje: fidelidade **aberto** em
-57% de paridade e 6 itens, solidez **fechado**.
+59% de paridade e 5 itens, solidez **fechado**.
 
 Marque o item do backlog com `entregue` ao publicá-lo. Sem isso o portão conta
 para sempre os mesmos itens e não pode fechar nunca.

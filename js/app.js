@@ -1517,48 +1517,71 @@
      linha da imagem é a compensação disponível: a imagem É a prévia, e vai com
      o link colado. */
   function abrirFolhaCompartilharResenha(v) {
-    var url = enderecoDaResenha(v);
-    var curto = url.replace(/^https?:\/\//, '').replace(/\/index\.html/, '/');
+    abrirFolhaDeLink({
+      titulo: 'Compartilhar esta resenha',
+      sub: esc(v.titulo) + ' · qualquer pessoa abre, sem conta.',
+      url: enderecoDaResenha(v),
+      tituloShare: 'Resenha de ' + v.titulo,
+      texto: v.resenha ? recortar(v.resenha, 120) : '',
+      imagem: function () {
+        return cartaoDeCompartilhar(livroDe(v.chave), v.nota,
+                                    enderecoDaResenha(v));
+      }
+    });
+  }
+
+  /* Uma folha de link só, usada pela resenha e pela lista. A ordem é link
+     primeiro e imagem por último, ao contrário do que o app fazia: até a V4
+     "Compartilhar" só sabia mandar uma imagem, e não havia `url` em nenhuma
+     chamada de navigator.share.
+
+     LIMITE HONESTO: a rota é por hash, o servidor nunca vê o <id> e não há
+     Open Graph por página — o cartão que o WhatsApp mostra é o genérico do
+     index.html. Por isso nada aqui sugere prévia rica; onde há imagem, ela É a
+     prévia disponível, e vai com o link colado. */
+  function abrirFolhaDeLink(o) {
+    var curto = o.url.replace(/^https?:\/\//, '').replace(/\/index\.html/, '/');
     if (curto.length > 42) curto = curto.slice(0, 24) + '…' + curto.slice(-14);
     var temCopia = !!(navigator.clipboard && navigator.clipboard.writeText);
     var temShare = !!navigator.share;
 
     camada.innerHTML =
       '<div class="folha-fundo" data-fechar="fundo"><div class="folha" role="dialog" ' +
-        'aria-modal="true" aria-label="Compartilhar esta resenha">' +
-        '<h2>Compartilhar esta resenha</h2>' +
-        '<p class="folha-sub">' + esc(v.titulo) +
-          ' · qualquer pessoa abre, sem conta.</p>' +
+        'aria-modal="true" aria-label="' + esc(o.titulo) + '">' +
+        '<h2>' + esc(o.titulo) + '</h2>' +
+        '<p class="folha-sub">' + o.sub + '</p>' +
         '<div class="linhas">' +
           (temCopia
-            ? '<button data-acao="copiar-link">Copiar o link' +
+            ? '<button data-link="copiar">Copiar o link' +
               '<span class="valor">' + esc(curto) + '</span>' +
               '<span class="chevron" aria-hidden="true">›</span></button>'
             : '') +
           (temShare
-            ? '<button data-acao="mandar-link">Mandar o link' +
+            ? '<button data-link="mandar">Mandar o link' +
               '<span class="valor">pelo aparelho</span>' +
               '<span class="chevron" aria-hidden="true">›</span></button>'
             : '') +
-          '<button data-acao="mandar-imagem">Mandar como imagem' +
-            '<span class="valor">com a capa e a nota</span>' +
-            '<span class="chevron" aria-hidden="true">›</span></button>' +
+          (o.imagem
+            ? '<button data-link="imagem">Mandar como imagem' +
+              '<span class="valor">com a capa e a nota</span>' +
+              '<span class="chevron" aria-hidden="true">›</span></button>'
+            : '') +
         '</div>' +
         /* Sem clipboard (contexto não seguro, iPhone antigo) a linha vira um
            campo já selecionado — nunca um botão que não faz nada. */
         (temCopia ? '' :
           '<label class="campo" style="margin-top:16px"><span>Copie o endereço</span>' +
-          '<input id="link-resenha" readonly value="' + esc(url) + '"></label>') +
+          '<input id="link-para-copiar" readonly value="' + esc(o.url) + '"></label>') +
         '<div class="folha-rodape"><button class="botao" data-fechar="ok">Fechar</button></div>' +
       '</div></div>';
 
     var painel = camada.firstElementChild;
-    var campo = document.getElementById('link-resenha');
+    var campo = document.getElementById('link-para-copiar');
     if (campo) { campo.focus(); campo.select(); }
 
     painel.addEventListener('click', function (ev) {
-      var acao = ev.target.closest('[data-acao]');
-      if (acao) return executarCompartilhamento(acao.getAttribute('data-acao'), v, url);
+      var linha = ev.target.closest('[data-link]');
+      if (linha) return executarLink(linha.getAttribute('data-link'), o);
       var alvo = ev.target.closest('[data-fechar]');
       if (!alvo) return;
       if (alvo.getAttribute('data-fechar') === 'fundo' && ev.target !== alvo) return;
@@ -1566,23 +1589,21 @@
     });
   }
 
-  function executarCompartilhamento(acao, v, url) {
-    if (acao === 'copiar-link') {
-      return navigator.clipboard.writeText(url).then(function () {
+  function executarLink(qual, o) {
+    if (qual === 'copiar') {
+      return navigator.clipboard.writeText(o.url).then(function () {
         camada.innerHTML = '';
         aviso('Link copiado.');
       }, function () { aviso('Não consegui copiar. Segure no endereço para copiar à mão.'); });
     }
-    if (acao === 'mandar-link') {
-      var texto = v.resenha ? recortar(v.resenha, 120) : '';
-      return navigator.share({
-        title: 'Resenha de ' + v.titulo, text: texto, url: url
-      }).then(function () { camada.innerHTML = ''; },
+    if (qual === 'mandar') {
+      return navigator.share({ title: o.tituloShare, text: o.texto || '', url: o.url })
+        .then(function () { camada.innerHTML = ''; },
               function () { /* cancelar não é erro */ });
     }
-    if (acao === 'mandar-imagem') {
+    if (qual === 'imagem') {
       camada.innerHTML = '';
-      return cartaoDeCompartilhar(livroDe(v.chave), v.nota, url).then(function (msg) {
+      return o.imagem().then(function (msg) {
         if (msg) aviso(msg);
       }, function (err) { aviso('Não consegui montar a imagem: ' + err.message); });
     }
@@ -1738,51 +1759,185 @@
     });
   }
 
-  function telaLista(idLista) {
+  /* Mesma resolução em três passos da resenha, e pelo mesmo motivo: até aqui
+     #/lista/<id> só entendia o id do aparelho, então a lista não tinha
+     endereço para mandar a ninguém — e a aba Listas do original é justamente
+     onde as pessoas mandam recomendação uma para a outra. */
+  function telaLista(id) {
     marcarAba('listas');
-    var l = Dados.lista(idLista);
-    if (!l) return pintar('<p class="erro">Esta lista não existe mais.</p>');
+    var local = Dados.lista(id);
+    if (local && local.remoto) {
+      location.replace('#/lista/' + encodeURIComponent(local.remoto));
+      return;
+    }
+    if (local) return desenhaLista(daListaLocal(local));
 
-    var livros = l.livros.map(livroDe);
-    var fundo = (livros.filter(function (b) { return b.capaGrande || b.capa; })[0] || {});
-    fundo = fundo.capaGrande || fundo.capa;
-    var perfil = Dados.estado().perfil;
+    /* Pode ser a MINHA, já sincronizada — o endereço público de uma lista
+       minha continua abrindo com os botões de editar. */
+    var meu = Dados.listaPorRemoto(id);
+    if (meu) return desenhaLista(daListaLocal(meu));
+
+    if (!Nuvem.ligada()) {
+      return pintar(htmlVazio('Não achei esta lista',
+                    'A nuvem não está ligada neste aparelho.'));
+    }
+    carregando('Abrindo a lista…');
+    Nuvem.listaPorId(id).then(function (l) {
+      if (!l) return pintar(htmlVazio('Não achei esta lista',
+                            'Ela pode ter sido apagada por quem criou.'));
+      desenhaLista(daListaRemota(l));
+    }, function (err) {
+      pintar('<p class="erro">' + esc(err.message) + '</p>');
+    });
+  }
+
+  function daListaLocal(l) {
+    return {
+      id: l.remoto || l.id, idLocal: l.id, minha: true, noAr: !!l.remoto,
+      naFila: true, nome: l.nome, descricao: l.descricao || '',
+      chaves: l.livros || [], autor: Dados.estado().perfil.nome || 'Você', usuario: null
+    };
+  }
+
+  function daListaRemota(l) {
+    var p = l.perfis || {};
+    return {
+      id: l.id, idLocal: null, minha: false, noAr: true, naFila: false,
+      nome: l.nome, descricao: l.descricao || '',
+      chaves: (l.lista_itens || [])
+        .slice().sort(function (a, b) { return (a.ordem || 0) - (b.ordem || 0); })
+        .map(function (i) { return i.livro; }),
+      autor: p.nome || p.usuario || 'alguém', usuario: p.usuario || null
+    };
+  }
+
+  function desenhaLista(v) {
+    var livros = v.chaves.map(livroDe);
+    var comCapa = livros.filter(function (b) { return b.capaGrande || b.capa; })[0] || {};
+    var fundo = comCapa.capaGrande || comCapa.capa;
+
+    var autoria = v.usuario
+      ? '<a class="lista-autoria" href="#/leitor/' + encodeURIComponent(v.usuario) + '">' +
+          '<span class="avatar avatar-mini" aria-hidden="true">' +
+            esc(v.autor.trim().charAt(0).toUpperCase()) + '</span>' +
+          '<span>' + esc(v.autor) + '</span></a>'
+      : '<div class="lista-autoria">' +
+          '<span class="avatar avatar-mini" aria-hidden="true">' +
+            esc((v.autor || '?').trim().charAt(0).toUpperCase()) + '</span>' +
+          '<span>' + esc(v.autor) + '</span></div>';
+
+    /* Mesma honestidade da resenha: sem linha no servidor não existe endereço
+       para mandar, e o botão não é desenhado. */
+    var botoes = [];
+    if (v.noAr) {
+      botoes.push('<button class="botao' + (v.minha ? ' destaque' : '') +
+                  '" data-acao="compartilhar-lista">Compartilhar</button>');
+    }
+    if (v.minha) {
+      botoes.push('<button class="botao" data-acao="renomear">Renomear</button>');
+      botoes.push('<button class="botao" data-acao="descrever">Editar descrição</button>');
+      botoes.push('<button class="botao perigo" data-acao="apagar-lista">Apagar lista</button>');
+    }
+
+    var aviso = (v.minha && !v.noAr && Nuvem.ligada())
+      ? '<p class="fila-aviso">' + (Nuvem.entrou()
+          ? 'Esta lista ainda não subiu. Quando subir, ganha um endereço para mandar a alguém.'
+          : 'Esta lista fica só neste aparelho. <a href="#/conta">Crie uma conta</a> ' +
+            'para ela ter um endereço.') + '</p>'
+      : '';
 
     pintar(
       htmlHeroi(fundo) +
       '<div class="lista-cabecalho' + (fundo ? ' sobre-heroi' : '') + '">' +
-        '<div class="lista-autoria">' +
-          '<span class="avatar avatar-mini" aria-hidden="true">' +
-            esc((perfil.nome || '?').trim().charAt(0).toUpperCase()) + '</span>' +
-          '<span>' + esc(perfil.nome) + '</span>' +
-        '</div>' +
-        '<h1 class="titulo-pagina">' + esc(l.nome) + '</h1>' +
-        (l.descricao ? '<p class="lista-descricao">' + esc(l.descricao) + '</p>' : '') +
+        autoria +
+        '<h1 class="titulo-pagina">' + esc(v.nome) + '</h1>' +
+        (v.descricao ? '<p class="lista-descricao">' + esc(v.descricao) + '</p>' : '') +
         '<p class="sub-pagina" style="margin:0">' +
-          plural(l.livros.length, 'livro', 'livros') + '</p>' +
+          plural(v.chaves.length, 'livro', 'livros') + '</p>' +
+        aviso +
       '</div>' +
-      (l.livros.length ? htmlGrade(livros, '', true)
-                       : htmlVazio('Lista vazia', 'Abra a ficha de um livro e use “Adicionar a uma lista”.')) +
-      '<div class="linha-botoes" style="margin-top:28px">' +
-        '<button class="botao" data-acao="renomear">Renomear</button>' +
-        '<button class="botao" data-acao="descrever">Editar descrição</button>' +
-        '<button class="botao perigo" data-acao="apagar-lista">Apagar lista</button></div>');
+      (v.chaves.length
+        ? htmlGrade(livros, '', true)
+        : htmlVazio('Lista vazia', v.minha
+            ? 'Abra a ficha de um livro e use “Adicionar a uma lista”.'
+            : 'Quem criou ainda não pôs nenhum livro aqui.')) +
+      (botoes.length
+        ? '<div class="linha-botoes" style="margin-top:28px">' + botoes.join('') + '</div>'
+        : ''));
+
+    /* A lista de outra pessoa traz chaves de livros que este aparelho nunca
+       viu: sem isto a grade seria uma parede de "Livro" sem capa. */
+    if (!v.minha) completarLivrosDaLista(v);
 
     acoes({
+      'compartilhar-lista': function () { abrirFolhaCompartilharLista(v); },
       renomear: function () {
-        var nome = prompt('Novo nome:', l.nome);
-        if (nome && nome.trim()) { Dados.editarLista(l.id, { nome: nome.trim() }); telaLista(l.id); }
+        var nome = prompt('Novo nome:', v.nome);
+        if (nome && nome.trim()) { Dados.editarLista(v.idLocal, { nome: nome.trim() }); rotear(); }
       },
       descrever: function () {
-        var d = prompt('Descrição:', l.descricao || '');
-        if (d !== null) { Dados.editarLista(l.id, { descricao: d.trim() }); telaLista(l.id); }
+        var d = prompt('Descrição:', v.descricao || '');
+        if (d !== null) { Dados.editarLista(v.idLocal, { descricao: d.trim() }); rotear(); }
       },
-      'apagar-lista': function () {
-        if (confirm('Apagar a lista “' + l.nome + '”? Os livros continuam no seu diário.')) {
-          Dados.apagarLista(l.id);
-          ir('#/listas');
-        }
+      'apagar-lista': function () { abrirFolhaApagarLista(v); }
+    });
+  }
+
+  /* As fichas que faltam vêm da tabela comum de livros, numa consulta só, e
+     entram no cache do aparelho — a grade se repinta quando chegam. */
+  function completarLivrosDaLista(v) {
+    var faltando = v.chaves.filter(function (c) { return !Dados.livro(c); });
+    if (!faltando.length || !Nuvem.ligada()) return;
+    Nuvem.livrosPorChave(faltando).then(function (bs) {
+      if (!bs || !bs.length) return;
+      bs.forEach(function (b) {
+        Dados.guardarLivro({
+          chave: b.chave, titulo: b.titulo, autores: b.autores || [],
+          ano: b.ano, capa: b.capa, capaGrande: b.capa_grande,
+          paginas: b.paginas, edicoes: b.edicoes
+        });
+      });
+      if (location.hash.indexOf('#/lista/') === 0) desenhaLista(v);
+    }).catch(function () { /* a grade fica com as lombadas, e tudo bem */ });
+  }
+
+  function abrirFolhaCompartilharLista(v) {
+    abrirFolhaDeLink({
+      titulo: 'Compartilhar esta lista',
+      sub: esc(v.nome) + ' · qualquer pessoa abre, sem conta.',
+      url: location.origin + location.pathname + '#/lista/' + encodeURIComponent(v.id),
+      tituloShare: 'Lista: ' + v.nome,
+      texto: v.descricao || plural(v.chaves.length, 'livro', 'livros')
+    });
+  }
+
+  function abrirFolhaApagarLista(v) {
+    camada.innerHTML =
+      '<div class="folha-fundo" data-fechar="fundo"><div class="folha" role="dialog" ' +
+        'aria-modal="true" aria-label="Apagar esta lista">' +
+        '<h2>Apagar “' + esc(v.nome) + '”?</h2>' +
+        '<p class="folha-sub">A lista some daqui' + (v.noAr ? ' e do servidor' : '') +
+          '. Os ' + plural(v.chaves.length, 'livro continua', 'livros continuam') +
+          ' no seu diário.' + (v.noAr ? ' O endereço para de abrir.' : '') + '</p>' +
+        '<div class="folha-rodape">' +
+          '<button class="botao" data-fechar="ok">Cancelar</button>' +
+          '<span class="espaco"></span>' +
+          '<button class="botao perigo" data-acao="confirmar-apagar">Apagar</button>' +
+        '</div>' +
+      '</div></div>';
+
+    var painel = camada.firstElementChild;
+    painel.addEventListener('click', function (ev) {
+      if (ev.target.closest('[data-acao=confirmar-apagar]')) {
+        camada.innerHTML = '';
+        Dados.apagarLista(v.idLocal);
+        aviso('Lista apagada.');
+        return ir('#/listas');
       }
+      var alvo = ev.target.closest('[data-fechar]');
+      if (!alvo) return;
+      if (alvo.getAttribute('data-fechar') === 'fundo' && ev.target !== alvo) return;
+      camada.innerHTML = '';
     });
   }
 
@@ -2796,6 +2951,7 @@
       if (eu && eu.id === p.id) return ir('#/perfil');
 
       desenhaLeitor(p, leituras);
+      enfeitarComAsListas(usuario);
       /* Contagens e o estado do "seguir" chegam depois: a pagina ja e util
          sem eles, e sao duas idas a mais na rede. */
       Nuvem.contagemSocial(p.id).then(function (c) {
@@ -2835,6 +2991,8 @@
 
       '<div class="linhas linhas-conta" id="leitor-numeros"></div>' +
 
+      '<section class="secao" id="listas-do-leitor" hidden></section>' +
+
       (comResenha.length
         ? '<section class="secao"><h2>Resenhas</h2>' +
           comResenha.slice(0, 10).map(htmlLinhaFeed).join('') + '</section>'
@@ -2855,6 +3013,28 @@
       'ver-spoiler': revelarSpoiler
     });
     ligarCurtidas(tela);
+  }
+
+  /* As listas de outra pessoa. Chegam DEPOIS da página estar de pé, como as
+     contagens — é mais uma ida à rede, e o perfil é útil sem ela. Sem conta
+     também aparecem: a política "listas são públicas" já permite. */
+  function enfeitarComAsListas(usuario) {
+    var caixa = document.getElementById('listas-do-leitor');
+    Nuvem.listasDe(usuario).then(function (listas) {
+      if (!caixa || !document.body.contains(caixa)) return;
+      var comLivro = (listas || []).filter(function (l) {
+        return (l.lista_itens || []).length;
+      });
+      if (!comLivro.length) return;
+      caixa.innerHTML = '<h2>Listas<span class="contador">' + comLivro.length + '</span></h2>' +
+        '<div class="linhas">' + comLivro.map(function (l) {
+          return '<a href="#/lista/' + encodeURIComponent(l.id) + '">' + esc(l.nome) +
+            '<span class="valor">' +
+            plural(l.lista_itens.length, 'livro', 'livros') + '</span>' +
+            '<span class="chevron" aria-hidden="true">›</span></a>';
+        }).join('') + '</div>';
+      caixa.hidden = false;
+    }).catch(function () { /* sem as listas o perfil continua inteiro */ });
   }
 
   function atualizarBotaoSeguir(id) {

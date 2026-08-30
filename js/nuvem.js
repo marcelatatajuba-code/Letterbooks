@@ -292,8 +292,18 @@ var Nuvem = (function () {
     });
   }
 
-  function apagarLeitura(idRemoto) {
-    return tabela('leituras', '?id=eq.' + idRemoto, { metodo: 'DELETE' });
+  /* Apaga pelo id do APARELHO, nao pelo uuid do servidor. A diferenca importa:
+     quando alguem registra e apaga em seguida, o envio da leitura ainda esta no
+     ar e o aparelho nunca chegou a saber o uuid — a fila entao guardava um
+     item sem `remoto`, o apagar virava um no-op silencioso, e a linha ficava
+     VIVA no servidor com o aparelho achando que tinha ido. O aparelho e o
+     servidor discordando e a unica classe de defeito que nao da para desfazer.
+
+     O cliente_id sempre existe (e o proprio id do log), entao esta chamada
+     funciona tenha ou nao o uuid em maos, e apagar duas vezes nao quebra. */
+  function apagarLeitura(clienteId) {
+    return tabela('leituras', '?perfil=eq.' + sessao.id +
+      '&cliente_id=eq.' + encodeURIComponent(clienteId), { metodo: 'DELETE' });
   }
 
   function porMarcador(livro, tipo) {
@@ -598,21 +608,95 @@ var Nuvem = (function () {
       });
   }
 
-  /* As listas precisam do id que o banco gera antes de mandar os itens, entao
-     vao uma a uma, com return=representation. Sao poucas. */
+  /* Uma lista sobe inteira: a linha primeiro (upsert por cliente_id), os itens
+     depois. Ate aqui a migracao mandava a lista com return=representation e
+     NUNCA gravava o id de volta — entao a primeira edicao depois de migrar
+     nascia como uma lista NOVA no servidor e a pessoa via a mesma lista duas
+     vezes. E o mesmo defeito que as leituras tiveram, na outra tabela. */
+  function salvarLista(l) {
+    return tabela('listas', '?on_conflict=perfil,cliente_id', {
+      metodo: 'POST',
+      corpo: { perfil: sessao.id, cliente_id: l.id,
+               nome: l.nome, descricao: l.descricao || null },
+      cabecalhos: { Prefer: 'resolution=merge-duplicates,return=representation' }
+    }).then(function (r) {
+      var linha = (r && r[0]) || null;
+      if (!linha) return null;
+      return salvarItensDaLista(linha.id, l.livros || []).then(function () { return linha; });
+    });
+  }
+
+  /* O estado inteiro dos itens, nao o movimento: insere o que falta e apaga o
+     que sobrou. NESTA ORDEM, de proposito — se a rede cair no meio, a lista
+     fica com um item a mais, nunca vazia. Apagar primeiro seria trocar um
+     incomodo por perda de dado. */
+  function salvarItensDaLista(idRemoto, chaves) {
+    var entrar = chaves.length
+      ? emLotes('lista_itens', chaves.map(function (c, i) {
+          return { lista: idRemoto, livro: c, ordem: i };
+        }))
+      : Promise.resolve();
+
+    return entrar.then(function () {
+      var consulta = '?lista=eq.' + encodeURIComponent(idRemoto);
+      if (chaves.length) {
+        consulta += '&livro=not.in.(' + chaves.map(function (c) {
+          return '"' + c + '"';
+        }).join(',') + ')';
+      }
+      return tabela('lista_itens', consulta, { metodo: 'DELETE' });
+    });
+  }
+
+  /* Adota uma lista antiga: grava nela o cliente_id da lista que ja existe
+     neste aparelho. Mesmo remendo que as leituras ganharam, para o banco que
+     nunca rodou o backfill nao duplicar a aba inteira. */
+  function adotarLista(idRemoto, clienteId) {
+    return tabela('listas', '?id=eq.' + encodeURIComponent(idRemoto), {
+      metodo: 'PATCH', corpo: { cliente_id: clienteId },
+      cabecalhos: { Prefer: 'return=minimal' }
+    });
+  }
+
+  /* Pelo id do aparelho, pelo mesmo motivo da leitura: criar e apagar em
+     seguida deixava a lista viva la. */
+  function apagarLista(clienteId) {
+    return tabela('listas', '?perfil=eq.' + sessao.id +
+      '&cliente_id=eq.' + encodeURIComponent(clienteId), { metodo: 'DELETE' });
+  }
+
+  /* As minhas listas com os itens dentro, numa consulta so: o PostgREST faz a
+     juncao embutida e evita uma ida a rede por lista. */
+  var CAMPOS_LISTA = 'id,cliente_id,nome,descricao,criado_em,lista_itens(livro,ordem)';
+
+  function minhasListas() {
+    return tabela('listas', '?select=' + CAMPOS_LISTA +
+      '&perfil=eq.' + sessao.id + '&order=criado_em.desc');
+  }
+
+  /* As listas de outra pessoa. Publicas por politica ("listas sao publicas"),
+     entao isto abre sem conta — que e o que faz a lista alheia ter tela. */
+  function listasDe(usuario) {
+    return perfilDe(usuario).then(function (p) {
+      if (!p) return [];
+      return publico('listas', '?select=' + CAMPOS_LISTA +
+        '&perfil=eq.' + p.id + '&order=criado_em.desc');
+    });
+  }
+
+  function listaPorId(idRemoto) {
+    return publico('listas', '?select=' + CAMPOS_LISTA + ',perfil,perfis(usuario,nome)' +
+      '&id=eq.' + encodeURIComponent(idRemoto))
+      .then(function (l) { return (l && l[0]) || null; });
+  }
+
+  /* A migracao inicial passa pelo mesmo caminho de sempre, e por isso volta
+     com o id do servidor para o aparelho marcar. */
   function migrarListas(listas) {
     return listas.reduce(function (antes, l) {
       return antes.then(function () {
-        return tabela('listas', '', {
-          metodo: 'POST',
-          corpo: { perfil: sessao.id, nome: l.nome, descricao: l.descricao || null },
-          cabecalhos: { Prefer: 'return=representation' }
-        }).then(function (criada) {
-          var nova = criada && criada[0];
-          if (!nova || !l.livros.length) return null;
-          return emLotes('lista_itens', l.livros.map(function (c, i) {
-            return { lista: nova.id, livro: c, ordem: i };
-          }));
+        return salvarLista(l).then(function (linha) {
+          if (linha && linha.id) Dados.marcarRemotoLista(l.id, linha.id);
         });
       });
     }, Promise.resolve());
@@ -641,6 +725,12 @@ var Nuvem = (function () {
     salvarLivro:    salvarLivro,
     salvarLeitura:  salvarLeitura,
     adotarLeitura:  adotarLeitura,
+    salvarLista:    salvarLista,
+    adotarLista:    adotarLista,
+    apagarLista:    apagarLista,
+    minhasListas:   minhasListas,
+    listasDe:       listasDe,
+    listaPorId:     listaPorId,
     apagarLeitura:  apagarLeitura,
     porMarcador:    porMarcador,
     tirarMarcador:  tirarMarcador,

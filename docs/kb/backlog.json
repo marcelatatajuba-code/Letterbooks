@@ -48,7 +48,8 @@
    "resumo": "Duas metades. Subida: Dados.criarLista, editarLista e alternarNaLista (js/dados.js:186, 200, 214) passam a chamar anunciar — hoje só leitura, leitura-apagada e marcador chamam (js/dados.js:120, 128, 178) — e Sinc.enviar (js/sinc.js:128) ganha os tipos de lista. Leitura: telaLeitor passa a consultar a tabela listas, que é pública por RLS (servidor/esquema.sql), e a lista alheia ganha tela.",
    "valor": "Para quem cria uma lista depois de migrar. Hoje ela morre no aparelho e some se a pessoa limpar o navegador — as tabelas listas/lista_itens só recebem dado uma vez na vida, dentro de Nuvem.migrar (js/nuvem.js:537). Uma das três abas do topo do original está, na prática, offline.",
    "esforco": "M",
-   "depende": "item 1 (mesmo encanamento de fila e de descida)"
+   "depende": "item 1 (mesmo encanamento de fila e de descida)",
+   "entregue": "V5 — listas sobem, descem e a lista alheia tem tela"
   },
   {
    "ordem": 6,

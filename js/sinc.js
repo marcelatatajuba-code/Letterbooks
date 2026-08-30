@@ -85,6 +85,13 @@ var Sinc = (function () {
       return item.tipo === 'marcador' &&
              item.dado.colecao === dado.colecao && item.dado.chave === dado.chave;
     }
+    /* Trocar o nome da lista e depois por dois livros nela sao tres anuncios do
+       MESMO alvo. Vale o ultimo estado, como na leitura: o envio e por estado,
+       nao por movimento. */
+    if (tipo === 'lista' || tipo === 'lista-apagada') {
+      return (item.tipo === 'lista' || item.tipo === 'lista-apagada') &&
+             item.dado.id === dado.id;
+    }
     return false;
   }
 
@@ -102,11 +109,26 @@ var Sinc = (function () {
     rodando = true;
     var feitos = 0;
 
+    /* Tira POR IDENTIDADE, nunca por posicao. enfileirar() substitui o array
+       inteiro (filter + push), entao entre um envio comecar e terminar o
+       fila[0] pode ja ser OUTRO item: um shift() cego jogava fora justamente o
+       que tinha acabado de entrar, sem nunca ter mandado. Perda de dado
+       silenciosa — a fila zerava e a mudanca sumia.
+
+       Quando o item ja saiu do array (porque uma versao mais nova dele o
+       substituiu), isto nao faz nada, que e o certo: a versao nova continua na
+       fila e sobe na volta seguinte. */
+    function tirarDaFila(item) {
+      var i = fila.indexOf(item);
+      if (i >= 0) fila.splice(i, 1);
+      return i >= 0;
+    }
+
     function proximo() {
       if (!fila.length) return Promise.resolve();
       var item = fila[0];
       return enviar(item).then(function () {
-        fila.shift(); feitos++; gravar();
+        tirarDaFila(item); feitos++; gravar();
         return proximo();
       }, function (err) {
         item.tentativas++;
@@ -117,13 +139,16 @@ var Sinc = (function () {
            ele trava a fila para sempre. */
         var deRede = /conex|sess/i.test(err.message);
         if (deRede || item.tentativas < MAX_TENTATIVAS) {
-          if (!deRede) { fila.shift(); fila.push(item); }
+          /* Vai para o fim da fila para nao travar quem vem atras — mas so se
+             ele ainda estiver la; se foi substituido, quem manda e a versao
+             nova. */
+          if (!deRede && tirarDaFila(item)) fila.push(item);
           gravar();
           return Promise.reject(err);
         }
         console.warn('Sinc: desisti deste item apos ' + item.tentativas +
                      ' tentativas:', item.tipo, item.erro);
-        fila.shift(); gravar();
+        tirarDaFila(item); gravar();
         return proximo();
       });
     }
@@ -141,6 +166,8 @@ var Sinc = (function () {
     if (item.tipo === 'leitura')         return enviarLeitura(item.dado);
     if (item.tipo === 'leitura-apagada') return apagarLeitura(item.dado);
     if (item.tipo === 'marcador')        return enviarMarcador(item.dado);
+    if (item.tipo === 'lista')           return enviarLista(item.dado);
+    if (item.tipo === 'lista-apagada')   return apagarLista(item.dado);
     return Promise.reject(new Error('Tipo desconhecido na fila: ' + item.tipo));
   }
 
@@ -163,9 +190,34 @@ var Sinc = (function () {
     });
   }
 
+  /* Nada de `if (!reg.remoto) return`: quem registra e apaga em seguida nunca
+     chega a saber o uuid, e a guarda transformava o apagar num no-op — a
+     leitura sumia do aparelho e ficava no servidor. Apagar pelo id do aparelho
+     funciona nos dois casos e nao quebra se ela nunca tiver subido. */
   function apagarLeitura(reg) {
-    if (!reg.remoto) return Promise.resolve();   /* nunca chegou a subir */
-    return Nuvem.apagarLeitura(reg.remoto);
+    return Nuvem.apagarLeitura(reg.id);
+  }
+
+  /* A lista inteira sobe de uma vez: a linha e os itens. Os livros precisam
+     existir no acervo comum antes — a chave estrangeira exige — e vao em
+     sequencia, uma lista de 40 titulos faz 40 idas. E aceitavel porque
+     acontece uma vez por lista, nao por abertura. */
+  function enviarLista(reg) {
+    var atual = Dados.lista(reg.id) || reg;
+    var chaves = (atual.livros || []).filter(function (c) { return !!Dados.livro(c); });
+    return chaves.reduce(function (antes, c) {
+      return antes.then(function () { return garantirLivro(c); });
+    }, Promise.resolve()).then(function () {
+      return Nuvem.salvarLista({ id: atual.id, nome: atual.nome,
+                                 descricao: atual.descricao, livros: chaves });
+    }).then(function (linha) {
+      if (linha && linha.id) Dados.marcarRemotoLista(atual.id, linha.id);
+      return linha;
+    });
+  }
+
+  function apagarLista(reg) {
+    return Nuvem.apagarLista(reg.id);
   }
 
   function enviarMarcador(m) {
@@ -193,15 +245,22 @@ var Sinc = (function () {
     if (!Nuvem.ligada() || !Nuvem.entrou() || descendo) return Promise.resolve(null);
     descendo = true;
 
-    return Promise.all([Nuvem.minhasLeituras(), Nuvem.meusMarcadores()])
+    return Promise.all([Nuvem.minhasLeituras(), Nuvem.meusMarcadores(),
+                        /* Lista que nao desce nao serve: quem instala no
+                           segundo aparelho encontraria a aba vazia. Falha aqui
+                           nao derruba o resto da descida. */
+                        Nuvem.minhasListas().catch(function () { return []; })])
       .then(function (r) {
-        var leituras = r[0] || [], marcadores = r[1] || [];
+        var leituras = r[0] || [], marcadores = r[1] || [], listas = r[2] || [];
 
         /* As fichas dos livros vem numa consulta so, em vez de uma ida a rede
            por linha: um diario de 200 leituras faria 200 chamadas. */
         var chaves = {};
         leituras.forEach(function (l) { chaves[l.livro] = 1; });
         marcadores.forEach(function (m) { chaves[m.livro] = 1; });
+        listas.forEach(function (l) {
+          (l.lista_itens || []).forEach(function (i) { chaves[i.livro] = 1; });
+        });
         var faltando = Object.keys(chaves).filter(function (c) { return !Dados.livro(c); });
 
         return Nuvem.livrosPorChave(faltando).then(function (livros) {
@@ -214,13 +273,20 @@ var Sinc = (function () {
             });
           });
           var contas = Dados.fundir(leituras, marcadores);
+          var deListas = Dados.fundirListas(listas);
+          contas.listas = deListas.vieram;
+          contas.adotar = contas.adotar.concat(
+            deListas.adotar.map(function (a) { return { tabela: 'listas', remoto: a.remoto,
+                                                        cliente_id: a.cliente_id }; }));
 
           /* As linhas antigas que a fusao reconheceu por assinatura recebem o
              cliente_id no servidor. Falha aqui nao para a descida: o diario ja
              esta certo no aparelho, e a proxima abertura tenta de novo. */
           if (!contas.adotar.length) return contas;
           return Promise.all(contas.adotar.map(function (a) {
-            return Nuvem.adotarLeitura(a.remoto, a.cliente_id).catch(function () {});
+            return (a.tabela === 'listas'
+              ? Nuvem.adotarLista(a.remoto, a.cliente_id)
+              : Nuvem.adotarLeitura(a.remoto, a.cliente_id)).catch(function () {});
           })).then(function () { return contas; });
         });
       })

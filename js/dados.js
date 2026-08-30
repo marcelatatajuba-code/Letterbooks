@@ -133,6 +133,19 @@ var Dados = (function () {
     return estado.logs.filter(function (l) { return l.id === idLog; })[0] || null;
   }
 
+  function listaPorRemoto(idRemoto) {
+    if (!idRemoto) return null;
+    return estado.listas.filter(function (l) { return l.remoto === idRemoto; })[0] || null;
+  }
+
+  function marcarRemotoLista(idLista, idRemoto) {
+    var l = lista(idLista);
+    if (!l) return null;
+    l.remoto = idRemoto;
+    salvar();
+    return l;
+  }
+
   /* O caminho inverso: da linha do servidor de volta para a do aparelho. A
      pagina da resenha usa isto como plano B — se o endereco publico nao
      responde (apagado noutro aparelho, servidor fora), a resenha esta INTACTA
@@ -278,6 +291,71 @@ var Dados = (function () {
              subiram: estado.logs.length - vieram - jaEstavam };
   }
 
+  /* Junta as listas da conta com as do aparelho. Mesma regra da fusao das
+     leituras, e pelos mesmos motivos: NUNCA apaga nada daqui, e casa em tres
+     passos — cliente_id, depois remoto, depois assinatura, para o banco que
+     ainda nao rodou o backfill nao duplicar a lista inteira em silencio.
+
+     A assinatura de uma lista e o NOME. Nao inclui os itens de proposito: se
+     incluisse, a mesma lista com um livro a mais de um lado viraria duas, que
+     e exatamente o contrario do que a fusao serve para fazer. Duas listas com
+     o mesmo nome sao raras e, quando existem, virar uma so e o mal menor
+     perto de duplicar o acervo de listas de quem migrou. */
+  function fundirListas(remotas) {
+    var porCliente = {}, porRemoto = {}, orfas = {};
+    estado.listas.forEach(function (l) {
+      porCliente[l.id] = l;
+      if (l.remoto) porRemoto[l.remoto] = l;
+      else orfas[(l.nome || '').trim().toLowerCase()] = l;
+    });
+
+    var vieram = 0, jaEstavam = 0, adotar = [];
+
+    (remotas || []).forEach(function (r) {
+      var local = (r.cliente_id && porCliente[r.cliente_id]) || porRemoto[r.id];
+      if (!local && !r.cliente_id) {
+        var chave = (r.nome || '').trim().toLowerCase();
+        local = orfas[chave];
+        if (local) {
+          delete orfas[chave];
+          adotar.push({ remoto: r.id, cliente_id: local.id });
+        }
+      }
+
+      /* Os itens: a uniao dos dois lados. Some quem tirou o livro lá e ele
+         some daqui? Nao — sem um registro de "tirei", a diferenca entre "voce
+         tirou la" e "voce acrescentou aqui e ainda nao subiu" e indistinguivel,
+         e apagar no escuro e o unico erro que nao da para desfazer. */
+      var deLa = (r.lista_itens || [])
+        .slice().sort(function (a, b) { return (a.ordem || 0) - (b.ordem || 0); })
+        .map(function (i) { return i.livro; });
+
+      if (local) {
+        local.remoto = r.id;
+        local.nome = r.nome || local.nome;
+        local.descricao = r.descricao || '';
+        deLa.forEach(function (c) {
+          if (local.livros.indexOf(c) < 0) local.livros.push(c);
+        });
+        jaEstavam++;
+        return;
+      }
+
+      var nova = {
+        id: r.cliente_id || ('srv-' + String(r.id).replace(/-/g, '')),
+        remoto: r.id, nome: r.nome || 'Lista', descricao: r.descricao || '',
+        livros: deLa, criadoEm: r.criado_em || new Date().toISOString()
+      };
+      estado.listas.push(nova);
+      porCliente[nova.id] = nova;
+      porRemoto[r.id] = nova;
+      vieram++;
+    });
+
+    salvar();
+    return { vieram: vieram, jaEstavam: jaEstavam, adotar: adotar };
+  }
+
   /* ------------------------------------------------- listas de marcacao rapida */
 
   function alterna(colecao, chave, limite) {
@@ -304,6 +382,7 @@ var Dados = (function () {
     };
     estado.listas.unshift(l);
     salvar();
+    anunciar('lista', l);
     return l;
   }
 
@@ -317,12 +396,16 @@ var Dados = (function () {
     if (campos.nome !== undefined) l.nome = campos.nome;
     if (campos.descricao !== undefined) l.descricao = campos.descricao;
     salvar();
+    anunciar('lista', l);
     return l;
   }
 
   function apagarLista(idLista) {
+    var saindo = lista(idLista);
     estado.listas = estado.listas.filter(function (l) { return l.id !== idLista; });
-    return salvar();
+    salvar();
+    if (saindo) anunciar('lista-apagada', saindo);
+    return estado;
   }
 
   function alternarNaLista(idLista, chave) {
@@ -331,6 +414,10 @@ var Dados = (function () {
     var i = l.livros.indexOf(chave);
     if (i >= 0) l.livros.splice(i, 1); else l.livros.push(chave);
     salvar();
+    /* A fila manda o ESTADO da lista, nao o movimento: reenviar duas vezes o
+       mesmo estado nao duplica item nenhum, e um envio perdido se conserta
+       sozinho no proximo. */
+    anunciar('lista', l);
     return l.livros.indexOf(chave) >= 0;
   }
 
@@ -423,6 +510,9 @@ var Dados = (function () {
     apagarLog:  apagarLog,
     log:        log,
     logPorRemoto: logPorRemoto,
+    marcarRemotoLista: marcarRemotoLista,
+    listaPorRemoto: listaPorRemoto,
+    fundirListas: fundirListas,
     logs:       logs,
     logsDo:     logsDo,
     jaLeu:      jaLeu,

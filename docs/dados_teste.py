@@ -550,6 +550,10 @@ SO_DE_TELA = {
     'D38': 'área de toque — medida pelo rastreador',
     'D46': 'token de cor — medido em testar.py, seção 9b',
     'D47': 'defeito da sonda do rastreador, não do app',
+    'D48': 'fluxo de fila e de descida — coberto por testar_social, bloco listas',
+    'D49': 'corrida entre fila e envio — só reproduz com o servidor de mentira,\n            em testar_social ("a fila nao perde o que entra no meio")',
+    'D50': 'idem — testar_social, "apagar logo depois de registrar"',
+    'D51': 'identidade no banco — provado em servidor/provar-v2.sql',
     'D42': 'defeito do runner desta suíte, não do app',
     'D43': 'defeito de nomenclatura entre suítes, não do app',
 }

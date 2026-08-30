@@ -87,11 +87,12 @@ criterio(2, 'defeitos de dado com caso de regressão',
 import csv as _csv
 _defeitos = list(_csv.DictReader(open(caminho('docs/processo/defeitos.csv'),
                                       encoding='utf-8')))
-# 'apag' ficou de fora da lista: pegava "apaguei o workflow do Pages", que e
-# defeito de publicacao e nao de dado. Palavra-chave frouxa faz o portao contar
-# errado, que e o mesmo que nao contar.
-_corrompe = [d for d in _defeitos
-             if any(p in d['defeito'].lower() for p in ('duplic', 'órf', 'orf'))]
+# Coluna, nao palavra-chave. A lista de palavras ('duplic', 'orf') ja tinha
+# errado duas vezes: pegou "apaguei o workflow do Pages", que e publicacao e
+# nao dado, e DEIXOU PASSAR tres defeitos de corrupcao seguidos porque nenhum
+# deles usava as palavras da lista. Adivinhar o significado pelo texto e
+# exatamente o que a regra "meca, nao olhe" existe para nao fazer.
+_corrompe = [d for d in _defeitos if d.get('corrompe') == 'sim']
 # Preso = tem caso de regressao OU tem motivo escrito de por que dado nao
 # alcanca ele. A segunda saida nao afrouxa a regra: exige uma frase, e um
 # defeito de corrupcao NOVO sem nenhuma das duas abre o portao.

@@ -111,6 +111,21 @@ create table if not exists listas (
   criado_em timestamptz not null default now()
 );
 
+-- Mesma coluna, mesmo motivo das leituras, e o mesmo defeito esperando do
+-- outro lado: até esta linha existir, migrar mandava a lista com
+-- return=representation mas NUNCA gravava o id de volta no aparelho — então a
+-- primeira edição depois de migrar nascia como uma lista NOVA no servidor, e a
+-- pessoa via a mesma lista duas vezes. É o D27 de novo, na outra tabela.
+alter table listas add column if not exists cliente_id text;
+
+comment on column listas.cliente_id is
+  'Id opaco gerado no aparelho. Publicamente legível: nunca derive de e-mail.';
+
+create unique index if not exists listas_cliente
+  on listas (perfil, cliente_id) where cliente_id is not null;
+
+create index if not exists listas_perfil on listas (perfil, criado_em desc);
+
 create table if not exists lista_itens (
   lista  uuid not null references listas on delete cascade,
   livro  text not null references livros(chave),
@@ -270,6 +285,11 @@ create policy "posso denunciar"         on denuncias for insert
 -- ============================================================================
 
 update leituras
+   set cliente_id = 'srv-' || replace(id::text, '-', '')
+ where cliente_id is null;
+
+-- O mesmo para as listas que subiram na migração, antes desta coluna existir.
+update listas
    set cliente_id = 'srv-' || replace(id::text, '-', '')
  where cliente_id is null;
 

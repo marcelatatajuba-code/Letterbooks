@@ -26,6 +26,7 @@ def zerar(vazio=False):
     del pedidos[:]
     BANCO.clear()
     BANCO.update({'livros': [], 'leituras': [], 'marcadores': [], 'seguidores': [],
+                  'listas': [], 'lista_itens': [],
                   'curtidas': [], 'comentarios': [], '_contas': {}, 'perfis': [] if vazio else [
                       {'id': 'uid-1', 'usuario': 'marcela', 'nome': 'Marcela', 'bio': '', 'local': ''},
                       {'id': 'uid-2', 'usuario': 'bia', 'nome': 'Bia', 'bio': 'leio de tudo',
@@ -117,6 +118,24 @@ def servir(rota, estado):
                 saida = [x for x in saida if str(x.get(campo)) in dentro]
         if tab == 'comentarios':
             saida = [dict(x, perfis={'usuario': 'bia', 'nome': 'Bia'}) for x in saida]
+
+        # SELEÇÃO EMBUTIDA. O PostgREST devolve a tabela filha DENTRO da linha
+        # quando o select pede `lista_itens(livro,ordem)` — é o que evita uma
+        # ida à rede por lista. O mock não sabia disso e devolveria a lista sem
+        # nenhum item: o teste passaria mostrando toda lista vazia, que é
+        # exatamente o que ele existe para pegar. É a quinta vez neste projeto
+        # que o mock precisa aprender uma coisa antes de o teste valer algo.
+        sel = q.get('select', [''])[0]
+        if tab == 'listas':
+            if 'lista_itens' in sel:
+                saida = [dict(x, lista_itens=sorted(
+                    [{'livro': i['livro'], 'ordem': i.get('ordem', 0)}
+                     for i in BANCO.get('lista_itens', []) if i['lista'] == x['id']],
+                    key=lambda i: i['ordem'])) for x in saida]
+            if 'perfis' in sel:
+                saida = [dict(x, perfis=next(
+                    (dict(usuario=p['usuario'], nome=p['nome'])
+                     for p in BANCO['perfis'] if p['id'] == x['perfil']), {})) for x in saida]
         return j(saida)
 
     if r.method == 'POST':
@@ -141,6 +160,17 @@ def servir(rota, estado):
                     continue
             if tab == 'livros':
                 linhas[:] = [x for x in linhas if x['chave'] != n['chave']]
+            # lista_itens tem chave (lista, livro) e NENHUM id: sem isto o mock
+            # aceitaria o mesmo livro duas vezes na mesma lista, e o teste de
+            # "reenviar não duplica" passaria verde contra um banco que duplica.
+            if tab == 'lista_itens':
+                iguais = [x for x in linhas
+                          if x['lista'] == n['lista'] and x['livro'] == n['livro']]
+                if iguais:
+                    iguais[0].update(n)
+                    continue
+                linhas.append(n); criadas.append(n)
+                continue
             if tab in ('marcadores', 'curtidas', 'seguidores') and 'ignore-duplicates' in prefer:
                 iguais = [x for x in linhas if all(x.get(k) == n.get(k) for k in n if k != 'criado_em')]
                 if iguais: continue
@@ -160,6 +190,14 @@ def servir(rota, estado):
         antes = len(linhas)
         def bate(x):
             for campo, v in q.items():
+                # not.in.(...) é como a subida tira da lista o livro que saiu.
+                # Sem isto o mock apagaria TUDO que casasse com o `lista=eq.`,
+                # ou seja, esvaziaria a lista a cada envio — e o teste diria que
+                # está tudo bem.
+                if v[0].startswith('not.in.'):
+                    fora = [y.strip('"') for y in v[0][8:-1].split(',') if y]
+                    if str(x.get(campo)) in fora: return False
+                    continue
                 if not v[0].startswith('eq.'): continue
                 if str(x.get(campo)) != v[0][3:]: return False
             return True
@@ -535,6 +573,164 @@ def rodar():
               'so neste aparelho' in pg.inner_text('.fila-aviso')
               .replace('só', 'so').replace('ó', 'o'),
               pg.inner_text('.avaliacoes'))
+        nav.close()
+
+        # ======================= a fila nao perde o que entra no meio ==========
+        # enfileirar() substitui o array inteiro (filter + push) quando uma
+        # mudanca nova supera uma que ja estava na fila. O empurrar() tirava o
+        # item enviado com fila.shift() — por POSICAO. Se a substituicao
+        # acontecesse enquanto o envio estava no ar, o shift jogava fora
+        # justamente a mudanca nova, sem nunca ter mandado: a fila zerava e a
+        # alteracao sumia, sem um erro na tela.
+        #
+        # POR QUE ESTE CAMINHO, e nao "editar a resenha duas vezes": naquele,
+        # enviarLeitura guarda uma REFERENCIA ao log e so le o conteudo quando
+        # a promessa anterior resolve — entao a segunda edicao pega carona no
+        # primeiro envio e o defeito fica invisivel. Aqui nao ha carona: apagar
+        # e outra operacao, e se o item cair, a leitura fica apagada no
+        # aparelho e VIVA no servidor. O aparelho e o servidor discordam, que e
+        # a unica classe de defeito que nao da para desfazer.
+        print('\nfila: apagar logo depois de registrar nao se perde')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        pg.reload(wait_until='networkidle')
+        pg.evaluate("""() => {
+          const r = Dados.registrar({chave:'/works/OL1W', nota:4.0,
+                                     resenha:'vai e volta', lidoEm:'2026-08-20'});
+          Dados.apagarLog(r.id);
+        }""")
+        pg.wait_for_timeout(2200)
+        checa('a fila esvaziou', pg.evaluate('() => Sinc.pendentes()') == 0)
+        checa('o aparelho ficou sem a leitura',
+              pg.evaluate("() => JSON.parse(localStorage.getItem('letterbooks:v1')).logs.length") == 0)
+        checa('e o servidor tambem — nao ficou uma leitura fantasma la',
+              len(BANCO['leituras']) == 0, '%d linhas no banco' % len(BANCO['leituras']))
+        nav.close()
+
+        # ============================ listas na nuvem =========================
+        # Ate aqui as tabelas listas/lista_itens so recebiam dado UMA VEZ na
+        # vida, dentro de Nuvem.migrar. Lista criada depois disso morria no
+        # aparelho e sumia se a pessoa limpasse o navegador — uma das tres abas
+        # do topo do original estava, na pratica, offline.
+        print('\nlistas: criar, editar e mexer sobem para o banco')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        BANCO['livros'].append({'chave': '/works/OL2W', 'titulo': 'A Hora da Estrela',
+                                'autores': ['Clarice Lispector'], 'ano': 1977})
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        pg.evaluate("""(l) => { const d = JSON.parse(localStorage.getItem('letterbooks:v1'));
+          d.livros['/works/OL2W'] = l;
+          localStorage.setItem('letterbooks:v1', JSON.stringify(d)); }""",
+          {'chave': '/works/OL2W', 'titulo': 'A Hora da Estrela',
+           'autores': ['Clarice Lispector'], 'ano': 1977})
+        pg.reload(wait_until='networkidle')
+
+        pg.evaluate("() => { const l = Dados.criarLista('Brasileiros', 'os daqui');"
+                    "  Dados.alternarNaLista(l.id, '/works/OL1W'); }")
+        pg.wait_for_timeout(1400)
+        checa('a lista subiu para o banco', len(BANCO['listas']) == 1,
+              '%d listas' % len(BANCO['listas']))
+        if BANCO['listas']:
+            checa('com nome e descricao', BANCO['listas'][0]['nome'] == 'Brasileiros' and
+                  BANCO['listas'][0]['descricao'] == 'os daqui')
+            # A coluna que nao existia: sem ela, editar depois de migrar criava
+            # uma lista NOVA no servidor. E o D27, na outra tabela.
+            checa('e com o id do aparelho junto, que e o que evita duplicar',
+                  bool(BANCO['listas'][0].get('cliente_id')))
+        checa('e o livro entrou como item', len(BANCO['lista_itens']) == 1,
+              str(BANCO['lista_itens']))
+
+        print('\nlistas: editar NAO cria uma segunda')
+        pg.evaluate("() => { const l = Dados.estado().listas[0];"
+                    "  Dados.editarLista(l.id, {nome: 'Brasileiros de sempre'}); }")
+        pg.wait_for_timeout(1200)
+        checa('continua UMA lista no banco', len(BANCO['listas']) == 1,
+              '%d listas' % len(BANCO['listas']))
+        checa('com o nome novo', BANCO['listas'][0]['nome'] == 'Brasileiros de sempre')
+
+        print('\nlistas: tirar um livro tira so ele')
+        pg.evaluate("() => { const l = Dados.estado().listas[0];"
+                    "  Dados.alternarNaLista(l.id, '/works/OL2W'); }")
+        pg.wait_for_timeout(1200)
+        checa('dois livros na lista', len(BANCO['lista_itens']) == 2,
+              str([i['livro'] for i in BANCO['lista_itens']]))
+        pg.evaluate("() => { const l = Dados.estado().listas[0];"
+                    "  Dados.alternarNaLista(l.id, '/works/OL1W'); }")
+        pg.wait_for_timeout(1200)
+        checa('sobra so o que ficou', [i['livro'] for i in BANCO['lista_itens']] == ['/works/OL2W'],
+              str([i['livro'] for i in BANCO['lista_itens']]))
+
+        print('\nlistas: apagar leva do banco tambem')
+        pg.evaluate("() => { const l = Dados.estado().listas[0]; Dados.apagarLista(l.id); }")
+        pg.wait_for_timeout(1200)
+        checa('a lista saiu do banco', len(BANCO['listas']) == 0)
+        nav.close()
+
+        # A outra metade: descer. Quem instala no segundo aparelho encontrava a
+        # aba Listas vazia, porque nada nunca desceu.
+        print('\nlistas: descem para um aparelho zerado')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        BANCO['listas'].append({'id': 'LST-1', 'perfil': 'uid-1', 'cliente_id': 'cli-1',
+                                'nome': 'Para reler', 'descricao': 'os que valem',
+                                'criado_em': '2026-08-20T10:00:00Z'})
+        BANCO['lista_itens'].append({'lista': 'LST-1', 'livro': '/works/OL1W', 'ordem': 0})
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)              # aparelho sem lista nenhuma
+        pg.reload(wait_until='networkidle')
+        pg.wait_for_timeout(1600)
+        local = pg.evaluate("() => JSON.parse(localStorage.getItem('letterbooks:v1')).listas")
+        checa('a lista desceu para o aparelho', len(local) == 1, str(local))
+        if local:
+            checa('com o nome e a descricao', local[0]['nome'] == 'Para reler')
+            checa('com o livro dentro', local[0]['livros'] == ['/works/OL1W'], str(local[0]['livros']))
+            checa('e ja amarrada ao servidor', local[0].get('remoto') == 'LST-1')
+        pg.goto(BASE + '#/listas', wait_until='networkidle')
+        pg.wait_for_timeout(700)
+        checa('e a aba Listas DESENHA ela', 'Para reler' in pg.inner_text('.pagina'))
+
+        print('\nlistas: descer duas vezes nao duplica')
+        pg.evaluate("() => Sinc.descer()")
+        pg.wait_for_timeout(1400)
+        local = pg.evaluate("() => JSON.parse(localStorage.getItem('letterbooks:v1')).listas")
+        checa('continua uma so', len(local) == 1, '%d listas' % len(local))
+        checa('e o livro nao entrou duas vezes',
+              local and local[0]['livros'] == ['/works/OL1W'], str(local and local[0]['livros']))
+        nav.close()
+
+        # A lista de OUTRA pessoa: publica por politica, entao abre sem conta.
+        print('\nlistas: a lista alheia tem tela, e abre sem conta')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        BANCO['listas'].append({'id': 'LST-2', 'perfil': 'uid-2', 'cliente_id': 'cli-2',
+                                'nome': 'O que a Bia indica', 'descricao': 'pegue um',
+                                'criado_em': '2026-08-20T10:00:00Z'})
+        BANCO['lista_itens'].append({'lista': 'LST-2', 'livro': '/works/OL1W', 'ordem': 0})
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg, sessao=None)
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/leitor/bia', wait_until='networkidle')
+        pg.wait_for_selector('#listas-do-leitor:not([hidden])', timeout=10000)
+        checa('o perfil da Bia mostra as listas dela',
+              'O que a Bia indica' in pg.inner_text('#listas-do-leitor'))
+        pg.click('#listas-do-leitor a')
+        pg.wait_for_selector('.lista-cabecalho', timeout=10000)
+        checa('a lista alheia abre sem conta',
+              'O que a Bia indica' in pg.inner_text('.titulo-pagina'))
+        checa('com o nome de quem criou', 'Bia' in pg.inner_text('.lista-autoria'))
+        checa('e o livro aparece', 'Dom Casmurro' in pg.inner_text('.pagina'))
+        textos = [t.lower() for t in pg.locator('.linha-botoes .botao').all_inner_texts()]
+        checa('sem botao de apagar a lista de outra pessoa',
+              not any('apagar' in t for t in textos), str(textos))
+        checa('mas com compartilhar, porque o endereco e publico',
+              any('compartilhar' in t for t in textos), str(textos))
         nav.close()
 
         # ================== um endereco so para a resenha =====================

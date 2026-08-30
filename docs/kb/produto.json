@@ -20,9 +20,9 @@
    "nome": "Aba Lists (listas)",
    "area": "Livros",
    "noOriginal": "Cada lista é nome, autor e uma tira de capas; listas de qualquer pessoa aparecem aqui.",
-   "noLetterbooks": "telaListas (js/app.js:1074) lê Dados.estado().listas — só as suas, só deste aparelho. A pilha de capas sobrepostas existe. Não há leitura da tabela 'listas' da nuvem em lugar nenhum do app.js.",
-   "estado": "parcial",
-   "evidencia": "js/app.js:1074 telaListas; nenhuma ocorrência de Nuvem.publico('listas') em js/app.js"
+   "noLetterbooks": "As listas sobem, descem e têm endereço público. telaLista resolve o id em três passos como a resenha; a lista de outra pessoa abre sem conta pela política \"listas são públicas\" e aparece no perfil dela. Até V5 as tabelas listas/lista_itens só recebiam dado uma vez na vida, dentro de Nuvem.migrar.",
+   "estado": "completo",
+   "evidencia": "js/app.js telaLista/desenhaLista; js/sinc.js enviarLista; servidor/provar-v2.sql"
   },
   {
    "nome": "Journal (conteúdo editorial)",
