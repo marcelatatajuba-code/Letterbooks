@@ -64,3 +64,24 @@ parâmetro — então roda igual em qualquer sessão.
 
 Depois de rodar: **leia o plano do tech lead antes de implementar**. Ele é
 quem diz o que colide e em que ordem.
+
+## Quando parar
+
+Não quando o backlog acabar — backlog sempre volta a encher.
+
+```bash
+python3 docs/processo/portoes.py
+```
+
+Ele mede o **portão 1 (fidelidade)** e o **portão 2 (solidez)**, e devolve
+código 0 só quando os dois fecham. Enquanto algum estiver aberto, o ciclo dá
+outra volta.
+
+Quando os dois fecharem, o ciclo **não termina — troca de combustível**. O que
+decide competitividade dali em diante é o **portão 3**, que precisa de gente
+usando e não se fecha com mais volta de agente: alguém de fora usando uma
+semana sem pedir ajuda, retenção de primeira semana, cobertura do acervo em
+português medida, e alguém compartilhando um link por vontade própria.
+
+Chamar o app de competitivo com os dois primeiros portões fechados seria
+confundir o que dá para medir daqui com o que decide a coisa.

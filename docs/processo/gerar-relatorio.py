@@ -147,6 +147,31 @@ td code{font:12.5px var(--dado);color:var(--fraco)}
 .id{font:12px var(--dado);color:var(--fraco);width:44px}
 .lat{font:12.5px var(--dado);color:var(--fraco);white-space:nowrap}
 
+.portao{background:var(--painel);border:1px solid var(--regua);border-radius:10px;
+        padding:22px 24px;margin-bottom:14px}
+.portao.aberto{border-left:3px solid var(--atencao)}
+.portao.fechado{border-left:3px solid var(--bom)}
+.portao.humano{border-left:3px solid var(--azul)}
+.portao-topo{display:flex;align-items:baseline;flex-wrap:wrap;gap:12px;margin-bottom:6px}
+.portao h3{font:700 20px/1.2 var(--display);margin:0;letter-spacing:-.015em}
+.portao .selo{font:600 10.5px/1 var(--display);letter-spacing:.09em;text-transform:uppercase;
+              padding:5px 10px;border-radius:999px;margin-left:auto}
+.portao.aberto .selo{background:rgba(255,128,0,.14);color:var(--atencao);
+                     border:1px solid rgba(255,128,0,.34)}
+.portao.fechado .selo{background:rgba(0,224,84,.13);color:var(--bom);
+                      border:1px solid rgba(0,224,84,.32)}
+.portao.humano .selo{background:rgba(64,188,244,.12);color:var(--azul);
+                     border:1px solid rgba(64,188,244,.3)}
+.portao > p{margin:0 0 14px;color:var(--fraco);font-size:14.5px}
+.portao table{min-width:0}
+.portao td:first-child{color:var(--texto)}
+.portao td:nth-child(2){font-weight:700;font-family:var(--dado);font-size:14px}
+.portao td:nth-child(3){color:var(--fraco);font-family:var(--dado);font-size:13px}
+.portao .obs{margin:12px 0 0;font-size:14px;color:var(--meio)}
+.portao ul{margin:0;padding-left:20px;color:var(--meio);font-size:15px}
+.portao li{margin-bottom:9px}
+.portao li b{color:var(--texto);font-weight:600}
+
 .fecho{margin-top:60px;padding-top:24px;border-top:1px solid var(--regua)}
 .fecho h3{font:600 17px/1.3 var(--display);margin:0 0 8px}
 .fecho p{margin:0 0 16px;color:var(--meio);max-width:76ch}
@@ -225,6 +250,49 @@ HTML = """<title>Vibecoding contra time híbrido</title>
   <thead><tr><th>#</th><th>Defeito</th><th>Detector</th><th>Latência</th></tr></thead>
   <tbody>%s</tbody>
 </table>
+</div>
+
+<h2>Quando o ciclo para</h2>
+<p class="sub">Não quando o backlog acabar — backlog sempre volta a encher. Quando três portões fecharem, e dois deles são medidos por <code>docs/processo/portoes.py</code>.</p>
+
+<div class="portao aberto">
+  <div class="portao-topo"><h3>Portão 1 · Fidelidade</h3><span class="selo">aberto</span></div>
+  <p>O app faz o que o original faz.</p>
+  <div class="rolagem"><table><tbody>
+    <tr><td>paridade de features</td><td>52%% (28 de 54)</td><td>meta ≥ 90%%</td></tr>
+    <tr><td>itens de fidelidade em aberto</td><td>10</td><td>meta 0</td></tr>
+    <tr><td>telas do original alcançadas</td><td>14 de 14</td><td>meta todas</td></tr>
+  </tbody></table></div>
+  <p class="obs">Parcial conta como não-feito: meia feature não compete com feature inteira. Hoje há 14 parciais e 12 ausentes.</p>
+</div>
+
+<div class="portao fechado">
+  <div class="portao-topo"><h3>Portão 2 · Solidez</h3><span class="selo">fechado</span></div>
+  <p>O que já existe não quebra nem corrompe.</p>
+  <div class="rolagem"><table><tbody>
+    <tr><td>asserções nas suítes</td><td>239</td><td>meta ≥ 200</td></tr>
+    <tr><td>achados graves do rastreador</td><td>0</td><td>meta 0</td></tr>
+    <tr><td>defeitos de corrupção em aberto</td><td>0</td><td>meta 0</td></tr>
+    <tr><td>RLS provado em Postgres real</td><td>sim</td><td>meta sim</td></tr>
+  </tbody></table></div>
+  <p class="obs">Ele reabre sozinho no dia em que uma suíte ficar vermelha — é por isso que é medido, e não declarado.</p>
+</div>
+
+<div class="portao humano">
+  <div class="portao-topo"><h3>Portão 3 · Mercado</h3><span class="selo">precisa de gente</span></div>
+  <p>Não é medível daqui, e nenhuma volta de agente substitui nenhum destes.</p>
+  <ul>
+    <li><b>Alguém que não seja você usa por uma semana sem pedir ajuda.</b> É o teste de que a interface se explica sozinha.</li>
+    <li><b>10 pessoas se cadastram e 3 voltam na semana seguinte.</b> Abaixo disso o feed nunca enche — e rede social com feed vazio não retém ninguém.</li>
+    <li><b>Cobertura do acervo em português medida em 50 títulos.</b> É a entrega 1 do item 12 do backlog, e o proxy deste ambiente bloqueia a medição.</li>
+    <li><b>Alguém compartilha um link de resenha por vontade própria.</b> O link público existe desde o começo e ninguém nunca usou.</li>
+  </ul>
+</div>
+
+<div class="achado" style="margin-top:22px">
+  <p class="rot">O que muda quando os dois primeiros fecham</p>
+  <p>O ciclo <strong>não termina — troca de combustível.</strong> Sai de “o que falta em relação ao original” e entra em “o que as pessoas fizeram com o app”. A descoberta deixa de ser o agente de produto lendo o mapa das 24 telas e passa a ser o que aparecer no portão 3.</p>
+  <p style="margin-top:12px">Chamar o app de competitivo com os dois primeiros portões fechados seria o mesmo erro que a tabela lá em cima evita: <strong>confundir o que dá para medir daqui com o que decide a coisa.</strong></p>
 </div>
 
 <footer class="fecho">

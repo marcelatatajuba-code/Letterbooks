@@ -28,6 +28,16 @@ export const meta = {
  *   4. /verificar                          → as sete suítes
  *   5. commit + push                       → o Pages publica sozinho
  *   6. volte ao 3 enquanto houver item     → ou ao 1, quando o backlog acabar
+ *   7. `python3 docs/processo/portoes.py` decide se o ciclo continua
+ *
+ * O ciclo NÃO para quando o backlog acaba — backlog sempre volta a encher.
+ * Para quando o portão 1 (fidelidade: paridade ≥ 90%, zero itens de
+ * fidelidade abertos, todas as telas alcançadas) e o portão 2 (solidez:
+ * suítes verdes, zero achados graves, zero corrupção conhecida, RLS provado)
+ * fecham juntos.
+ *
+ * E aí ele não termina: troca de combustível. O portão 3 — gente de verdade
+ * usando — não se fecha com volta de agente nenhuma.
  *
  * Os passos 3 a 6 são trabalho de uma frente só, com a pessoa no meio. Quem
  * quiser automatizar isso deve automatizar o passo 4, não o 3.

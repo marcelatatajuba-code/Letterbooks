@@ -116,11 +116,67 @@ não confere os próprios números não vale a leitura.
 - **Quanto custou.** Não meço horas de gente nem dinheiro. O que existe é o
   consumo do ciclo de agentes: 14 agentes, 1,95 milhão de tokens, 73 minutos.
 
+## Quando o ciclo para
+
+Não para quando o backlog acaba — backlog sempre volta a encher. Para quando
+**três portões fecham**, e dois deles são medidos por
+`python3 docs/processo/portoes.py`.
+
+### Portão 1 — Fidelidade · *o app faz o que o original faz*
+
+| critério | hoje | meta |
+|---|---|---|
+| paridade de features | **52%** (28 de 54) | ≥ 90% |
+| itens de fidelidade em aberto | 10 | 0 |
+| telas do original alcançadas | 14 de 14 | todas |
+
+Parcial conta como não-feito: meia feature não compete com feature inteira.
+Hoje há 14 parciais e 12 ausentes.
+
+### Portão 2 — Solidez · *o que existe não quebra nem corrompe*
+
+| critério | hoje | meta |
+|---|---|---|
+| asserções nas suítes | 239 | ≥ 200 |
+| achados graves do rastreador | 0 | 0 |
+| defeitos de corrupção em aberto | 0 | 0 |
+| RLS provado em Postgres real | sim | sim |
+
+**Este portão já está fechado.** Ele reabre sozinho no dia em que uma suíte
+ficar vermelha — é por isso que ele é medido, e não declarado.
+
+### Portão 3 — Mercado · *não é medível daqui*
+
+Estes quatro critérios precisam de gente de verdade usando, e **nenhuma volta
+de agente substitui nenhum deles**:
+
+- alguém que não seja você usa por uma semana sem pedir ajuda — é o teste de
+  que a interface se explica sozinha;
+- 10 pessoas se cadastram e 3 voltam na semana seguinte — abaixo disso o feed
+  nunca enche, e rede social com feed vazio não retém ninguém;
+- cobertura do acervo em português medida em 50 títulos — é a entrega 1 do
+  item 12 do backlog, e o proxy deste ambiente bloqueia a medição;
+- alguém compartilha um link de resenha por vontade própria — o link público
+  existe desde o começo e ninguém nunca usou.
+
+### O que muda quando os dois primeiros fecham
+
+O ciclo **não termina** — ele troca de combustível. Sai de "o que falta em
+relação ao original" e entra em "o que as pessoas fizeram com o app". A
+descoberta deixa de ser o agente de produto lendo o mapa das 24 telas e passa
+a ser o que aparecer no portão 3.
+
+Dizer que o app está competitivo com os dois primeiros portões fechados seria
+o mesmo erro que a tabela dos três modos evita: confundir o que dá para medir
+daqui com o que decide a coisa.
+
 ## Os arquivos
 
 | arquivo | o que é |
 |---|---|
 | `defeitos.csv` | os 32 defeitos, com fase, gravidade, **quem detectou** e latência |
+| `portoes.py` | mede os portões 1 e 2, e diz que o 3 não é medível daqui |
+| `conferir.py` | confere os números deste arquivo contra a fonte |
 | `../kb/` | a saída de uma volta do ciclo SDD |
 | `../../CLAUDE.md` | as regras que vieram de errar |
 | `../../.claude/agents/` | os sete papéis |

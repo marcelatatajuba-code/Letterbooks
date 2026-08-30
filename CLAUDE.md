@@ -134,3 +134,11 @@ e está anotado como tal.
 Existem papéis definidos em `.claude/agents/` (produto, mercado, design, GPM,
 tech lead, tester, harness) e o ciclo SDD que os orquestra. Para uma volta
 completa, use a skill `/ciclo`. Para só verificar, `/verificar`.
+
+**Quando parar de dar voltas:** não é quando o backlog acabar — ele sempre
+volta a encher. É quando `python3 docs/processo/portoes.py` fechar os dois
+portões que ele mede (fidelidade e solidez). Hoje: fidelidade **aberto** em
+52% de paridade, solidez **fechado**.
+
+O terceiro portão — mercado — não é medível daqui e não se fecha com volta de
+agente nenhuma. Precisa de gente usando.
