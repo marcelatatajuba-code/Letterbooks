@@ -164,6 +164,76 @@ var Dados = (function () {
     return l ? l.nota : null;
   }
 
+  /* ------------------------------------------------------------------ fusao */
+
+  /* Junta o que veio da conta com o que ja esta no aparelho.
+
+     A regra que atravessa a funcao: NUNCA APAGA NADA DO APARELHO. Se as duas
+     versoes existem, a de la ganha nos campos — porque foi a ultima a subir de
+     algum aparelho — mas a linha daqui nunca some. Perder resenha por conta de
+     uma fusao seria o pior defeito possivel neste app, e "some sem avisar" e
+     como isso apareceria.
+
+     Casa em duas passadas: primeiro por cliente_id (o id que o aparelho deu, e
+     que a linha de la carrega), depois pelo id do servidor ja anotado aqui.
+     O que nao casar em nenhuma das duas e leitura de outro aparelho, e entra.
+
+     Devolve as contagens que a tela mostra — e elas sao contagens de verdade,
+     nao estimativa: quem desenha a tela nao inventa numero. */
+  function fundir(remotas, marcadoresRemotos) {
+    var porCliente = {}, porRemoto = {};
+    estado.logs.forEach(function (l) {
+      porCliente[l.id] = l;
+      if (l.remoto) porRemoto[l.remoto] = l;
+    });
+
+    var vieram = 0, jaEstavam = 0;
+
+    (remotas || []).forEach(function (r) {
+      var local = (r.cliente_id && porCliente[r.cliente_id]) || porRemoto[r.id];
+      if (local) {
+        local.remoto  = r.id;
+        local.nota    = typeof r.nota === 'number' ? r.nota : null;
+        local.resenha = r.resenha || '';
+        local.lidoEm  = r.lido_em;
+        local.relido  = !!r.relido;
+        local.spoiler = !!r.spoiler;
+        jaEstavam++;
+        return;
+      }
+      /* Leitura de outro aparelho. O id local passa a ser o cliente_id que ela
+         ja tem, para nao nascer com uma identidade nova e subir duplicada na
+         proxima sincronizacao. */
+      var novo = {
+        id:       r.cliente_id || ('srv-' + String(r.id).replace(/-/g, '')),
+        remoto:   r.id,
+        chave:    r.livro,
+        nota:     typeof r.nota === 'number' ? r.nota : null,
+        resenha:  r.resenha || '',
+        lidoEm:   r.lido_em,
+        relido:   !!r.relido,
+        spoiler:  !!r.spoiler,
+        criadoEm: r.criado_em || new Date().toISOString()
+      };
+      estado.logs.push(novo);
+      porCliente[novo.id] = novo;
+      porRemoto[r.id] = novo;
+      vieram++;
+    });
+
+    var marcadores = 0;
+    var COLECAO = { quero: 'querLer', curtida: 'curtidas', favorito: 'favoritos' };
+    (marcadoresRemotos || []).forEach(function (m) {
+      var col = COLECAO[m.tipo];
+      if (!col) return;
+      if (estado[col].indexOf(m.livro) < 0) { estado[col].unshift(m.livro); marcadores++; }
+    });
+
+    salvar();
+    return { vieram: vieram, jaEstavam: jaEstavam, marcadores: marcadores,
+             subiram: estado.logs.length - vieram - jaEstavam };
+  }
+
   /* ------------------------------------------------- listas de marcacao rapida */
 
   function alterna(colecao, chave, limite) {
@@ -300,6 +370,7 @@ var Dados = (function () {
     estado:     function () { return estado; },
     aoMudar:    aoMudar,
     marcarRemoto: marcarRemoto,
+    fundir:     fundir,
     salvar:     salvar,
     guardarLivro: guardarLivro,
     livro:      livro,

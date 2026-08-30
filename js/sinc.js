@@ -165,6 +165,57 @@ var Sinc = (function () {
     });
   }
 
+  /* ------------------------------------------------------------- descer ---
+
+     A metade que faltava. Ate aqui a sincronizacao era de mao unica: subia o
+     que voce escrevia e nunca trazia de volta. Entrar na conta num celular
+     novo mostrava um diario vazio — a conta existia e nao servia para nada.
+
+     Desce ANTES de subir, sempre. Se subisse primeiro, a fila mandaria as
+     leituras deste aparelho como se fossem novidade, e so depois descobriria
+     que metade ja estava la. */
+
+  var descendo = false;
+
+  function descer() {
+    if (!Nuvem.ligada() || !Nuvem.entrou() || descendo) return Promise.resolve(null);
+    descendo = true;
+
+    return Promise.all([Nuvem.minhasLeituras(), Nuvem.meusMarcadores()])
+      .then(function (r) {
+        var leituras = r[0] || [], marcadores = r[1] || [];
+
+        /* As fichas dos livros vem numa consulta so, em vez de uma ida a rede
+           por linha: um diario de 200 leituras faria 200 chamadas. */
+        var chaves = {};
+        leituras.forEach(function (l) { chaves[l.livro] = 1; });
+        marcadores.forEach(function (m) { chaves[m.livro] = 1; });
+        var faltando = Object.keys(chaves).filter(function (c) { return !Dados.livro(c); });
+
+        return Nuvem.livrosPorChave(faltando).then(function (livros) {
+          (livros || []).forEach(function (b) {
+            Dados.guardarLivro({
+              chave: b.chave, titulo: b.titulo, autores: b.autores || [],
+              autoresIds: b.autores_ids || [], ano: b.ano, capa: b.capa,
+              capaGrande: b.capa_grande, paginas: b.paginas, edicoes: b.edicoes,
+              sinopse: b.sinopse
+            });
+          });
+          return Dados.fundir(leituras, marcadores);
+        });
+      })
+      .then(function (contagens) {
+        descendo = false;
+        return contagens;
+      }, function (err) {
+        descendo = false;
+        /* Descida que falha nao e motivo para bloquear o app: o diario local
+           continua inteiro e a proxima abertura tenta de novo. */
+        console.warn('Sinc: nao consegui trazer o diario da conta:', err.message);
+        return null;
+      });
+  }
+
   /* ------------------------------------------------------------------ ligar */
 
   function ligar() {
@@ -174,16 +225,19 @@ var Sinc = (function () {
 
     /* Tres momentos em que vale tentar esvaziar: ao abrir, ao voltar a ter
        rede, e ao voltar para a aba (que no celular e quando o app "acorda"). */
-    Nuvem.aoMudar(function (eu) { if (eu) empurrar(); });
+    /* Ao entrar na conta: primeiro traz o que esta la, depois manda o que
+       esta aqui. A ordem importa — ver a nota anterior. */
+    Nuvem.aoMudar(function (eu) { if (eu) descer().then(empurrar); });
     window.addEventListener('online', empurrar);
     document.addEventListener('visibilitychange', function () {
       if (!document.hidden) empurrar();
     });
-    if (Nuvem.entrou()) empurrar();
+    if (Nuvem.entrou()) descer().then(empurrar);
   }
 
   return {
     ligar:      ligar,
+    descer:     descer,
     empurrar:   empurrar,
     pendentes:  pendentes,
     aoMudar:    aoMudar,

@@ -12,20 +12,35 @@ seguir"** — para tarefa pontual, chame o agente do papel direto (`produto`,
 ## A forma
 
 ```
-Descoberta   produto · mercado · design          (paralelo, não conversam)
-     ↓
-Curadoria    um backlog único, ordenado          (fidelidade ganha de novidade)
-     ↓
-Especificação  GPM → design, por item            (pipeline, 4 primeiros)
-     ↓
-Validação    tech lead contra o código real      (viabilidade, ordem, colisões)
-     ↓
-Implementação  em SÉRIE                          (js/app.js é gargalo)
-     ↓
-Verificação  /verificar
-     ↓
-Publicação   commit + push (o Pages publica sozinho)
+   dentro do script (agentes)         │  fora do script (uma frente só)
+                                      │
+Descoberta  produto·mercado·design    │
+     ↓        (paralelo)              │
+Curadoria   backlog único             │
+     ↓                                │
+Especificação  GPM → design           │
+     ↓        (pipeline, 4 itens)     │
+Validação   tech lead vs. código      │
+     ↓                                │
+Revisão     QA, plano de teste        │
+            ANTES de existir código   │
+     └────────────────────────────────┼→  Implementação, UM item por vez
+                                      │        ↓
+                                      │   /verificar
+                                      │        ↓
+                                      │   commit + push
+                                      │        ↓
+                                      │   volta à implementação, ou ao
+                                      │   script quando o backlog acabar
 ```
+
+**O script termina na Revisão de propósito, e isso não é o ciclo parando.**
+A implementação fica fora porque `js/app.js` tem ~3000 linhas e quase toda
+tela passa por ele: agentes editando esse arquivo em paralelo se sobrescrevem,
+e trabalho perdido em silêncio custa mais do que o paralelismo rende.
+
+Quem quiser automatizar mais deste laço deve automatizar a **verificação**,
+não a implementação.
 
 ## Regras que o ciclo carrega
 

@@ -89,9 +89,22 @@ def servir_nuvem(rota, estado):
     if p.path == '/rest/v1/listas' and r.method == 'POST':
         return j([{'id': 'lista-uuid-1'}])
     if p.path.startswith('/rest/v1/'):
-        if estado.get('falhar') == p.path.rsplit('/', 1)[-1]:
+        tab = p.path.rsplit('/', 1)[-1]
+        if estado.get('falhar') == tab:
             return j({'message': 'insert or update on table "leituras" violates '
                                  'foreign key constraint "leituras_livro_fkey"'}, 409)
+        # Com Prefer: return=representation o PostgREST devolve as linhas
+        # criadas, COM o id. Este mock devolvia sempre lista vazia — e com isso
+        # a migração parecia funcionar enquanto deixava toda leitura órfã, que
+        # é exatamente o defeito que ela precisa provar que não acontece mais.
+        prefer = r.headers.get('prefer', '')
+        if r.method == 'POST' and 'representation' in prefer:
+            novas = corpo if isinstance(corpo, list) else [corpo]
+            saida = []
+            for k, n in enumerate(novas):
+                estado['seq'] = estado.get('seq', 0) + 1
+                saida.append(dict(n, id='%s-%d' % (tab, estado['seq'])))
+            return j(saida, 201)
         return rota.fulfill(status=201, headers=cab, content_type='application/json',
                             body='[]')
 
@@ -320,6 +333,14 @@ def rodar():
         checa('nao apagou o diario do aparelho', len(local['logs']) == 3)
         checa('marcou a data da migracao',
               pg.evaluate("localStorage.getItem('letterbooks:migrado:uid-1')") is not None)
+        # A migracao mandava com return=minimal e nunca gravava o id do
+        # servidor de volta. Toda leitura ficava orfa, e a proxima edicao
+        # criava uma linha nova la em vez de corrigir a que existia. O defeito
+        # ficava escondido ate alguem editar uma resenha.
+        migradas = [l for l in local['logs'] if l['chave'] in local['livros']]
+        checa('toda leitura migrada ficou amarrada ao servidor',
+              migradas and all(l.get('remoto') for l in migradas),
+              str([(l['id'], l.get('remoto')) for l in local['logs']]))
 
         pg.reload(wait_until='networkidle')
         pg.wait_for_selector('.conta')

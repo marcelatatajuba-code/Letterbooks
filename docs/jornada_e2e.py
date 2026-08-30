@@ -95,6 +95,32 @@ def rodar():
         checa('conta 1 leitura', '1' in pg.inner_text('#leitor-numeros, .linhas-conta'))
 
         # -------------------------------------------------------- BRUNO -----
+        print('\n3b. editar depois de migrar NAO duplica (era o defeito mais caro)')
+        # migrar() mandava com return=minimal e nunca gravava o id do servidor.
+        # Depois disso toda leitura local ficava orfa, e salvarLeitura sem
+        # remoto fazia POST — entao a primeira edicao de resenha nascia como
+        # linha NOVA no banco. O diario duplicava sozinho, em silencio.
+        antes = len(S.BANCO['leituras'])
+        pg.goto(BASE + '#/livro/%2Fworks%2FOL1W', wait_until='networkidle')
+        pg.wait_for_selector('[data-acao=rapida]', timeout=15000)
+        pg.click('[data-acao=rapida]')
+        pg.wait_for_selector('.folha-rapida [data-r=registrar]', timeout=8000)
+        pg.click('.folha-rapida [data-r=registrar]')
+        pg.wait_for_selector('#campo-resenha', timeout=8000)
+        pg.fill('#campo-resenha', 'Reescrevi depois de pensar melhor.')
+        pg.click('.folha-rodape .botao.destaque')
+        pg.wait_for_timeout(1800)
+        checa('continua UMA leitura no banco depois de editar',
+              len(S.BANCO['leituras']) == antes,
+              '%d linhas, era %d' % (len(S.BANCO['leituras']), antes))
+        checa('e com o texto novo',
+              any(l.get('resenha') == 'Reescrevi depois de pensar melhor.'
+                  for l in S.BANCO['leituras']))
+        local = pg.evaluate("JSON.parse(localStorage.getItem('letterbooks:v1')).logs")
+        checa('toda leitura local tem o id do servidor amarrado',
+              all(l.get('remoto') for l in local),
+              str([(l['id'], l.get('remoto')) for l in local]))
+
         print('\n4. Bruno cria conta no mesmo aparelho')
         pg.goto(BASE + '#/conta', wait_until='networkidle')
         pg.wait_for_selector('[data-acao=sair]', timeout=8000)
@@ -111,8 +137,11 @@ def rodar():
         checa('achou a Ana', pg.locator('.resultado').count() == 1)
         pg.click('.resultado')
         pg.wait_for_selector('#botao-seguir:not([disabled])', timeout=10000)
+        # O passo 3b reescreve a resenha; procurar o texto original aqui seria
+        # o teste medindo um estado que ele mesmo mudou.
         checa('o perfil dela mostra a resenha',
-              'melhor que li' in pg.inner_text('.feed-resenha'))
+              'Reescrevi' in pg.inner_text('.feed-resenha'),
+              pg.inner_text('.feed-resenha')[:60])
         pg.click('#botao-seguir')
         pg.wait_for_function(
             "() => /seguindo/i.test(document.getElementById('botao-seguir').textContent)",
@@ -189,6 +218,52 @@ def rodar():
         pg.wait_for_timeout(1200)
         checa('o perfil da Ana mostra 1 seguidor', 'Seguidores' in pg.inner_text('.pagina'),
               'o proprio perfil nao mostra seguidores')
+
+        print('\n11. CELULAR NOVO: a Ana entra num aparelho zerado')
+        # O item que fazia a conta nao significar nada. Ate agora a
+        # sincronizacao era de mao unica: subia e nunca trazia de volta.
+        # Trocar de celular mostrava um diario vazio.
+        limpar(pg)
+        pg.goto(BASE, wait_until='networkidle')
+        pg.evaluate("() => localStorage.clear()")
+        pg.reload(wait_until='networkidle')
+        vazio = pg.evaluate("() => localStorage.getItem('letterbooks:v1')")
+        checa('o aparelho comeca mesmo zerado', not vazio)
+
+        pg.goto(BASE + '#/conta', wait_until='networkidle')
+        pg.wait_for_selector('#forma-conta', timeout=10000)
+        pg.fill('input[name=email]', 'ana@x.com')
+        pg.fill('input[name=senha]', 'segredo123')
+        pg.click('#forma-conta button[type=submit]')
+        pg.wait_for_selector('#forma-perfil', timeout=12000)
+        pg.wait_for_timeout(2500)
+
+        logs = pg.evaluate("() => { const d = localStorage.getItem('letterbooks:v1');"
+                           "return d ? JSON.parse(d).logs : []; }")
+        checa('o diario desceu para o aparelho novo', len(logs) >= 1,
+              '%d leituras' % len(logs))
+        if logs:
+            checa('com a resenha inteira',
+                  any('Reescrevi' in (l.get('resenha') or '') for l in logs),
+                  str([l.get('resenha') for l in logs]))
+            checa('e ja amarrada ao servidor', all(l.get('remoto') for l in logs))
+        checa('a ficha do livro veio junto, com titulo',
+              pg.evaluate("() => { const d = JSON.parse(localStorage.getItem('letterbooks:v1'));"
+                          "return (d.livros['/works/OL1W']||{}).titulo; }") == 'Dom Casmurro')
+
+        pg.goto(BASE + '#/diario', wait_until='networkidle')
+        pg.wait_for_timeout(900)
+        checa('e o diario DESENHA a leitura no aparelho novo',
+              pg.locator('.tabela-diario tbody tr').count() >= 1)
+
+        print('\n12. e nao duplicou nada ao descer')
+        checa('o banco continua com uma leitura so',
+              len(S.BANCO['leituras']) == 1, '%d linhas' % len(S.BANCO['leituras']))
+        pg.evaluate("() => Sinc.descer()")
+        pg.wait_for_timeout(1800)
+        logs2 = pg.evaluate("() => JSON.parse(localStorage.getItem('letterbooks:v1')).logs")
+        checa('descer duas vezes nao duplica no aparelho', len(logs2) == len(logs),
+              '%d -> %d' % (len(logs), len(logs2)))
 
         nav.close()
 

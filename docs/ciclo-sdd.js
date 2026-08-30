@@ -6,8 +6,32 @@ export const meta = {
     { title: 'Curadoria', detail: 'unifica num backlog único e priorizado' },
     { title: 'Especificação', detail: 'história + DoR/DoD + casos de uso, e spec de design, por item' },
     { title: 'Validação', detail: 'tech lead confere viabilidade contra o código real' },
+    { title: 'Revisão', detail: 'QA escreve o plano de teste do primeiro item, antes de codar' },
   ],
 }
+
+/* POR QUE O CICLO PARA AQUI, E O QUE VEM DEPOIS.
+ *
+ * Este script cobre da descoberta ao plano de teste. A IMPLEMENTAÇÃO fica
+ * FORA de propósito, e a razão é concreta: js/app.js tem ~3000 linhas e quase
+ * toda tela passa por ele. Agentes editando esse arquivo em paralelo se
+ * sobrescrevem, e o prejuízo (trabalho perdido em silêncio) é maior do que o
+ * ganho de paralelismo.
+ *
+ * Então o laço completo é:
+ *
+ *   1. rode este script                    → sai o plano do tech lead
+ *   2. LEIA o plano antes de codar         → ele contradiz o backlog às vezes,
+ *                                             e nas quatro vezes que isso
+ *                                             aconteceu ele estava certo
+ *   3. implemente UM item, em série
+ *   4. /verificar                          → as sete suítes
+ *   5. commit + push                       → o Pages publica sozinho
+ *   6. volte ao 3 enquanto houver item     → ou ao 1, quando o backlog acabar
+ *
+ * Os passos 3 a 6 são trabalho de uma frente só, com a pessoa no meio. Quem
+ * quiser automatizar isso deve automatizar o passo 4, não o 3.
+ */
 
 const REPO = '/home/user/letterbooks'
 
@@ -544,6 +568,73 @@ Seja duro. Especificação bonita que não cabe no código custa mais do que
 especificação que já nasce recortada.`,
   { label: 'techlead:plano', schema: F_PLANO })
 
+// ---------------------------------------------------------------- fase 5 ---
+phase('Revisão')
+log('QA escrevendo o plano de teste do primeiro item viável — antes de existir código')
+
+const primeiro = (plano && plano.viavel && plano.viavel[0]) || null
+
+const F_QA = {
+  type: 'object',
+  required: ['item', 'casos', 'riscosNaoCobertos', 'ordem'],
+  properties: {
+    item: { type: 'string' },
+    casos: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['nome', 'suite', 'passos', 'esperado', 'porqueImporta'],
+        properties: {
+          nome: { type: 'string' },
+          suite: { type: 'string', description: 'qual arquivo de docs/ recebe esta verificação' },
+          passos: { type: 'array', items: { type: 'string' } },
+          esperado: { type: 'string' },
+          porqueImporta: { type: 'string', description: 'que defeito real ela pegaria' },
+        },
+      },
+    },
+    riscosNaoCobertos: { type: 'array', items: { type: 'string' } },
+    ordem: { type: 'string' },
+  },
+}
+
+const qa = primeiro ? await agent(`${CONTEXTO}
+
+VOCÊ É O QA. Escreva o plano de teste do primeiro item da fila ANTES de
+existir código para ele — teste escrito depois do código herda as suposições
+do código.
+
+ITEM: ${primeiro.titulo}
+Arquivos que ele mexe: ${JSON.stringify(primeiro.arquivos)}
+Passos previstos: ${JSON.stringify(primeiro.passos)}
+Testes que o tech lead já indicou: ${JSON.stringify(primeiro.testes)}
+
+Riscos que o tech lead levantou:
+${JSON.stringify(plano.riscos || [], null, 1)}
+
+As suítes reais e o que cada uma cobre:
+· docs/testar.py         — a parte local, sem conta
+· docs/testar_nuvem.py   — conta, sessão, migração
+· docs/testar_social.py  — fila de sincronização, feed, social
+· docs/jornada_e2e.py    — a jornada inteira com DUAS contas
+· docs/rastreador.py     — anda o app sozinho
+· servidor/provar.sql    — o esquema num Postgres local, o ÚNICO teste real
+                            do banco (nenhum mock prova PostgREST)
+
+REGRAS:
+1. Cada caso diz QUAL SUÍTE recebe. Caso sem casa não vira teste.
+2. "porqueImporta" tem que nomear um defeito CONCRETO que o caso pegaria. Se
+   você não consegue nomear, o caso não vale o custo de manter.
+3. Antes de acusar o app, desconfie do teste — já aconteceu cinco vezes neste
+   projeto (mock que ignorava filtro, mock que devolvia lista vazia, espera
+   que casava com a tela anterior, inner_text em maiúsculas, medida de alvo
+   que não via pseudo-elemento). Diga onde o mock precisa aprender algo ANTES
+   de o teste valer alguma coisa.
+4. Em "riscosNaoCobertos", diga o que NENHUM teste daqui pega. Este ambiente
+   não alcança supabase.co: tudo que depende do PostgREST de verdade é
+   risco descoberto, e fingir o contrário é pior que não testar.`,
+  { label: 'qa:plano-de-teste', schema: F_QA }) : null
+
 return {
   produto,
   mercado,
@@ -552,4 +643,5 @@ return {
   especificacoes: specs.filter(Boolean),
   marca,
   plano,
+  qa,
 }

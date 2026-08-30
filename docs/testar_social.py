@@ -113,9 +113,23 @@ def servir(rota, estado):
     if r.method == 'POST':
         novas = corpo if isinstance(corpo, list) else [corpo]
         prefer = r.headers.get('prefer', '')
+        # on_conflect + merge-duplicates: mandar o mesmo item duas vezes tem que
+        # ATUALIZAR, não criar outra linha. O mock ignorava isso, e então o
+        # teste passaria verde enquanto a produção duplicava o diário. Foi
+        # exatamente o aviso do tech lead, e é a segunda vez que mock frouxo
+        # quase deixa passar defeito neste projeto.
+        conflito = q.get('on_conflict', [None])[0]
         criadas = []
         for n in novas:
             n = dict(n)
+            if conflito and 'merge-duplicates' in prefer:
+                campos = conflito.split(',')
+                igual = next((x for x in linhas
+                              if all(x.get(c) == n.get(c) for c in campos)), None)
+                if igual:
+                    igual.update(n)
+                    criadas.append(igual)
+                    continue
             if tab == 'livros':
                 linhas[:] = [x for x in linhas if x['chave'] != n['chave']]
             if tab in ('marcadores', 'curtidas', 'seguidores') and 'ignore-duplicates' in prefer:
@@ -203,10 +217,14 @@ def rodar():
         pg.click('.folha-rapida .seletor-estrelas [data-pos="4"]')
         pg.wait_for_timeout(1500)
 
+        # A ordem que importa e a de ESCRITA: o livro tem que existir no acervo
+        # antes da leitura apontar para ele, senao a chave estrangeira recusa.
+        # A assercao olhava todos os pedidos, e passou a ver os GETs da descida
+        # antes dos POSTs da subida — media a coisa certa pelo caminho errado.
+        escritas = [p[1] for p in pedidos if p[0] == 'POST']
         checa('o livro subiu antes da leitura',
-              [p[1] for p in pedidos].index('/rest/v1/livros') <
-              [p[1] for p in pedidos].index('/rest/v1/leituras'),
-              str([p[1] for p in pedidos]))
+              escritas.index('/rest/v1/livros') < escritas.index('/rest/v1/leituras'),
+              str(escritas))
         checa('a leitura chegou ao banco', len(BANCO['leituras']) == 1)
         checa('com a nota certa', BANCO['leituras'] and BANCO['leituras'][0]['nota'] == 4)
         local = pg.evaluate("JSON.parse(localStorage.getItem('letterbooks:v1')).logs")

@@ -63,6 +63,27 @@ create table if not exists leituras (
   criado_em timestamptz not null default now()
 );
 
+-- O id que o APARELHO deu a esta leitura. É o que amarra a linha daqui à linha
+-- de lá, e é o que faz a decisão de subir ser por ITEM, e não por aparelho.
+--
+-- Sem ele a migração era por aparelho (uma marca no localStorage) e isso
+-- duplicava: quem migrava e depois editava uma resenha ganhava uma segunda
+-- linha, porque o app não sabia que já tinha mandado aquela leitura.
+--
+-- Ele é PÚBLICO junto com o resto da linha (o diário é público por RLS), então
+-- tem que continuar opaco — gerado no aparelho, sem nada derivado de e-mail ou
+-- de perfil dentro. Não "melhore" este id.
+alter table leituras add column if not exists cliente_id text;
+
+comment on column leituras.cliente_id is
+  'Id opaco gerado no aparelho. Publicamente legível: nunca derive de e-mail.';
+
+-- Índice único parcial: o Postgres permite N nulos num índice único, e uma
+-- linha sem cliente_id nunca colidiria. Com o "where not null" explícito fica
+-- claro que linha antiga (sem id) fica de fora até o backfill passar.
+create unique index if not exists leituras_cliente
+  on leituras (perfil, cliente_id) where cliente_id is not null;
+
 create index if not exists leituras_perfil_data on leituras (perfil, lido_em desc);
 create index if not exists leituras_livro       on leituras (livro);
 create index if not exists leituras_recentes    on leituras (criado_em desc);
@@ -236,6 +257,21 @@ create policy "apago comentário meu ou na minha resenha" on comentarios for del
 -- Você lê as denúncias pelo painel do Supabase, não pelo aplicativo.
 create policy "posso denunciar"         on denuncias for insert
   with check (auth.uid() is not null);
+
+-- ============================================================================
+-- Backfill: dá cliente_id às leituras que subiram ANTES desta coluna existir.
+--
+-- Roda uma vez, e é seguro rodar de novo (só toca em quem está nulo). Casa por
+-- (perfil, livro, lido_em). O caso ambíguo é a mesma obra lida DUAS VEZES NO
+-- MESMO DIA: aí não há como saber qual linha de lá é qual daqui. A decisão,
+-- travada aqui e provada em provar.sql: cada linha ganha um id próprio, e a
+-- fusão no aparelho trata isso como leituras distintas. É melhor duas linhas
+-- honestas do que uma fusão que apaga uma releitura.
+-- ============================================================================
+
+update leituras
+   set cliente_id = 'srv-' || replace(id::text, '-', '')
+ where cliente_id is null;
 
 -- ============================================================================
 -- Feed: as leituras de quem eu sigo, mais as minhas, do mais novo ao mais

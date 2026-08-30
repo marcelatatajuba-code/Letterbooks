@@ -257,30 +257,27 @@ var Nuvem = (function () {
   /* Com id remoto e correcao (PATCH); sem, e leitura nova (POST). A releitura
      do mesmo livro e uma linha NOVA, como no original — por isso a chave nao
      e (perfil, livro). */
+  /* O id do APARELHO vai junto, sempre. E ele que faz a decisao de gravar ser
+     por ITEM: mandar a mesma leitura duas vezes atualiza a linha em vez de
+     criar outra. Antes disto, quem migrava o diario ficava sem `remoto` em
+     todas as leituras (migrar mandava com return=minimal e nunca gravava o id
+     de volta), e a primeira edicao de resenha depois disso nascia como linha
+     nova no servidor. O diario duplicava sozinho. */
   function salvarLeitura(log) {
     var corpo = {
-      perfil:  sessao.id,
-      livro:   log.chave,
-      nota:    typeof log.nota === 'number' ? log.nota : null,
-      resenha: log.resenha || null,
-      lido_em: log.lidoEm,
-      relido:  !!log.relido,
-      spoiler: !!log.spoiler
+      perfil:     sessao.id,
+      cliente_id: log.id,
+      livro:      log.chave,
+      nota:       typeof log.nota === 'number' ? log.nota : null,
+      resenha:    log.resenha || null,
+      lido_em:    log.lidoEm,
+      relido:     !!log.relido,
+      spoiler:    !!log.spoiler
     };
-    var cab = { Prefer: 'return=representation' };
-    if (log.remoto) {
-      return tabela('leituras', '?id=eq.' + log.remoto,
-                    { metodo: 'PATCH', corpo: corpo, cabecalhos: cab })
-        .then(function (l) {
-          /* A linha pode ter sumido (apagada em outro aparelho). Aí o PATCH
-             volta vazio e o certo e recriar, nao perder a resenha. */
-          if (l && l[0]) return l[0];
-          return tabela('leituras', '', { metodo: 'POST', corpo: corpo, cabecalhos: cab })
-            .then(function (n) { return (n && n[0]) || null; });
-        });
-    }
-    return tabela('leituras', '', { metodo: 'POST', corpo: corpo, cabecalhos: cab })
-      .then(function (l) { return (l && l[0]) || null; });
+    return tabela('leituras', '?on_conflict=perfil,cliente_id', {
+      metodo: 'POST', corpo: corpo,
+      cabecalhos: { Prefer: 'resolution=merge-duplicates,return=representation' }
+    }).then(function (l) { return (l && l[0]) || null; });
   }
 
   function apagarLeitura(idRemoto) {
@@ -333,6 +330,33 @@ var Nuvem = (function () {
     limite = limite || 20;
     return publico('feed', '?select=' + CAMPOS_FEED +
       '&order=criado_em.desc&offset=' + ((pagina || 0) * limite) + '&limit=' + limite);
+  }
+
+  /* ------------------------------------------------------------- descida ---
+
+     O caminho que faltava inteiro. Ate aqui a Nuvem so sabia LER o diario dos
+     outros (feed, leiturasDe) — nenhuma funcao lia o SEU. Entrar na conta num
+     celular novo mostrava um diario vazio, e a conta nao significava nada. */
+
+  function minhasLeituras() {
+    return tabela('leituras',
+      '?select=id,cliente_id,livro,nota,resenha,lido_em,relido,spoiler,criado_em' +
+      '&perfil=eq.' + sessao.id + '&order=lido_em.desc&limit=2000');
+  }
+
+  function meusMarcadores() {
+    return tabela('marcadores',
+      '?select=livro,tipo&perfil=eq.' + sessao.id + '&limit=2000');
+  }
+
+  /* Os livros que as leituras baixadas mencionam, para o diario ter titulo e
+     capa sem uma ida a Open Library por linha. */
+  function livrosPorChave(chaves) {
+    if (!chaves.length) return Promise.resolve([]);
+    var lista = chaves.map(function (c) { return '"' + c + '"'; }).join(',');
+    return publico('livros',
+      '?select=chave,titulo,autores,autores_ids,ano,capa,capa_grande,paginas,edicoes,sinopse' +
+      '&chave=in.(' + lista + ')');
   }
 
   function leiturasDe(usuario, limite) {
@@ -439,17 +463,20 @@ var Nuvem = (function () {
 
   /* Manda um array em pedacos, um pedaco de cada vez. Uma requisicao com mil
      linhas costuma bater no limite do servidor; cinquenta nao. */
-  function emLotes(nome, linhas, prefer) {
+  function emLotes(nome, linhas, prefer, consulta) {
     var partes = [];
     for (var i = 0; i < linhas.length; i += LOTE) partes.push(linhas.slice(i, i + LOTE));
+    var criadas = [];
     return partes.reduce(function (antes, parte) {
       return antes.then(function () {
-        return tabela(nome, '', {
+        return tabela(nome, consulta || '', {
           metodo: 'POST', corpo: parte,
           cabecalhos: { Prefer: prefer || 'return=minimal,resolution=ignore-duplicates' }
+        }).then(function (r) {
+          if (r && r.length) criadas = criadas.concat(r);
         });
       });
-    }, Promise.resolve());
+    }, Promise.resolve()).then(function () { return criadas; });
   }
 
   function linhaLivro(b) {
@@ -491,6 +518,7 @@ var Nuvem = (function () {
     var leituras = dados.logs.map(function (l) {
       return {
         perfil:  sessao.id,
+        cliente_id: l.id,
         livro:   l.chave,
         nota:    typeof l.nota === 'number' ? l.nota : null,
         resenha: l.resenha || null,
@@ -512,7 +540,19 @@ var Nuvem = (function () {
     return emLotes('livros', livros, 'return=minimal,resolution=merge-duplicates')
       .then(function () {
         passo('leituras', 1, 4);
-        return emLotes('leituras', leituras, 'return=minimal');
+        /* representation, nao minimal: e daqui que sai o id do servidor, e sem
+           ele a leitura local fica orfa e a proxima edicao duplica. */
+        return emLotes('leituras', leituras,
+                       'resolution=merge-duplicates,return=representation',
+                       '?on_conflict=perfil,cliente_id')
+          .then(function (criadas) {
+            /* Amarra cada linha do servidor a leitura daqui. Sem este passo a
+               migracao "funcionava" e deixava todas as leituras orfas — o
+               defeito ficava escondido ate a primeira edicao de resenha. */
+            (criadas || []).forEach(function (l) {
+              if (l && l.cliente_id && l.id) Dados.marcarRemoto(l.cliente_id, l.id);
+            });
+          });
       })
       .then(function () {
         passo('marcadores', 2, 4);
@@ -567,6 +607,10 @@ var Nuvem = (function () {
     publico:   publico,
     meuPerfil: meuPerfil,
     salvarPerfil: salvarPerfil,
+
+    minhasLeituras: minhasLeituras,
+    meusMarcadores: meusMarcadores,
+    livrosPorChave: livrosPorChave,
 
     salvarLivro:    salvarLivro,
     salvarLeitura:  salvarLeitura,
