@@ -610,6 +610,86 @@ def rodar():
               len(BANCO['leituras']) == 0, '%d linhas no banco' % len(BANCO['leituras']))
         nav.close()
 
+        # ===================== a aba Resenhas e da REDE =======================
+        # Ela mostrava Dados.logs() filtrado por resenha: exatamente o que ja
+        # estava no Diario, com outro desenho. Quem abria esperando ler os
+        # outros encontrava a si mesma. No original, Reviews e onde voce le
+        # gente.
+        print('\naba Resenhas: mostra quem voce segue, nao voce mesma')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        BANCO['seguidores'].append({'seguidor': 'uid-1', 'seguido': 'uid-2'})
+        BANCO['leituras'] += [
+            {'id': 'R1', 'perfil': 'uid-2', 'livro': '/works/OL1W', 'nota': 5.0,
+             'resenha': 'A RESENHA DA BIA, que eu quero ler.', 'lido_em': '2026-08-20',
+             'relido': False, 'spoiler': False, 'criado_em': '2026-08-29T22:00:00Z',
+             'cliente_id': 'c1'},
+            # sem resenha: entra no feed e NAO pode entrar nesta aba
+            {'id': 'R2', 'perfil': 'uid-2', 'livro': '/works/OL1W', 'nota': 3.0,
+             'resenha': '', 'lido_em': '2026-08-19', 'relido': False, 'spoiler': False,
+             'criado_em': '2026-08-28T22:00:00Z', 'cliente_id': 'c2'}]
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg, logs=[{'id': 'meu', 'chave': '/works/OL1W', 'nota': 4.0,
+                          'resenha': 'a minha, que ja esta no Diario',
+                          'lidoEm': '2026-08-01', 'relido': False, 'spoiler': False,
+                          'criadoEm': '2026-08-01T10:00:00Z'}])
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/resenhas', wait_until='networkidle')
+        pg.wait_for_selector('.feed-linha', timeout=10000)
+        checa('a aba abre na Rede quando ha conta',
+              pg.locator('.segmentos-2 a.ativa').inner_text() == 'Rede')
+        checa('e mostra a resenha de quem eu sigo',
+              'RESENHA DA BIA' in pg.inner_text('#feed-resenhas'))
+        checa('leitura SEM resenha nao entra nesta aba',
+              pg.locator('.feed-linha').count() == 1,
+              '%d linhas' % pg.locator('.feed-linha').count())
+        checa('a linha leva ao endereco da resenha',
+              pg.locator('a.feed-resenha').first.get_attribute('href') == '#/resenha/R1')
+
+        print('\naba Resenhas: o recorte "Suas" continua existindo')
+        pg.click('.segmentos-2 a[href="#/resenhas/suas"]')
+        pg.wait_for_selector('.cartao-resenha', timeout=8000)
+        checa('e o cartao com a capa, como sempre foi',
+              'ja esta no Diario' in pg.inner_text('.cartao-resenha'))
+        checa('so a sua, sem as da rede',
+              pg.locator('.cartao-resenha').count() == 1)
+
+        print('\naba Resenhas: sem seguir ninguem, "Todas" tem o que ler')
+        BANCO['seguidores'][:] = []
+        pg.goto(BASE + '#/resenhas/rede', wait_until='networkidle')
+        pg.wait_for_selector('.vazio', timeout=10000)
+        # .botao e versalete por CSS: comparar sem normalizar mede a folha de
+        # estilo, nao o que a tela oferece. Ja tropecei nisto na secao 9b.
+        checa('a Rede vazia explica, e oferece o caminho',
+              'ver todas' in pg.inner_text('.vazio').lower(), pg.inner_text('.vazio'))
+        pg.click('.vazio a[href="#/resenhas/todas"]')
+        pg.wait_for_selector('.feed-linha', timeout=10000)
+        checa('e Todas tem a resenha da Bia mesmo sem eu seguir ela',
+              'RESENHA DA BIA' in pg.inner_text('#feed-resenhas'))
+        nav.close()
+
+        # Sem nuvem a aba nao pode fingir que existe rede.
+        print('\naba Resenhas: em modo local, abre nas suas e sem segmentos')
+        zerar(); estado = {}
+        nav, ctx, pg = montar(pw, estado)
+        pg.route('**/js/config.js', lambda rt: rt.fulfill(
+            status=200, content_type='application/javascript',
+            body="var CONFIG = { supabaseUrl: '', supabaseChave: '' };"))
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg, logs=[{'id': 'meu', 'chave': '/works/OL1W', 'nota': 4.0,
+                          'resenha': 'so minha mesmo', 'lidoEm': '2026-08-01',
+                          'relido': False, 'spoiler': False,
+                          'criadoEm': '2026-08-01T10:00:00Z'}], sessao=None)
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/resenhas', wait_until='networkidle')
+        pg.wait_for_selector('.cartao-resenha', timeout=8000)
+        checa('sem nuvem nao ha segunda fileira de segmentos',
+              pg.locator('.segmentos-2').count() == 0)
+        checa('e a aba mostra o que existe: as suas',
+              'so minha mesmo' in pg.inner_text('.cartao-resenha'))
+        nav.close()
+
         # ============================ listas na nuvem =========================
         # Ate aqui as tabelas listas/lista_itens so recebiam dado UMA VEZ na
         # vida, dentro de Nuvem.migrar. Lista criada depois disso morria no

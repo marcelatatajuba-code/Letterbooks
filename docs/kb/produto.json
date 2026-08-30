@@ -12,9 +12,9 @@
    "nome": "Aba Reviews (resenhas de quem você segue)",
    "area": "Livros",
    "noOriginal": "A aba Reviews mostra as resenhas da sua rede, não as suas.",
-   "noLetterbooks": "telaResenhas (js/app.js:1002) filtra Dados.logs() — só o que VOCÊ escreveu, do localStorage. Nenhuma chamada a Nuvem.feed aqui. As resenhas alheias só existem na aba Atividade.",
-   "estado": "parcial",
-   "evidencia": "js/app.js:1002 telaResenhas"
+   "noLetterbooks": "telaResenhas lê Nuvem.feed/feedGeral filtrando quem tem texto, em três recortes: Rede (fidelidade ao original), Todas (para quem ainda não segue ninguém não encontrar aba vazia) e Suas (o cartão local de sempre). Até V6 a aba filtrava Dados.logs() — o que já estava no Diário, com outro desenho.",
+   "estado": "completo",
+   "evidencia": "js/app.js telaResenhas; docs/testar_social.py \"aba Resenhas\""
   },
   {
    "nome": "Aba Lists (listas)",

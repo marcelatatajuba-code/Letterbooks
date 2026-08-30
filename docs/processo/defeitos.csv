@@ -49,3 +49,5 @@ D48,time-hibrido,30/08 23:00,Lista criada depois de migrar morria no aparelho: a
 D49,time-hibrido,30/08 23:00,A fila tirava o item enviado por POSIÇÃO: mudança que entrava durante um envio era descartada sem nunca subir,alta,suíte social (montando as listas),~19h,—,sim
 D50,time-hibrido,30/08 23:00,Registrar e apagar em seguida deixava a leitura viva no servidor: o apagar virava no-op por falta do uuid,alta,suíte social,~19h,—,sim
 D51,time-hibrido,30/08 23:00,migrarListas nunca gravava o id de volta: editar depois de migrar criava uma segunda lista no servidor,alta,servidor/provar-v2.sql,~23h,—,sim
+D52,time-hibrido,31/08 00:30,"A aba Resenhas mostrava o que você já tinha lido no Diário, não a rede",média,agente de produto,~24h,—,nao
+D53,time-hibrido,31/08 00:30,O trecho da resenha no feed era um <p> inerte: o alvo óbvio para ir ler não fazia nada,baixa,suíte social (montando a aba),~20h,—,nao

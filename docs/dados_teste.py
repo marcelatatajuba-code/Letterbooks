@@ -554,6 +554,8 @@ SO_DE_TELA = {
     'D49': 'corrida entre fila e envio — só reproduz com o servidor de mentira,\n            em testar_social ("a fila nao perde o que entra no meio")',
     'D50': 'idem — testar_social, "apagar logo depois de registrar"',
     'D51': 'identidade no banco — provado em servidor/provar-v2.sql',
+    'D52': 'fluxo de feed — coberto por testar_social, bloco aba Resenhas',
+    'D53': 'estrutura de DOM — idem',
     'D42': 'defeito do runner desta suíte, não do app',
     'D43': 'defeito de nomenclatura entre suítes, não do app',
 }

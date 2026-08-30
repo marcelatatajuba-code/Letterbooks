@@ -1654,19 +1654,97 @@
   /* O que a aba Reviews do original mostra: as resenhas em cartoes, da mais
      recente para a mais antiga. */
 
-  function telaResenhas() {
+  /* No original, Reviews é onde você LÊ GENTE — não onde você relê o que já
+     escreveu. Esta aba mostrava Dados.logs() filtrado por resenha: exatamente
+     o que já estava no Diário, com outro desenho. Quem abria esperando os
+     outros encontrava a si mesma.
+
+     DECISÃO (minha, e registrada para dar para reverter): três recortes em vez
+     de dois. "Rede" é a fidelidade ao original. "Todas" existe porque quem
+     ainda não segue ninguém encontraria uma aba vazia, e aba vazia no primeiro
+     dia é o que faz o feed nunca encher — mesmo motivo pelo qual #/atividade
+     já tem esse par. "Suas" preserva o recorte antigo, que é útil e não custa
+     nada: é o mesmo cartão de sempre.
+
+     O padrão default é "rede" só com nuvem E sessão. Sem uma das duas não há
+     rede para ler, e desenhar "Rede" vazia seria o rótulo mentindo de novo —
+     em modo local a aba abre em "Suas", que é o que existe. */
+  function telaResenhas(aba) {
     marcarAba('inicio');
+    var naRede = Nuvem.ligada() && Nuvem.entrou();
+    aba = aba || (naRede ? 'rede' : 'suas');
+    if (!naRede) aba = 'suas';
+
+    var recortes = naRede
+      ? '<nav class="segmentos segmentos-2" aria-label="Recorte das resenhas">' +
+          [['rede', 'Rede'], ['todas', 'Todas'], ['suas', 'Suas']].map(function (a) {
+            return '<a href="#/resenhas/' + a[0] + '"' +
+                   (a[0] === aba ? ' class="ativa"' : '') + '>' + a[1] + '</a>';
+          }).join('') + '</nav>'
+      : '';
+
+    if (aba === 'suas') return desenhaSuasResenhas(recortes);
+
+    pintar(htmlSegmentos('resenhas') + recortes +
+      '<h1 class="titulo-pagina">Resenhas</h1>' +
+      '<div id="feed-resenhas"><p class="carregando">Carregando…</p></div>');
+
+    acoes({
+      'curtir-leitura': alternarCurtida,
+      'ver-spoiler': revelarSpoiler
+    });
+
+    var alvo = document.getElementById('feed-resenhas');
+    /* Uma página do feed pode vir inteira sem resenha nenhuma — a maioria das
+       leituras é só nota. Pede três páginas e junta, que é mais honesto do que
+       mostrar "ninguém escreveu" quando na verdade a primeira página não tinha. */
+    var pagina = aba === 'todas' ? Nuvem.feedGeral : Nuvem.feed;
+    Promise.all([pagina(0), pagina(1), pagina(2)]).then(function (paginas) {
+      if (!tela.contains(alvo)) return;
+      var vistas = {}, linhas = [];
+      paginas.forEach(function (p) {
+        (p || []).forEach(function (l) {
+          if (!l.resenha || vistas[l.id]) return;
+          vistas[l.id] = 1;
+          linhas.push(l);
+        });
+      });
+      if (!linhas.length) {
+        alvo.innerHTML = aba === 'todas'
+          ? htmlVazio('Ninguém escreveu resenha ainda',
+              'Registre uma leitura com texto e a sua vai ser a primeira.')
+          : htmlVazio('Quem você segue ainda não escreveu',
+              'Dá para ler o que todo mundo escreveu enquanto isso.',
+              '<div class="linha-botoes" style="justify-content:center;margin-top:14px">' +
+              '<a class="botao destaque" href="#/resenhas/todas">Ver todas</a></div>');
+        return;
+      }
+      alvo.innerHTML = '<p class="sub-pagina">' +
+        plural(linhas.length, 'resenha', 'resenhas') + ' para ler.</p>' +
+        linhas.map(htmlLinhaFeed).join('');
+      ligarCurtidas(alvo);
+    }, function (err) {
+      if (tela.contains(alvo)) {
+        alvo.innerHTML = '<p class="erro">' + esc(err.message) + '</p>';
+      }
+    });
+  }
+
+  /* O recorte antigo, intacto: o cartão com a capa é a forma certa para o que
+     VOCÊ escreveu, e é a mesma que o original usa no perfil. Duas formas para
+     o mesmo objeto não é inconsistência aqui — é o que o original faz. */
+  function desenhaSuasResenhas(recortes) {
     var comResenha = Dados.logs().filter(function (l) { return l.resenha; });
 
     if (!comResenha.length) {
-      return pintar(htmlSegmentos('resenhas') +
+      return pintar(htmlSegmentos('resenhas') + recortes +
         '<h1 class="titulo-pagina">Resenhas</h1>' +
         htmlVazio('Você ainda não escreveu nenhuma',
           'Ao registrar uma leitura, o que você escrever aparece aqui.',
           '<a class="botao destaque" href="#/inicio">Encontrar um livro</a>'));
     }
 
-    pintar(htmlSegmentos('resenhas') +
+    pintar(htmlSegmentos('resenhas') + recortes +
       '<h1 class="titulo-pagina">Resenhas</h1>' +
       '<p class="sub-pagina">' +
         plural(comResenha.length, 'resenha escrita', 'resenhas escritas') + '.</p>' +
@@ -2822,12 +2900,16 @@
       ? ' <span class="estrelas">' + estrelasTexto(l.nota) + '</span>' : '';
     var livro = '<a class="alvo" href="' + rotaLivro(l.livro) + '">' + esc(l.titulo) + '</a>';
 
+    /* O trecho LEVA à resenha, como já leva na ficha do livro. Era um <p>
+       inerte: na aba Resenhas, que existe para você ir ler, o alvo óbvio não
+       fazia nada. Uma forma só nos dois lugares. */
     var resenha = '';
     if (l.resenha) {
       resenha = l.spoiler
         ? '<button class="spoiler-aviso" data-acao="ver-spoiler" data-texto="' +
           esc(l.resenha) + '">Esta resenha tem spoiler. Tocar para ler.</button>'
-        : '<p class="feed-resenha">' + esc(recortar(l.resenha, 240)) + '</p>';
+        : '<a class="feed-resenha" href="#/resenha/' + encodeURIComponent(l.id) + '">' +
+          esc(recortar(l.resenha, 240)) + '</a>';
     }
 
     return '<article class="feed-linha" data-leitura="' + esc(l.id) + '">' +
@@ -3476,7 +3558,7 @@
     if (rota === 'resenha') return telaResenha(partes[1]);
     if (rota === 'livro')   return telaLivro(decodeURIComponent(partes.slice(1).join('/')));
     if (rota === 'diario')  return telaDiario();
-    if (rota === 'resenhas') return telaResenhas();
+    if (rota === 'resenhas') return telaResenhas(partes[1]);
     if (rota === 'estante') return telaEstante();
     if (rota === 'listas')  return telaListas();
     if (rota === 'lista')   return telaLista(partes[1]);

@@ -58,7 +58,8 @@
    "resumo": "telaResenhas (js/app.js:1002) hoje filtra Dados.logs() — só o que VOCÊ escreveu, do localStorage. Trocar por Nuvem.feed (js/nuvem.js:317) filtrando quem tem texto, reaproveitando htmlLinhaFeed, com um segmento 'suas' para quem quiser o recorte antigo.",
    "valor": "Para quem abre a aba esperando ler os outros e encontra o que já viu no Diário. No original, Reviews é da sua rede — é onde você lê gente. É o item mais barato da corrente social e o que faz o app parecer habitado.",
    "esforco": "P",
-   "depende": "item 4 (as linhas precisam levar a um endereço de resenha)"
+   "depende": "item 4 (as linhas precisam levar a um endereço de resenha)",
+   "entregue": "V6 — a aba Resenhas passa a ser a da rede"
   },
   {
    "ordem": 7,

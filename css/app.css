@@ -238,6 +238,12 @@ img { display: block; max-width: 100%; }
 .secao > h2 a::after { content: " ›"; }
 .secao > h2 a:hover { color: var(--texto); }
 
+/* Segunda fileira de segmentos, dentro de uma aba que ja tem a primeira. Mais
+   apagada e mais junta que a de cima, para ler como subdivisao e nao como uma
+   segunda navegacao concorrente. */
+.segmentos-2 { margin-top: -8px; margin-bottom: 18px; font-size: 13px; }
+.segmentos-2 a { padding: 5px 12px; }
+
 .titulo-pagina { margin: 0 0 4px; font-size: 25px; font-weight: 800; letter-spacing: -.025em; }
 .sub-pagina { margin: 0 0 24px; color: var(--texto-3); font-size: 13px; }
 

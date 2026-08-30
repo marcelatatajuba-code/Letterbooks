@@ -170,7 +170,7 @@ completa, use a skill `/ciclo`. Para só verificar, `/verificar`.
 **Quando parar de dar voltas:** não é quando o backlog acabar — ele sempre
 volta a encher. É quando `python3 docs/processo/portoes.py` fechar os dois
 portões que ele mede (fidelidade e solidez). Hoje: fidelidade **aberto** em
-59% de paridade e 5 itens, solidez **fechado**.
+61% de paridade e 4 itens, solidez **fechado**.
 
 Marque o item do backlog com `entregue` ao publicá-lo. Sem isso o portão conta
 para sempre os mesmos itens e não pode fechar nunca.
