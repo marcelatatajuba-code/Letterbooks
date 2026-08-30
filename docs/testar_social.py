@@ -22,11 +22,11 @@ SESSAO = {'token': 'tok', 'atualizar': 'ref',
 BANCO = {}   # tabela -> lista de linhas
 
 
-def zerar():
+def zerar(vazio=False):
     del pedidos[:]
     BANCO.clear()
     BANCO.update({'livros': [], 'leituras': [], 'marcadores': [], 'seguidores': [],
-                  'curtidas': [], 'comentarios': [], 'perfis': [
+                  'curtidas': [], 'comentarios': [], '_contas': {}, 'perfis': [] if vazio else [
                       {'id': 'uid-1', 'usuario': 'marcela', 'nome': 'Marcela', 'bio': '', 'local': ''},
                       {'id': 'uid-2', 'usuario': 'bia', 'nome': 'Bia', 'bio': 'leio de tudo',
                        'local': 'Recife'}]})
@@ -48,8 +48,27 @@ def servir(rota, estado):
         return rota.abort()          # rede fora
 
     if p.path.startswith('/auth/'):
-        return j({'access_token': 'tok', 'refresh_token': 'ref', 'expires_in': 3600,
-                  'user': {'id': 'uid-1', 'email': 'marcela@exemplo.com'}})
+        if p.path.endswith('/logout'):
+            return rota.fulfill(status=204, headers=cab, body='')
+        email = (corpo or {}).get('email') or 'marcela@exemplo.com'
+        contas = BANCO.setdefault('_contas', {})
+        if email not in contas:
+            contas[email] = 'uid-%d' % (len(contas) + 1)
+            # o gatilho ao_cadastrar: perfil nasce junto com a conta, com o @
+            # tirado do e-mail e sufixo se ja estiver tomado
+            base = email.split('@')[0].lower()
+            usuario, n = base, 0
+            while any(x['usuario'] == usuario for x in BANCO['perfis']):
+                n += 1; usuario = base + str(n)
+            BANCO['perfis'].append({'id': contas[email], 'usuario': usuario,
+                                    'nome': (corpo or {}).get('data', {}).get('nome') or usuario,
+                                    'bio': '', 'local': ''})
+        uid = contas[email]
+        return j({'access_token': 'tok-' + uid, 'refresh_token': 'ref-' + uid,
+                  'expires_in': 3600, 'user': {'id': uid, 'email': email}})
+
+    aut = r.headers.get('authorization', '')
+    estado['quem'] = aut.replace('Bearer tok-', '') if 'tok-' in aut else None
 
     tab = p.path.rsplit('/', 1)[-1]
     linhas = BANCO.setdefault(tab, [])
@@ -81,6 +100,12 @@ def servir(rota, estado):
             if v[0].startswith('eq.'):
                 alvo = v[0][3:]
                 saida = [x for x in saida if str(x.get(campo)) == alvo]
+            elif v[0].startswith('in.'):
+                # o mock ignorava "in.(...)" e devolvia a tabela inteira. Isso
+                # fez um teste ACUSAR o app de listar gente demais quando o
+                # pedido dele estava certo — mock frouxo mente nos dois sentidos.
+                dentro = [x.strip('"') for x in v[0][4:-1].split(',') if x]
+                saida = [x for x in saida if str(x.get(campo)) in dentro]
         if tab == 'comentarios':
             saida = [dict(x, perfis={'usuario': 'bia', 'nome': 'Bia'}) for x in saida]
         return j(saida)

@@ -1234,7 +1234,7 @@
       '<div class="perfil-topo">' +
         '<div class="avatar" aria-hidden="true">' + esc(inicial) + '</div>' +
         '<h1 class="perfil-nome">' + esc(d.perfil.nome) + '</h1>' +
-        '<p class="perfil-bio">' +
+        '<p class="perfil-bio" id="meu-arroba">' +
           (d.perfil.bio ? esc(d.perfil.bio) : 'Sem descrição ainda.') + '</p>' +
       '</div>' +
 
@@ -1264,6 +1264,10 @@
         linhaAjuste('a', 'href="#/estante"', 'Curtidas', String(e.curtidas)) +
         linhaAjuste('span', 'class="sem-link"', 'Páginas',
                     e.paginas ? e.paginas.toLocaleString('pt-BR') : '—') +
+        /* Preenchido depois, pela nuvem: quem me segue e quem eu sigo. Fica
+           aqui como espaco reservado para a lista nao pular quando chegar. */
+        (Nuvem.entrou() ? '<span class="sem-link" id="meu-social-espera">Seguidores' +
+                          '<span class="valor">…</span></span>' : '') +
       '</div>' +
 
       '<section class="secao"><h2>Meta de ' + d.perfil.meta.ano + '</h2>' +
@@ -1343,6 +1347,8 @@
       },
       'ver-spoiler': revelarSpoiler
     });
+
+    if (Nuvem.entrou()) enfeitarPerfilComANuvem();
 
     document.getElementById('arquivo-importar').addEventListener('change', function () {
       var f = this.files[0];
@@ -1543,7 +1549,16 @@
           '</div>' +
         '</div>' +
         '<div class="linhas">' +
-          '<button data-r="registrar">Registrar leitura<span class="chevron">›</span></button>' +
+          /* Se ja existe leitura deste livro, esta linha EDITA a mais recente.
+             Antes ela abria em branco e criava uma segunda — quem desse a
+             estrela aqui e depois quisesse escrever a resenha acabava com o
+             livro duas vezes no diario. Releitura continua existindo, pelo
+             botao da propria ficha do livro. */
+          '<button data-r="registrar">' +
+            (lido ? 'Escrever ou editar' : 'Registrar leitura') +
+            '<span class="chevron">›</span></button>' +
+          (lido ? '<button data-r="reler">Registrar outra leitura' +
+                  '<span class="chevron">›</span></button>' : '') +
           '<button data-r="listas">Adicionar a uma lista<span class="chevron">›</span></button>' +
           '<button data-r="compartilhar">Compartilhar<span class="chevron">›</span></button>' +
         '</div>';
@@ -1602,7 +1617,12 @@
       }
       if (acao) {
         var qual = acao.getAttribute('data-r');
-        if (qual === 'registrar') { fechar(); return abrirFolhaRegistro(livro, null); }
+        if (qual === 'registrar') {
+          var anterior = Dados.logsDo(livro.chave)[0];
+          fechar();
+          return abrirFolhaRegistro(livro, anterior ? anterior.id : null);
+        }
+        if (qual === 'reler') { fechar(); return abrirFolhaRegistro(livro, null); }
         if (qual === 'listas')    { fechar(); return abrirFolhaListas(livro); }
         if (qual === 'compartilhar') {
           fechar();
@@ -2127,8 +2147,10 @@
         var s = document.getElementById('leitor-numeros');
         if (s) {
           s.innerHTML = linhaAjuste('span', 'class="sem-link"', 'Leituras', String(leituras.length)) +
-            linhaAjuste('span', 'class="sem-link"', 'Seguidores', String(c.seguidores)) +
-            linhaAjuste('span', 'class="sem-link"', 'Seguindo', String(c.seguindo));
+            linhaAjuste('a', 'href="#/seguidores/' + encodeURIComponent(p.id) + '"',
+                        'Seguidores', String(c.seguidores)) +
+            linhaAjuste('a', 'href="#/seguindo/' + encodeURIComponent(p.id) + '"',
+                        'Seguindo', String(c.seguindo));
         }
       }).catch(function () {});
       if (eu) atualizarBotaoSeguir(p.id);
@@ -2333,6 +2355,78 @@
     var d = new Date(iso + 'T12:00:00');
     return isNaN(d.getTime()) ? String(iso)
       : d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  /* O meu @ e as minhas contagens sociais vivem no banco, nao no aparelho.
+     Chegam depois de a tela ja estar de pe: o perfil e util sem eles, e sao
+     duas idas a mais na rede. */
+  function enfeitarPerfilComANuvem() {
+    var eu = Nuvem.quemSou();
+
+    Nuvem.meuPerfil().then(function (p) {
+      var arroba = document.getElementById('meu-arroba');
+      if (!p || !arroba || !document.body.contains(arroba)) return;
+      arroba.innerHTML = '@' + esc(p.usuario) +
+        (p.local ? ' · ' + esc(p.local) : '') +
+        (p.bio ? '<br>' + esc(p.bio) : '');
+    }).catch(function () {});
+
+    Nuvem.contagemSocial(eu.id).then(function (c) {
+      var espera = document.getElementById('meu-social-espera');
+      if (!espera || !document.body.contains(espera)) return;
+      espera.outerHTML =
+        linhaAjuste('a', 'href="#/seguidores/' + encodeURIComponent(eu.id) + '"',
+                    'Seguidores', String(c.seguidores)) +
+        linhaAjuste('a', 'href="#/seguindo/' + encodeURIComponent(eu.id) + '"',
+                    'Seguindo', String(c.seguindo));
+    }).catch(function () {
+      var espera = document.getElementById('meu-social-espera');
+      if (espera) espera.remove();
+    });
+  }
+
+  /* A lista de quem me segue / de quem eu sigo. Uma contagem que nao abre nada
+     e uma seta que a tela nao cumpre — foi o que eu disse quando troquei os
+     numeros soltos por linhas, e vale aqui tambem. */
+  function telaGente(qual, id) {
+    marcarAba('perfil');
+    if (!Nuvem.ligada()) return pintar('<p class="erro">A nuvem não está ligada.</p>');
+    var titulo = qual === 'seguidores' ? 'Seguidores' : 'Seguindo';
+    carregando('Carregando…');
+
+    var campo = qual === 'seguidores' ? 'seguido' : 'seguidor';
+    var outro = qual === 'seguidores' ? 'seguidor' : 'seguido';
+
+    Nuvem.publico('seguidores', '?select=' + outro + '&' + campo + '=eq.' + id)
+      .then(function (linhas) {
+        var ids = (linhas || []).map(function (x) { return x[outro]; });
+        if (!ids.length) {
+          return pintar('<h1 class="titulo-pagina">' + titulo + '</h1>' +
+            htmlVazio(qual === 'seguidores' ? 'Ninguém ainda' : 'Você ainda não segue ninguém',
+              qual === 'seguidores'
+                ? 'Quem seguir você aparece aqui.'
+                : 'Procure leitores na busca para o seu feed deixar de ser só seu.',
+              '<div class="linha-botoes" style="justify-content:center;margin-top:14px">' +
+              '<a class="botao destaque" href="#/buscar">Procurar leitores</a></div>'));
+        }
+        var lista = ids.map(function (x) { return '"' + x + '"'; }).join(',');
+        return Nuvem.publico('perfis', '?select=id,usuario,nome,bio&id=in.(' + lista + ')')
+          .then(function (gente) {
+            pintar('<h1 class="titulo-pagina">' + titulo + '</h1>' +
+              '<div class="resultados">' + (gente || []).map(function (p) {
+                var nome = p.nome || p.usuario;
+                return '<a class="resultado" href="#/leitor/' + encodeURIComponent(p.usuario) + '">' +
+                  '<div class="resultado-inicial" aria-hidden="true">' +
+                    esc(nome.trim().charAt(0).toUpperCase()) + '</div>' +
+                  '<div class="resultado-texto"><b>' + esc(nome) + '</b>' +
+                    '<span>@' + esc(p.usuario) + (p.bio ? ' · ' + esc(p.bio) : '') +
+                  '</span></div></a>';
+              }).join('') + '</div>');
+          });
+      }).catch(function (err) {
+        pintar('<h1 class="titulo-pagina">' + titulo + '</h1>' +
+               '<p class="erro">' + esc(err.message) + '</p>');
+      });
   }
 
   /* ================================================================ conta == */
@@ -2639,6 +2733,8 @@
     if (rota === 'conta')   return telaConta();
     if (rota === 'atividade') return telaAtividade(partes[1]);
     if (rota === 'leitor')  return telaLeitor(decodeURIComponent(partes[1] || ''));
+    if (rota === 'seguidores' || rota === 'seguindo')
+      return telaGente(rota, decodeURIComponent(partes[1] || ''));
     if (rota === 'leitura') return telaLeitura(decodeURIComponent(partes[1] || ''));
     return telaInicio();
   }
