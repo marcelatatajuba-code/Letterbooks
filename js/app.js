@@ -374,9 +374,13 @@
 
   /* Uma linha do bloco de ajustes: rotulo, valor opcional e o chevron. */
   function linhaAjuste(tag, atributos, rotulo, valor) {
+    /* Paginas nao leva a lugar nenhum, entao nao ganha chevron: seta que nao
+       abre nada e promessa que a tela nao cumpre. */
+    var mudo = atributos.indexOf('sem-link') >= 0;
     return '<' + tag + ' ' + atributos + '>' + esc(rotulo) +
       (valor ? '<span class="valor">' + valor + '</span>' : '') +
-      '<span class="chevron" aria-hidden="true">›</span></' + tag + '>';
+      (mudo ? '' : '<span class="chevron" aria-hidden="true">›</span>') +
+      '</' + tag + '>';
   }
 
   function numero(valor, rotulo) {
@@ -425,15 +429,43 @@
     preencherEmAlta(14);
   }
 
-  function telaBusca(termo, pagina) {
+  /* Duas pilulas de escopo, como "Films | Cast, Crew or Studios" do app. */
+  function htmlEscopos(termo, escopo) {
+    var abas = [['', 'Livros'], ['autores', 'Autores']];
+    return '<nav class="escopos" aria-label="O que buscar">' + abas.map(function (a) {
+      var alvo = '#/buscar/' + encodeURIComponent(termo) + '/1' + (a[0] ? '/' + a[0] : '');
+      return '<a href="' + alvo + '"' + (a[0] === escopo ? ' class="ativa"' : '') + '>' +
+             a[1] + '</a>';
+    }).join('') + '</nav>';
+  }
+
+  /* Uma linha de resultado: capa pequena, titulo em negrito e "ano, de Fulano"
+     em cinza embaixo. O app lista assim em vez de mostrar uma grade de
+     posteres, e para livro isso importa mais ainda: capa de livro identifica
+     muito menos que poster de filme, e boa parte do acervo nem tem capa. */
+  function htmlLinhaLivro(l) {
+    var meta = [l.ano, l.autores && l.autores.length ? 'de ' + l.autores[0] : '']
+                 .filter(Boolean).join(', ');
+    return '<a class="resultado" href="' + rotaLivro(l.chave) + '">' +
+      '<div class="resultado-capa">' + htmlCapa(l) + '</div>' +
+      '<div class="resultado-texto">' +
+        '<b>' + esc(l.titulo) + '</b>' +
+        (meta ? '<span>' + esc(meta) + '</span>' : '') +
+      '</div></a>';
+  }
+
+  function telaBusca(termo, pagina, escopo) {
     marcarAba('buscar');
     Dados.registrarBusca(termo);
     document.getElementById('campo-busca').value = termo;
     carregando('Procurando “' + termo + '” no acervo…');
 
+    if (escopo === 'autores') return buscaDeAutores(termo, pagina);
+
     API.buscar(termo, pagina).then(function (r) {
       r.livros.forEach(Dados.guardarLivro);
-      var html = '<h1 class="titulo-pagina">' + esc(termo) + '</h1>';
+      var html = '<h1 class="titulo-pagina">' + esc(termo) + '</h1>' +
+                 htmlEscopos(termo, '');
 
       if (!r.livros.length) {
         return pintar(html + htmlVazio('Nada encontrado',
@@ -441,28 +473,58 @@
       }
 
       html += '<p class="sub-pagina">' + plural(r.total, 'resultado', 'resultados') +
-              ' no acervo da Open Library.</p>' + htmlGrade(r.livros);
-
-      var ultima = Math.min(Math.ceil(r.total / 24), 42);
-      if (ultima > 1) {
-        html += '<div class="linha-botoes" style="margin-top:24px;justify-content:center">';
-        if (pagina > 1) {
-          html += '<a class="botao" href="#/buscar/' + encodeURIComponent(termo) + '/' +
-                  (pagina - 1) + '">← Anteriores</a>';
-        }
-        html += '<span class="botao" style="cursor:default">Página ' + pagina + ' de ' + ultima + '</span>';
-        if (pagina < ultima) {
-          html += '<a class="botao" href="#/buscar/' + encodeURIComponent(termo) + '/' +
-                  (pagina + 1) + '">Próximos →</a>';
-        }
-        html += '</div>';
-      }
+              ' no acervo da Open Library.</p>' +
+              '<div class="resultados">' + r.livros.map(htmlLinhaLivro).join('') + '</div>' +
+              htmlPaginas(termo, pagina, r.total, '');
       pintar(html);
       window.scrollTo(0, 0);
     }).catch(function (err) {
-      pintar('<h1 class="titulo-pagina">' + esc(termo) + '</h1>' +
+      pintar('<h1 class="titulo-pagina">' + esc(termo) + '</h1>' + htmlEscopos(termo, '') +
              '<p class="erro">Não foi possível buscar agora. ' + esc(err.message) + '</p>');
     });
+  }
+
+  function buscaDeAutores(termo, pagina) {
+    API.buscarAutores(termo, pagina).then(function (r) {
+      var html = '<h1 class="titulo-pagina">' + esc(termo) + '</h1>' +
+                 htmlEscopos(termo, 'autores');
+
+      if (!r.autores.length) {
+        return pintar(html + htmlVazio('Ninguém com esse nome',
+          'Tente só o sobrenome, ou busque pelo título do livro.'));
+      }
+
+      html += '<p class="sub-pagina">' + plural(r.total, 'autor', 'autores') +
+              ' no acervo.</p>' +
+              '<div class="resultados">' + r.autores.map(function (a) {
+                var meta = [a.anos, a.obras ? plural(a.obras, 'obra', 'obras') : '',
+                            a.principal].filter(Boolean).join(' · ');
+                return '<a class="resultado" href="#/autor/' + encodeURIComponent(a.chave) + '">' +
+                  '<div class="resultado-inicial" aria-hidden="true">' +
+                    esc(a.nome.trim().charAt(0).toUpperCase()) + '</div>' +
+                  '<div class="resultado-texto"><b>' + esc(a.nome) + '</b>' +
+                    (meta ? '<span>' + esc(meta) + '</span>' : '') +
+                  '</div></a>';
+              }).join('') + '</div>' +
+              htmlPaginas(termo, pagina, r.total, 'autores', 20);
+      pintar(html);
+      window.scrollTo(0, 0);
+    }).catch(function (err) {
+      pintar('<h1 class="titulo-pagina">' + esc(termo) + '</h1>' + htmlEscopos(termo, 'autores') +
+             '<p class="erro">Não foi possível buscar agora. ' + esc(err.message) + '</p>');
+    });
+  }
+
+  function htmlPaginas(termo, pagina, total, escopo, porPagina) {
+    var ultima = Math.min(Math.ceil(total / (porPagina || 24)), 42);
+    if (ultima <= 1) return '';
+    var base = '#/buscar/' + encodeURIComponent(termo) + '/';
+    var fim = escopo ? '/' + escopo : '';
+    var s = '<div class="linha-botoes" style="margin-top:24px;justify-content:center">';
+    if (pagina > 1) s += '<a class="botao" href="' + base + (pagina - 1) + fim + '">← Anteriores</a>';
+    s += '<span class="botao" style="cursor:default">Página ' + pagina + ' de ' + ultima + '</span>';
+    if (pagina < ultima) s += '<a class="botao" href="' + base + (pagina + 1) + fim + '">Próximos →</a>';
+    return s + '</div>';
   }
 
   /* =============================================================== TELA: recorte */
@@ -1138,12 +1200,19 @@
           '<a class="linha-mais" href="#/diario">Mais atividade</a></section>'
         : '') +
 
-      '<div class="numeros">' +
-        numero(e.lidos, 'leituras') +
-        numero(e.noAno, 'em ' + d.perfil.meta.ano) +
-        numero(e.obras, 'obras') +
-        numero(e.resenhas, 'resenhas') +
-        numero(e.paginas ? e.paginas.toLocaleString('pt-BR') : '—', 'páginas') +
+      /* A lista de contagens do perfil do app: cada linha e um numero E um
+         caminho. A fileira de numeros soltos que eu tinha mostrava o mesmo
+         dado sem levar a lugar nenhum. */
+      '<div class="linhas linhas-conta">' +
+        linhaAjuste('a', 'href="#/diario"', 'Leituras',
+                    e.lidos + (e.noAno ? ' <i>' + e.noAno + ' em ' + d.perfil.meta.ano + '</i>' : '')) +
+        linhaAjuste('a', 'href="#/diario"', 'Obras', String(e.obras)) +
+        linhaAjuste('a', 'href="#/resenhas"', 'Resenhas', String(e.resenhas)) +
+        linhaAjuste('a', 'href="#/listas"', 'Listas', String(e.listas)) +
+        linhaAjuste('a', 'href="#/estante"', 'Quero ler', String(e.querLer)) +
+        linhaAjuste('a', 'href="#/estante"', 'Curtidas', String(e.curtidas)) +
+        linhaAjuste('span', 'class="sem-link"', 'Páginas',
+                    e.paginas ? e.paginas.toLocaleString('pt-BR') : '—') +
       '</div>' +
 
       '<section class="secao"><h2>Meta de ' + d.perfil.meta.ano + '</h2>' +
@@ -1412,7 +1481,46 @@
           botao('favorito', Dados.favorito(livro.chave) ? '★' : '☆', 'Favorito',
                 Dados.favorito(livro.chave)) +
         '</div>' +
-        (nota ? '<p class="rapida-nota estrelas">' + estrelasTexto(nota) + '</p>' : '');
+        /* No app a folha de acao avalia ali mesmo: "Rate" e uma fileira de
+           estrelas tocaveis, nao um numero para olhar. Sem isso, dar uma nota
+           custava abrir a folha de registro inteira. */
+        '<div class="rapida-nota">' +
+          '<span class="rotulo">Sua nota</span>' +
+          '<div class="seletor-estrelas"><div class="campo" style="margin:0">' +
+            estrelasBotoes(nota) + '</div>' +
+            (nota ? '<button type="button" class="limpar" data-pos="0">limpar</button>' : '') +
+          '</div>' +
+        '</div>' +
+        '<div class="linhas">' +
+          '<button data-r="registrar">Registrar leitura<span class="chevron">›</span></button>' +
+          '<button data-r="listas">Adicionar a uma lista<span class="chevron">›</span></button>' +
+          '<button data-r="compartilhar">Compartilhar<span class="chevron">›</span></button>' +
+        '</div>';
+    }
+
+    /* Meia estrela na metade esquerda do botao, estrela inteira na direita —
+       a mesma regra da folha de registro. */
+    function notaDoToque(botao, ev) {
+      var pos = parseInt(botao.getAttribute('data-pos'), 10);
+      if (!pos) return null;
+      var cx = botao.getBoundingClientRect();
+      var meia = (ev.clientX - cx.left) < cx.width / 2;
+      return meia ? pos - 0.5 : pos;
+    }
+
+    /* Avaliar aqui atualiza a leitura mais recente do livro; se nao houver
+       nenhuma, cria uma com a data de hoje. Sem isso, cada toque numa estrela
+       viraria uma linha nova no diario. */
+    function avaliar(valor) {
+      var anteriores = Dados.logsDo(livro.chave);
+      if (anteriores.length) {
+        Dados.registrar({ id: anteriores[0].id, chave: livro.chave, nota: valor,
+                          resenha: anteriores[0].resenha, lidoEm: anteriores[0].lidoEm,
+                          relido: anteriores[0].relido, spoiler: anteriores[0].spoiler });
+      } else {
+        Dados.guardarLivro(livro);
+        Dados.registrar({ chave: livro.chave, nota: valor });
+      }
     }
 
     camada.innerHTML =
@@ -1434,9 +1542,23 @@
 
     painel.addEventListener('click', function (ev) {
       var acao = ev.target.closest('[data-r]');
+      var est = ev.target.closest('.seletor-estrelas [data-pos]');
+      if (est) {
+        var v = notaDoToque(est, ev);
+        avaliar(v);
+        miolo.innerHTML = pinta();
+        return;
+      }
       if (acao) {
         var qual = acao.getAttribute('data-r');
         if (qual === 'registrar') { fechar(); return abrirFolhaRegistro(livro, null); }
+        if (qual === 'listas')    { fechar(); return abrirFolhaListas(livro); }
+        if (qual === 'compartilhar') {
+          fechar();
+          return cartaoDeCompartilhar(livro, Dados.notaDe(livro.chave)).then(function (m) {
+            if (m) aviso(m);
+          }).catch(function (e) { aviso('Não consegui montar a imagem: ' + e.message); });
+        }
         if (qual === 'curtir')  Dados.alternarCurtida(livro.chave);
         if (qual === 'quero')   Dados.alternarQuerLer(livro.chave);
         if (qual === 'favorito') {
@@ -2042,7 +2164,7 @@
     if (rota === 'buscar') {
       var termo = decodeURIComponent(partes[1] || '');
       if (!termo) return telaBuscaVazia();
-      return telaBusca(termo, Math.max(1, parseInt(partes[2], 10) || 1));
+      return telaBusca(termo, Math.max(1, parseInt(partes[2], 10) || 1), partes[3] || '');
     }
     if (rota === 'explorar') return telaExplorar(partes[1], Math.max(1, parseInt(partes[2], 10) || 1));
     if (rota === 'autor')   return telaAutor(decodeURIComponent(partes.slice(1).join('/')));

@@ -46,26 +46,41 @@
 }
 
 :root {
+  /* ==========================================================================
+     PALETA — tirada dos pixels do video do app, nao do olho.
+     O fundo #14181c foi lido direto do quadro; o verde saiu do botao "Save"
+     da folha de registro (#00d749 no video, #00e054 sem a compressao), o azul
+     da aba ativa e o laranja da faixa PRO, pelo mesmo caminho.
+
+     O trio de acentos existe porque o original tem tres, e cada um tem um
+     trabalho fixo: VERDE e o que voce fez (lido, registrar, salvar), LARANJA
+     e o que voce gostou (curtida, favorito), AZUL e onde voce esta (aba ativa,
+     links). A nota fica em verde, como as estrelas do original.
+
+     Para voltar a paleta "coral sobre cafe", troque uma linha no <html>:
+     <html lang="pt-BR" data-tema="cafe">. Ela continua inteira ali embaixo.
+     ====================================================================== */
+
   /* ------------------------------------------------------------- superficies */
-  --fundo:        #16110e;
-  --fundo-rgb:    22, 17, 14;   /* o mesmo --fundo, para usos com transparencia */
-  --fundo-2:      #1d1713;
-  --superficie:   #271f19;
-  --superficie-2: #332920;
-  --borda:        #43362b;
-  --borda-2:      #55463a;
+  --fundo:        #14181c;
+  --fundo-rgb:    20, 24, 28;   /* o mesmo --fundo, para usos com transparencia */
+  --fundo-2:      #1b2228;
+  --superficie:   #22282e;
+  --superficie-2: #2c3440;
+  --borda:        #34404a;
+  --borda-2:      #445566;
 
   /* ------------------------------------------------------------------ texto */
-  --texto:   #f4ede4;
-  --texto-2: #b3a595;
-  --texto-3: #82756a;
+  --texto:   #ddeeff;
+  --texto-2: #99aabb;
+  --texto-3: #667788;
 
   /* ------------------------------------------------------ o trio da marca */
-  --a1: #ff7a3d;   /* coral — acao primaria, estrelas, "lido" */
-  --a2: #a8b864;   /* oliva — segundo plano da marca, "quero ler" */
-  --a3: #e0a0b8;   /* rosa  — terceiro plano da marca, "curtir" */
+  --a1: #00e054;   /* verde   — acao primaria, estrelas, "lido" */
+  --a2: #40bcf4;   /* azul    — onde voce esta: aba ativa, links */
+  --a3: #ff8000;   /* laranja — o que voce gostou: curtida, favorito */
 
-  --sobre-a1: #1f0d04;   /* texto que fica POR CIMA da cor de acao */
+  --sobre-a1: #08120b;   /* texto que fica POR CIMA da cor de acao */
   --estrela: var(--a1);
   --curtida: var(--a3);
   --quero:   var(--a2);
@@ -78,6 +93,26 @@
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
   color-scheme: dark;
+}
+
+/* A paleta anterior, "coral sobre cafe", que voce escolheu quando o pedido era
+   "cores diferentes do original". Fica aqui inteira: e so pôr data-tema="cafe"
+   no <html> para o app voltar a ela, sem tocar em mais nada. */
+:root[data-tema="cafe"] {
+  --fundo:        #16110e;
+  --fundo-rgb:    22, 17, 14;
+  --fundo-2:      #1d1713;
+  --superficie:   #271f19;
+  --superficie-2: #332920;
+  --borda:        #43362b;
+  --borda-2:      #55463a;
+  --texto:   #f4ede4;
+  --texto-2: #b3a595;
+  --texto-3: #82756a;
+  --a1: #ff7a3d;
+  --a2: #a8b864;
+  --a3: #e0a0b8;
+  --sobre-a1: #1f0d04;
 }
 
 * { box-sizing: border-box; }
@@ -143,7 +178,7 @@ img { display: block; max-width: 100%; }
   padding: 4px 0; border-bottom: 2px solid transparent;
 }
 .topo-nav a:hover { color: var(--texto); }
-.topo-nav a.ativa { color: var(--texto); border-bottom-color: var(--a1); }
+.topo-nav a.ativa { color: var(--texto); border-bottom-color: var(--a2); }
 
 .topo-fim { margin-left: auto; display: flex; align-items: center; gap: 12px; }
 
@@ -267,7 +302,7 @@ img { display: block; max-width: 100%; }
   display: flex; flex-direction: column; justify-content: center;
   padding: 10px 9px 10px 12px;
   background: var(--superficie);
-  border-left: 3px solid var(--a1);
+  border-left: 3px solid var(--borda-2);
 }
 .capa-vazia span {
   font-size: 11px; line-height: 1.3; font-weight: 600; color: var(--texto-2);
@@ -620,28 +655,21 @@ img { display: block; max-width: 100%; }
 
 /* ==================================================== perfil e numeros == */
 
-/* No app o perfil nao abre com um retrato grande e centralizado: o nome vive
-   na linha de cima e a tela comeca no conteudo — favoritos, atividade,
-   numeros. O circulo de 96px centralizado empurrava tudo isso para fora da
-   primeira dobra. Aqui o avatar e uma linha: retrato pequeno a esquerda,
-   nome e bio ao lado. */
-.perfil-topo {
-  display: grid; grid-template-columns: auto 1fr;
-  align-items: center; column-gap: 12px;
-  padding: 2px 0 16px;
-}
-/* O bloco seguinte ja traz a propria divisoria no topo: duas linhas seguidas
-   deixavam uma faixa vazia entre o nome e os favoritos. */
-.perfil-topo + .bloco { margin-top: 0; }
+/* Retrato redondo de 76px, centralizado, com o lugar embaixo — medido no
+   quadro t084 do video. Eu tinha trocado isto por uma linha com avatar
+   pequeno, comparando com um quadro que ja estava ROLADO para baixo do
+   retrato. O erro foi meu; a medida certa esta aqui. */
+.perfil-topo { text-align: center; padding: 8px 0 4px; }
+.perfil-topo + .bloco { margin-top: 18px; }
 .avatar {
-  width: 48px; height: 48px; border-radius: 50%;
-  grid-row: 1 / span 2;
+  width: 76px; height: 76px; border-radius: 50%;
+  margin: 0 auto 8px;
   display: grid; place-items: center;
   background: var(--superficie-2); color: var(--a1);
-  font-size: 20px; font-weight: 800;
+  font-size: 30px; font-weight: 800;
 }
-.perfil-nome { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -.025em; }
-.perfil-bio { margin: 1px 0 0; color: var(--texto-3); font-size: 13px; }
+.perfil-nome { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -.015em; }
+.perfil-bio { margin: 4px 0 0; color: var(--texto-3); font-size: 12.5px; }
 
 .numeros { display: flex; flex-wrap: wrap; gap: 30px; margin: 24px 0 30px; }
 .numero { text-align: left; }
@@ -1007,7 +1035,7 @@ img { display: block; max-width: 100%; }
 /* O app nao rotula os icones: o nome de cada aba vive no aria-label, para
    quem usa leitor de tela, e a barra ganha os 12px que a legenda ocupava. */
 .abas-pe a span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-.abas-pe a.ativa { color: var(--a1); }
+.abas-pe a.ativa { color: var(--a2); }
 
 /* O "+" central: o unico elemento colorido da barra, como no original. */
 .aba-mais {
@@ -1129,4 +1157,63 @@ img { display: block; max-width: 100%; }
 @media (min-width: 721px) {
   .linhas { margin: 0; max-width: 460px; }
   .linhas button, .linhas a { padding-left: 0; padding-right: 2px; }
+}
+
+/* A lista de contagens do perfil. O <i> guarda o recorte do ano, mais apagado
+   que o total, como "60 / 1 this year" no original. */
+.linhas-conta { margin-top: 22px; margin-bottom: 26px; }
+.linhas .sem-link { cursor: default; }
+.linhas .valor i { font-style: normal; color: var(--texto-3); opacity: .8; }
+.linhas .valor i::before { content: " / "; }
+
+/* A nota dentro da folha de acao: o rotulo miudo e a fileira de estrelas
+   tocaveis, como o "Rate" da folha do app. */
+.rapida-nota { margin: 16px 0 4px; text-align: left; }
+.rapida-nota .rotulo { display: block; margin-bottom: 7px; }
+.rapida-nota .seletor-estrelas { justify-content: flex-start; }
+.folha-rapida .linhas { margin: 14px 0 0; text-align: left; }
+.folha-rapida .linhas > :first-child { border-top: 1px solid var(--borda); }
+
+/* ================================================== busca: escopo e lista == */
+/* As pilulas de escopo do app ("Films | Cast, Crew or Studios"): a ativa fica
+   com a cor de acao, as outras ficam em superficie. */
+
+.escopos { display: flex; gap: 8px; margin: 0 0 18px; flex-wrap: wrap; }
+.escopos a {
+  padding: 6px 14px; border-radius: 999px;
+  background: var(--superficie); color: var(--texto-2);
+  font-size: 13px; font-weight: 600;
+}
+.escopos a:hover { background: var(--superficie-2); color: var(--texto); }
+.escopos a.ativa { background: var(--a1); color: var(--sobre-a1); }
+
+/* Lista de resultados: capa pequena, titulo em negrito, "ano, de Fulano"
+   embaixo. Uma grade de capas ate serve para filme; para livro, nao — capa de
+   livro identifica pouco, e boa parte do acervo nao tem capa nenhuma. */
+.resultados { margin: 0 -18px; }
+.resultado {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 18px; border-bottom: 1px solid var(--borda);
+}
+.resultado:hover { background: var(--superficie); }
+.resultado-capa { width: 44px; flex: none; }
+.resultado-capa .capa { border-radius: 3px; }
+.resultado-inicial {
+  width: 44px; height: 44px; flex: none; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--superficie-2); color: var(--texto-2);
+  font-size: 18px; font-weight: 700;
+}
+.resultado-texto { min-width: 0; }
+.resultado-texto b {
+  display: block; font-size: 15px; font-weight: 700; line-height: 1.25;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.resultado-texto span {
+  display: block; margin-top: 2px; color: var(--texto-3); font-size: 12.5px;
+}
+
+@media (min-width: 721px) {
+  .resultados { margin: 0; max-width: 620px; }
+  .resultado { padding-left: 0; padding-right: 0; }
 }

@@ -17,6 +17,7 @@ var API = (function () {
   'use strict';
 
   var BUSCA     = 'https://openlibrary.org/search.json';
+  var AUTORES   = 'https://openlibrary.org/search/authors.json';
   var TENDENCIA = 'https://openlibrary.org/trending/weekly.json';
   var CAPAS     = 'https://covers.openlibrary.org/b/id/';
   var CAMPOS    = 'key,title,author_name,author_key,first_publish_year,cover_i,' +
@@ -153,6 +154,28 @@ var API = (function () {
                   params: { subject: 'poetry', sort: 'readinglog' } }
   };
 
+  /* A busca por AUTOR e o equivalente do "Cast, Crew or Studios" do original:
+     o mesmo termo, outro indice. Devolve pessoas, nao obras. */
+  function buscarAutores(termo, pagina) {
+    termo = (termo || '').trim();
+    if (!termo) return Promise.resolve({ autores: [], total: 0 });
+    return pegar(url(AUTORES, { q: termo, limit: 20, offset: ((pagina || 1) - 1) * 20 }))
+      .then(function (d) {
+        return {
+          autores: (d.docs || []).map(function (a) {
+            return {
+              chave:  a.key,
+              nome:   a.name || 'Sem nome',
+              obras:  a.work_count || 0,
+              principal: a.top_work || '',
+              anos:   [a.birth_date, a.death_date].filter(Boolean).join(' – ')
+            };
+          }),
+          total: d.numFound || 0
+        };
+      });
+  }
+
   function recortes() { return RECORTES; }
 
   function explorar(chave, pagina) {
@@ -232,6 +255,7 @@ var API = (function () {
 
   return {
     buscar: buscar,
+    buscarAutores: buscarAutores,
     emAlta: emAlta,
     porAssunto: porAssunto,
     detalhe: detalhe,
