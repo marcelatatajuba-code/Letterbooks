@@ -16,6 +16,35 @@
    moram: trocar este bloco troca o tema inteiro.
    ========================================================================== */
 
+/* ============================================================ tipografia === */
+/* O original usa Graphik, que e comercial. Inter e a grotesca livre mais
+   proxima: mesmo x-alto generoso, mesmo espacamento fechado, desenhada para
+   interface. Vai hospedada aqui dentro, e nao por CDN, para o app continuar
+   funcionando offline e sem depender de terceiros.
+   Inter e de Rasmus Andersson, sob SIL Open Font License 1.1.
+   E fonte variavel: um arquivo cobre de 400 a 800. */
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('../fontes/inter-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+                 U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+                 U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('../fontes/inter-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+                 U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF,
+                 U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 :root {
   /* ------------------------------------------------------------- superficies */
   --fundo:        #16110e;
@@ -46,7 +75,7 @@
   --sombra: 0 10px 30px rgba(0, 0, 0, .5);
   --topo-h: 54px;
 
-  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
   color-scheme: dark;
 }
@@ -58,8 +87,13 @@ body {
   margin: 0;
   background: var(--fundo);
   color: var(--texto);
-  font: 14px/1.5 var(--sans);
+  font: 15px/1.5 var(--sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Inter tem numeros tabulares e ligaduras opcionais; para interface o que
+     ajuda e o kerning e o corte de zero barrado ficar de fora. */
+  font-feature-settings: 'kern' 1, 'liga' 1;
+  letter-spacing: -0.006em;
   overflow-wrap: break-word;
 }
 
@@ -95,8 +129,8 @@ img { display: block; max-width: 100%; }
 .marca .l3 { fill: var(--a3); }
 .marca .lp { fill: var(--texto); }
 .marca b {
-  font: 700 14px/1 var(--sans);
-  letter-spacing: .13em; text-transform: uppercase; color: var(--texto);
+  font: 800 19px/1 var(--sans);
+  letter-spacing: -.028em; color: var(--texto);
 }
 .marca b i { font-style: normal; color: var(--texto-3); }
 
@@ -141,14 +175,16 @@ img { display: block; max-width: 100%; }
 
 .pagina { max-width: 1000px; margin: 0 auto; padding: 26px 20px 80px; }
 
-.secao { margin-bottom: 34px; }
+/* Medido contra o original: 24px entre secoes e 10px do titulo ao conteudo.
+   Antes eram 34 e 12, e o excesso era boa parte da sensacao de folga demais. */
+.secao { margin-bottom: 24px; }
 /* Titulo de secao: negrito em caixa normal, sem regra embaixo. O versalete
    espacado com linha, repetido em toda secao, e o que mais fazia a tela
    parecer painel administrativo em vez de aplicativo. */
 .secao > h2 {
   display: flex; align-items: baseline; gap: 10px;
-  margin: 0 0 12px;
-  font-size: 17px; font-weight: 700; letter-spacing: -.01em; color: var(--texto);
+  margin: 0 0 10px;
+  font-size: 16px; font-weight: 700; letter-spacing: -.022em; color: var(--texto);
 }
 .secao > h2 a, .secao > h2 .conta {
   margin-left: auto; color: var(--texto-3); font-size: 13px; font-weight: 400;
@@ -156,7 +192,7 @@ img { display: block; max-width: 100%; }
 .secao > h2 a::after { content: " ›"; }
 .secao > h2 a:hover { color: var(--texto); }
 
-.titulo-pagina { margin: 0 0 4px; font-size: 24px; font-weight: 700; letter-spacing: -.01em; }
+.titulo-pagina { margin: 0 0 4px; font-size: 25px; font-weight: 800; letter-spacing: -.025em; }
 .sub-pagina { margin: 0 0 24px; color: var(--texto-3); font-size: 13px; }
 
 /* ============================================================== trilhos === */
@@ -166,7 +202,7 @@ img { display: block; max-width: 100%; }
 .trilho {
   display: flex; gap: 9px;
   overflow-x: auto; scroll-snap-type: x proximity;
-  margin: 0 -20px; padding: 2px 20px 6px;
+  margin: 0 -20px; padding: 2px 20px 2px;
   /* Sem isto o snap encosta o primeiro item no inicio da area de rolagem,
      que ignora o padding — o navegador rola 20px e anula o recuo. */
   scroll-padding-left: 20px;
@@ -296,7 +332,10 @@ img { display: block; max-width: 100%; }
 .livro-capa { border-radius: var(--raio-g); overflow: hidden; box-shadow: var(--sombra); }
 .livro-capa .capa { border-radius: 0; box-shadow: none; }
 
-.livro-titulo { margin: 0 0 2px; font-size: 30px; font-weight: 800; line-height: 1.1; }
+.livro-titulo {
+  margin: 0 0 2px; font-size: 31px; font-weight: 800;
+  line-height: 1.08; letter-spacing: -.032em;
+}
 .livro-linha { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
 .livro-linha .ano { color: var(--texto-2); font-size: 17px; }
 .livro-linha .autoria { color: var(--texto-2); font-size: 14px; }
@@ -584,7 +623,7 @@ img { display: block; max-width: 100%; }
   background: var(--superficie-2); color: var(--a1);
   font-size: 38px; font-weight: 800;
 }
-.perfil-nome { margin: 0 0 4px; font-size: 21px; font-weight: 700; }
+.perfil-nome { margin: 0 0 4px; font-size: 22px; font-weight: 800; letter-spacing: -.025em; }
 .perfil-bio { margin: 0; color: var(--texto-3); font-size: 13.5px; }
 
 .numeros { display: flex; flex-wrap: wrap; gap: 30px; margin-bottom: 34px; }
@@ -648,6 +687,26 @@ img { display: block; max-width: 100%; }
   color: var(--a1); font-size: 38px; font-weight: 800;
 }
 
+/* ============================================== cartao de resenha ======== */
+
+.cartao-resenha {
+  display: grid; grid-template-columns: 56px 1fr; gap: 14px;
+  padding: 16px 0; border-bottom: 1px solid var(--borda);
+}
+.cartao-resenha:last-child { border-bottom: 0; }
+.cartao-resenha h3 {
+  margin: 0 0 4px; font-size: 16px; font-weight: 700; letter-spacing: -.02em;
+}
+.cartao-resenha:hover h3 { color: var(--a1); }
+.cartao-resenha h3 .ano { font-weight: 400; color: var(--texto-3); font-size: 14px; }
+.cartao-resenha-linha {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin: 0 0 7px; font-size: 12.5px; color: var(--texto-3);
+}
+.cartao-resenha-texto {
+  margin: 0; font-size: 14px; line-height: 1.55; color: var(--texto-2);
+}
+
 /* ================================================================ listas == */
 
 /* Cabecalho da lista, no desenho do original: autoria, titulo e descricao
@@ -682,7 +741,10 @@ img { display: block; max-width: 100%; }
 .resenha.sobre-heroi { margin-top: -190px; position: relative; z-index: 1; }
 .resenha-topo { display: flex; align-items: flex-start; gap: 20px; margin: 10px 0 0; }
 .resenha-topo > div:first-child { flex: 1; min-width: 0; }
-.resenha-titulo { margin: 0 0 6px; font-size: 27px; font-weight: 800; line-height: 1.15; }
+.resenha-titulo {
+  margin: 0 0 6px; font-size: 27px; font-weight: 800;
+  line-height: 1.12; letter-spacing: -.03em;
+}
 .resenha-titulo a:hover { color: var(--a1); }
 .resenha-titulo .ano { font-weight: 400; color: var(--texto-2); font-size: 20px; }
 .resenha-linha { margin: 0 0 4px; font-size: 17px; }
@@ -703,17 +765,30 @@ img { display: block; max-width: 100%; }
 /* ============================================== atalhos do perfil ======== */
 /* No original, estante e listas ficam dentro do perfil. */
 
-/* Controle segmentado, como as abas do perfil no original. */
-.perfil-atalhos {
-  display: flex; gap: 2px; padding: 3px;
-  background: var(--superficie); border-radius: 9px; margin-bottom: 26px;
+/* Controle segmentado, como as abas do topo e do perfil no original. */
+.segmentos, .perfil-atalhos {
+  display: flex; padding: 2px;
+  background: var(--superficie); border-radius: 8px; margin-bottom: 26px;
 }
-.perfil-atalhos a {
-  flex: 1; padding: 8px 6px; text-align: center; border-radius: 7px;
-  font-size: 13.5px; font-weight: 600; color: var(--texto-2);
+.segmentos a, .perfil-atalhos a {
+  position: relative;
+  flex: 1; padding: 6px 6px; text-align: center; border-radius: 6px;
+  font-size: 14px; font-weight: 600; letter-spacing: -.01em; color: var(--texto-2);
 }
-.perfil-atalhos a:hover { color: var(--texto); }
-.perfil-atalhos a.ativa { background: var(--superficie-2); color: var(--texto); }
+/* Separador fino entre as abas inativas, como no original — some ao lado da
+   aba ativa, para nao encostar na pilula. */
+.segmentos a + a::before, .perfil-atalhos a + a::before {
+  content: ""; position: absolute; left: 0; top: 20%; bottom: 20%;
+  border-left: 1px solid var(--borda);
+}
+.segmentos a.ativa::before, .perfil-atalhos a.ativa::before,
+.segmentos a.ativa + a::before, .perfil-atalhos a.ativa + a::before { display: none; }
+.segmentos a:hover, .perfil-atalhos a:hover { color: var(--texto); }
+.segmentos a.ativa, .perfil-atalhos a.ativa {
+  background: var(--superficie-2); color: var(--texto);
+}
+/* No topo ele fica logo abaixo da marca, colado; no perfil, com folga. */
+.segmentos { margin: -4px 0 20px; }
 
 /* ================================================================ listas == */
 
@@ -817,7 +892,9 @@ img { display: block; max-width: 100%; }
 }
 
 @media (max-width: 720px) {
-  .topo { gap: 12px; padding: 0 14px; }
+  /* A marca vai para o centro, como no original. */
+  .topo { gap: 12px; padding: 0 14px; justify-content: center; }
+  .marca { position: static; }
   /* No celular o topo fica so com a marca: navegacao, busca e o botao de
      registrar passam todos para a barra de baixo, como no original. */
   .topo-nav, .topo-fim { display: none; }

@@ -177,6 +177,16 @@
       livros.map(function (l) { return htmlCartao(l, 0); }).join('') + '</div>';
   }
 
+  /* As abas do topo: Livros, Resenhas e Listas — a tradução das abas
+     Films / Reviews / Lists do original. */
+  function htmlSegmentos(ativo) {
+    var abas = [['inicio', 'Livros'], ['resenhas', 'Resenhas'], ['listas', 'Listas']];
+    return '<nav class="segmentos" aria-label="Seções">' + abas.map(function (a) {
+      return '<a href="#/' + a[0] + '"' + (a[0] === ativo ? ' class="ativa"' : '') + '>' +
+             a[1] + '</a>';
+    }).join('') + '</nav>';
+  }
+
   function htmlVazio(titulo, texto, botao) {
     return '<div class="vazio"><strong>' + esc(titulo) + '</strong><div>' + esc(texto) + '</div>' +
            (botao || '') + '</div>';
@@ -222,7 +232,7 @@
     marcarAba('inicio');
     var logs = Dados.logs();
     var e = Dados.estatisticas();
-    var html = '';
+    var html = htmlSegmentos('inicio');
 
     if (logs.length) {
       var vistos = {}, recentes = [];
@@ -774,6 +784,50 @@
     });
   }
 
+  /* =============================================================== TELA: resenhas */
+  /* O que a aba Reviews do original mostra: as resenhas em cartoes, da mais
+     recente para a mais antiga. */
+
+  function telaResenhas() {
+    marcarAba('inicio');
+    var comResenha = Dados.logs().filter(function (l) { return l.resenha; });
+
+    if (!comResenha.length) {
+      return pintar(htmlSegmentos('resenhas') +
+        '<h1 class="titulo-pagina">Resenhas</h1>' +
+        htmlVazio('Você ainda não escreveu nenhuma',
+          'Ao registrar uma leitura, o que você escrever aparece aqui.',
+          '<a class="botao destaque" href="#/inicio">Encontrar um livro</a>'));
+    }
+
+    pintar(htmlSegmentos('resenhas') +
+      '<h1 class="titulo-pagina">Resenhas</h1>' +
+      '<p class="sub-pagina">' +
+        plural(comResenha.length, 'resenha escrita', 'resenhas escritas') + '.</p>' +
+      comResenha.map(htmlCartaoResenha).join(''));
+  }
+
+  function htmlCartaoResenha(log) {
+    var livro = livroDe(log.chave);
+    var texto = log.resenha.length > 220 ? log.resenha.slice(0, 220).replace(/\s\S*$/, '…')
+                                         : log.resenha;
+    return '<a class="cartao-resenha" href="#/resenha/' + log.id + '">' +
+      '<div class="cartao-resenha-capa">' + htmlCapa(livro) + '</div>' +
+      '<div>' +
+        '<h3>' + esc(livro.titulo) +
+          (livro.ano ? ' <span class="ano">' + livro.ano + '</span>' : '') + '</h3>' +
+        '<p class="cartao-resenha-linha">' +
+          '<span class="estrelas">' + estrelasTexto(log.nota) + '</span> ' +
+          '<span>' + dataBr(log.lidoEm) + '</span>' +
+          (log.relido ? ' <span>· releitura</span>' : '') +
+        '</p>' +
+        (log.spoiler
+          ? '<p class="cartao-resenha-texto" style="color:var(--texto-3)">' +
+            'Contém spoiler — abra para ler.</p>'
+          : '<p class="cartao-resenha-texto">' + esc(texto) + '</p>') +
+      '</div></a>';
+  }
+
   /* ================================================================ TELA: estante */
 
   function telaEstante() {
@@ -810,7 +864,8 @@
     marcarAba('listas');
     var listas = Dados.estado().listas;
 
-    var html = '<h1 class="titulo-pagina">Listas</h1>' +
+    var html = htmlSegmentos('listas') +
+      '<h1 class="titulo-pagina">Listas</h1>' +
       '<p class="sub-pagina">Agrupe livros do jeito que fizer sentido: por tema, por ano, por vontade.</p>' +
       '<div class="linha-botoes" style="margin-bottom:22px">' +
         '<button class="botao destaque" data-acao="nova-lista">Criar uma lista</button></div>';
@@ -1607,6 +1662,7 @@
     if (rota === 'resenha') return telaResenha(partes[1]);
     if (rota === 'livro')   return telaLivro(decodeURIComponent(partes.slice(1).join('/')));
     if (rota === 'diario')  return telaDiario();
+    if (rota === 'resenhas') return telaResenhas();
     if (rota === 'estante') return telaEstante();
     if (rota === 'listas')  return telaListas();
     if (rota === 'lista')   return telaLista(partes[1]);
