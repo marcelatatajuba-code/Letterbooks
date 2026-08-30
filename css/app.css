@@ -636,6 +636,10 @@ img { display: block; max-width: 100%; }
 .cel-marca i, .cel-marca a {
   font-style: normal; font-size: 13px; margin-right: 5px; color: var(--texto-3);
 }
+.cel-marca a {
+  display: inline-block; padding: 12px 8px; margin: -12px 0 -12px -8px;
+  position: relative; z-index: 1;
+}
 .cel-marca i.on { color: var(--curtida); }
 .cel-marca a:hover { color: var(--a1); }
 
@@ -1314,3 +1318,34 @@ img { display: block; max-width: 100%; }
   background: var(--superficie); border-radius: var(--raio);
   color: var(--texto-3); font-size: 13px;
 }
+
+/* ============================================ alvos de toque =============== */
+/* O rastreador mediu: o glifo ≡ do diário tinha 8x16px, o chevron das seções
+   8x33, o coração do feed 25x19. Dedo não acerta isso — e no celular errar o
+   alvo custa uma navegação inteira de volta.
+
+   A área cresce por um pseudo-elemento invisível; o desenho não muda um pixel.
+   Ela cresce por INSET, e não com largura fixa centrada: a primeira tentativa
+   usou 44px centrados, e nos controles colados na margem direita (o chevron da
+   seção, o × do comentário) isso vazava 4px para fora da tela e criava rolagem
+   lateral — o próprio rastreador pegou na volta seguinte. Com inset de 13px, a
+   área fica dentro dos 18px de margem da página. */
+
+.secao > h2 a.seta,
+.feed-acoes button, .feed-acoes a,
+.comentario-apagar,
+.voltar,
+.aba-mais { position: relative; }
+
+.secao > h2 a.seta::after,
+.feed-acoes button::after, .feed-acoes a::after,
+.comentario-apagar::after {
+  content: ""; position: absolute; inset: -13px;
+}
+
+/* O ♥ e o 💬 do feed ficam lado a lado: sem folga entre eles as duas áreas se
+   sobreporiam e o toque cairia no errado. */
+.feed-acoes { gap: 24px; }
+
+.voltar { width: 40px; height: 40px; }
+.aba-mais { width: 42px; height: 42px; }

@@ -190,7 +190,8 @@
     var extra = (selos ? '<div class="selos">' + selos + '</div>' : '') +
                 (ordem ? '<span class="ordem">' + ordem + '</span>' : '');
 
-    return '<a class="cartao" href="' + rotaLivro(livro.chave) + '" title="' + esc(dica) + '">' +
+    return '<a class="cartao" href="' + rotaLivro(livro.chave) + '" title="' + esc(dica) + '"' +
+           ' aria-label="' + esc(livro.titulo) + '">' +
            htmlCapa(livro, extra) +
            '<div class="cartao-legenda">' + esc(livro.titulo) +
              (nota ? '<span class="estrelas">' + estrelasTexto(nota) + '</span>' : '') +
@@ -849,7 +850,8 @@
 
         var linha = '<tr>' + celMes +
           '<td class="cel-dia">' + (l.lidoEm ? Number(l.lidoEm.slice(8, 10)) : '—') + '</td>' +
-          (comMes ? '<td class="cel-capa"><a href="' + rotaLivro(l.chave) + '">' +
+          (comMes ? '<td class="cel-capa"><a href="' + rotaLivro(l.chave) + '"' +
+                    ' aria-label="' + esc(livro.titulo) + '">' +
                     htmlCapa(livro) + '</a></td>' : '') +
           '<td><a class="cel-livro" href="' + rotaLivro(l.chave) + '">' + esc(livro.titulo) + '</a>' +
             (l.relido ? ' <span class="rotulo" style="font-size:9px">releitura</span>' : '') + '</td>' +
@@ -890,7 +892,8 @@
     if (log.resenha) {
       g += semLink
         ? '<i title="Tem resenha">≡</i>'
-        : '<a href="#/resenha/' + log.id + '" title="Tem resenha">≡</a>';
+        : '<a href="#/resenha/' + log.id + '" title="Tem resenha"' +
+          ' aria-label="Ler a resenha">≡</a>';
     }
     return g;
   }
@@ -2046,7 +2049,8 @@
           '<time>' + esc(quandoFoi(l.criado_em)) + '</time>' +
         '</div>' +
       '</div>' +
-      (l.capa ? '<a class="feed-capa" href="' + rotaLivro(l.livro) + '">' +
+      (l.capa ? '<a class="feed-capa" href="' + rotaLivro(l.livro) + '"' +
+                ' aria-label="' + esc(l.titulo) + '">' +
                 htmlCapa({ chave: l.livro, titulo: l.titulo, capa: l.capa }) + '</a>' : '') +
     '</article>';
   }
