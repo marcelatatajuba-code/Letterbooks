@@ -220,9 +220,9 @@
       "nome": "Compartilhar",
       "area": "Registrar",
       "noOriginal": "Compartilha o link do filme ou da resenha.",
-      "noLetterbooks": "Duas metades. O LINK, que é o que o original faz, existe desde a V4: toda resenha que está no servidor tem endereço próprio em #/resenha/<uuid>, e a folha oferece \"Copiar o link\" (`podeCompartilhar = v.noAr`). E o CARTÃO, que é recurso nosso e não existe no Letterboxd: cartaoDeCompartilhar desenha um 1080x1920 com capa, título, autoria e nota, entregue pela folha do sistema. PARCIAL porque a resenha que ainda não subiu — modo local, ou fila pendente — não tem endereço para compartilhar, e nesse estado só o cartão existe. E falta uma segunda metade que o registro nao mencionava: compartilhar a FICHA DO LIVRO manda so a imagem — desenhaLivro chama cartaoDeCompartilhar sem endereco, e entregarCartao so anexa carga.url quando ele existe. Resenha e lista tem link; livro nao tem.",
-      "estado": "parcial",
-      "evidencia": "js/app.js:1659 cartaoDeCompartilhar"
+      "noLetterbooks": "As quatro portas do app têm link, e o que sai por elas está medido. RESENHA NO AR: endereço próprio em #/resenha/<uuid>, existe desde a V4. LIVRO: ganhou folha e endereço na V16 — antes ia direto para o PNG, sem escolha e sem link, nos DOIS chamadores; e o que importava era o segundo, a folha rápida, porque .painel é display:none abaixo de 720px e no celular ela é o único caminho. LISTA: link desde a V4. RESENHA AINDA SEM ENDEREÇO (modo local, fila pendente, ou fila que desistiu): a folha deixou de sumir, e não promete o link da resenha — ela oferece o TEXTO, que existe no aparelho agora, mais o link do livro NOMEADO pelo que ele abre, com um aviso dizendo que a resenha não vai nele. O CARTÃO de 1080x1920 é recurso nosso, não do Letterboxd, e agora carrega o endereço desenhado dentro dele em toda porta que tem endereço.",
+      "estado": "completo",
+      "evidencia": "docs/testar_social.py — 'compartilhar o LIVRO manda o link junto da imagem' e 'compartilhar a resenha NO AR manda o endereco da resenha'; docs/testar.py — 'no celular, compartilhar o livro abre a folha de link' e 'o link é nomeado pelo que ele abre: a ficha do livro'"
     },
     {
       "nome": "Feed de atividade de quem você segue",

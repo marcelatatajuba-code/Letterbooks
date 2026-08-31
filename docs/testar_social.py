@@ -1310,6 +1310,71 @@ def rodar():
         pg.locator('.folha-rodape .botao').click()
         pg.wait_for_timeout(300)
         checa('fechar fecha', pg.locator('.folha').count() == 0)
+
+        # ------------------------------------------------------------------
+        # A CARGA QUE O CLIENTE EMITE. Tudo acima prova que a LINHA existe;
+        # nada provava que o link SAI. E nao provava porque o Chromium headless
+        # de Linux nao tem navigator.share nem canShare: a linha "Mandar" nunca
+        # e desenhada, entao o caminho principal do celular — o unico que
+        # importa no aparelho da usuaria — nao era tocado por suite nenhuma.
+        # O stub abaixo devolve esse caminho ao alcance da medicao. Ele prova a
+        # FORMA que o app emite; nao prova que o sistema operacional aceita.
+        pg.evaluate("() => { window.__carga = null;"
+                    " navigator.share = d => { window.__carga = "
+                    "   {url: d.url || null, texto: d.text || null,"
+                    "    arquivos: (d.files || []).length}; return Promise.resolve(); };"
+                    " navigator.canShare = () => true; }")
+
+        pg.goto(BASE + '#/resenha/UUID-1', wait_until='networkidle')
+        pg.wait_for_selector('.resenha', timeout=8000)
+        pg.locator('[data-acao=compartilhar-resenha]').click()
+        pg.wait_for_selector('.folha', timeout=5000)
+        pg.locator('.folha .linhas button', has_text='Mandar o link').click()
+        pg.wait_for_timeout(400)
+        carga = pg.evaluate('window.__carga')
+        checa('compartilhar a resenha NO AR manda o endereco da resenha',
+              bool(carga) and carga['url'] and 'UUID-1' in carga['url'], str(carga))
+
+        pg.goto(BASE + '#/livro/' + LIVRO['chave'].replace('/', '%2F'), wait_until='networkidle')
+        pg.wait_for_selector('.livro-titulo', timeout=20000)
+        pg.wait_for_timeout(500)
+        pg.evaluate('() => { window.__carga = null; }')
+        # Pelo caminho do CELULAR de proposito: o contexto desta suite e 390px,
+        # onde .painel e display:none — e e justamente a folha rapida que ia
+        # direto para o PNG sem link nenhum ate a V16.
+        pg.locator('.barra-acao button').first.click()
+        pg.wait_for_selector('.folha-rapida', timeout=5000)
+        pg.locator('[data-r=compartilhar]').click()
+        pg.wait_for_selector('.folha', timeout=5000)
+        pg.locator('.folha .linhas button', has_text='Mandar como imagem').click()
+        pg.wait_for_timeout(2500)
+        carga = pg.evaluate('window.__carga')
+        checa('compartilhar o LIVRO manda o link junto da imagem',
+              bool(carga) and carga['arquivos'] == 1 and
+              carga['url'] and '/livro/' in carga['url'], str(carga))
+
+        # E a outra metade da mesma licao: NAO emitir uma carga que a
+        # plataforma acabou de recusar. O stub abaixo e uma plataforma que
+        # aceita arquivo e recusa arquivo+url — elas existem, e e la que o
+        # share rejeitava, o catch caia em baixar(), e no PWA do iPhone um
+        # <a download> programatico nao salva nada: a pessoa tocava em
+        # Compartilhar e nao acontecia nada. O app tem que perguntar pela
+        # carga que vai mandar, nao por uma parecida.
+        pg.evaluate("() => { window.__carga = null;"
+                    " navigator.canShare = d => !(d.files && d.url);"
+                    " navigator.share = d => { window.__carga = "
+                    "   {url: d.url || null, arquivos: (d.files || []).length};"
+                    "   return Promise.resolve(); }; }")
+        pg.locator('.barra-acao button').first.click()
+        pg.wait_for_selector('.folha-rapida', timeout=5000)
+        pg.locator('[data-r=compartilhar]').click()
+        pg.wait_for_selector('.folha', timeout=5000)
+        pg.locator('.folha .linhas button', has_text='Mandar como imagem').click()
+        pg.wait_for_timeout(2500)
+        checa('e nunca emite a carga que o canShare acabou de recusar',
+              pg.evaluate('window.__carga') is None,
+              str(pg.evaluate('window.__carga')))
+
         nav.close()
 
         # Servidor apagou, aparelho nao. A resenha esta INTACTA no localStorage

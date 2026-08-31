@@ -617,6 +617,35 @@ CASOS = [
              "!/Ainda sem leituras/.test(document.body.innerText)"),
         ],
     },
+    {
+        'nome': 'resenha-com-conta-que-a-fila-desistiu-de-subir',
+        'defeitos': ['D127'],
+        'porque': 'É a FORMA DE DADO que sobra quando a fila DESISTE: js/sinc.js '
+                  'tenta cinco vezes, descarta o item e some sem marca. O que fica '
+                  'é uma leitura SEM `remoto`, FORA da fila, numa sessão aberta — '
+                  'e o app só conhecia dois motivos para não haver endereço, '
+                  'então respondia a este mandando criar uma conta a quem já tem '
+                  'uma. Não é caso de borda: é o que acontece toda vez que o '
+                  'servidor recusa a linha por qualquer motivo que não seja rede.',
+        'banco': {'livros': [ACERVO[CASMURRO]], 'perfis': perfil('marcela'),
+                  'leituras': []},
+        'diario': diario(logs=[log('L1', CASMURRO, nota=4.0,
+                                   resenha='Bentinho não merece confiança.')],
+                         livros=[CASMURRO]),
+        'sessao': 'marcela',
+        'rota': '#/resenha/L1',
+        'esperar': '.resenha .fila-aviso',
+        'checagens': [
+            ('não manda criar a conta que ela já tem',
+             "!/crie uma conta/i.test("
+             "document.querySelector('.resenha .fila-aviso').innerText)"),
+            ('e diz o que de fato aconteceu: não subiu',
+             "/não subiu/i.test("
+             "document.querySelector('.resenha .fila-aviso').innerText)"),
+            ('e ainda assim há o que compartilhar, porque o texto é local',
+             "document.querySelectorAll('[data-acao=compartilhar-resenha]').length === 1"),
+        ],
+    },
 ]
 
 
@@ -646,6 +675,31 @@ def cobertura(caminho_csv=None):
 # propósito: "não coberto" sem motivo escrito vira dívida invisível.
 
 SO_DE_TELA = {
+    'D124': 'argumento que falta num CALL-SITE (cartaoDeCompartilhar chamado '
+            'com dois argumentos em vez de três), não uma forma de dado — '
+            'provado em docs/testar_social.py pela asserção "compartilhar o '
+            'LIVRO manda o link junto da imagem", que olha a CARGA que o '
+            'navigator.share recebe, e em docs/testar.py por "o endereco do '
+            'livro foi DESENHADO no cartao"',
+    'D125': 'capacidade de PLATAFORMA (canShare consultado com uma carga e '
+            'share chamado com outra), que nenhum dado do navegador produz — '
+            'provado em docs/testar_social.py por "e nunca emite a carga que o '
+            'canShare acabou de recusar", com um stub que é uma plataforma que '
+            'aceita arquivo e recusa arquivo+url',
+    'D126': 'o dado É hostil — um título vindo da Open Library — mas o defeito '
+            'mora na FOLHA, que só existe depois de um toque, e o harness de '
+            'dado renderiza rota e não toca em nada. Provado em docs/testar.py '
+            'por "titulo hostil da Open Library nao executa dentro da folha", '
+            'que semeia o título no acervo e abre a folha',
+    'D128': 'caminho de ERRO da plataforma (clipboard.writeText rejeitando), '
+            'não uma forma de dado — provado em docs/testar.py por "copia '
+            'recusada NAO fecha a folha, que e o unico lugar de onde copiar a '
+            'mao" e "e o endereco passa a existir na tela, em vez de so ser '
+            'mencionado", com writeText trocado por uma rejeição',
+    'D129': 'defeito do INVENTÁRIO (produto.json apontando uma linha de código, '
+            'e a linha errada), não do app — a mesma classe do D114, e é por '
+            'isso que a evidência dessa feature passou a ser o NOME de duas '
+            'asserções, que não andam quando a linha anda',
     'D123': 'ordem de cascata do CSS (a regra de 44px vinha antes da base de '
             '34px), não alcançável por dado — provado em docs/testar.py pela '
             'asserção "todo .botao tem min-height de 44px no celular", que mede '

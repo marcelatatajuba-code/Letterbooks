@@ -881,15 +881,13 @@
       quero:  function () { Dados.alternarQuerLer(livro.chave); desenhaLivro(livro); },
       curtir: function () { Dados.alternarCurtida(livro.chave); desenhaLivro(livro); },
       listas: function () { abrirFolhaListas(livro); },
-      compartilhar: function (b) {
-        b.disabled = true;
-        b.textContent = 'Montando…';
-        cartaoDeCompartilhar(livro, nota).then(function (msg) {
-          if (msg) aviso(msg);
-        }).catch(function (err) {
-          aviso('Não consegui montar a imagem: ' + err.message);
-        }).then(function () { desenhaLivro(livro); });
-      },
+      /* Ia direto para o PNG. Agora abre a folha, que oferece o LINK antes da
+         imagem e finalmente passa o terceiro argumento adiante. O
+         `desenhaLivro(livro)` do fim saiu junto: ele repintava a ficha por cima
+         de qualquer tela para onde a pessoa tivesse ido enquanto a folha do
+         sistema estava aberta — o mesmo defeito que o comentário de
+         `apagar-log` diz ter consertado com rotear(). */
+      compartilhar: function () { abrirFolhaCompartilharLivro(livro, nota); },
       favorito: function () {
         var r = Dados.alternarFavorito(livro.chave);
         if (r.cheio) aviso('Os favoritos guardam ' + Dados.MAX_FAVORITOS + ' livros. Tire um antes.');
@@ -1651,14 +1649,70 @@
     return location.origin + location.pathname + '#/resenha/' + encodeURIComponent(v.id);
   }
 
+  /* Irmao do de cima, e a peca que faltava para a face B e para a ficha do
+     livro: o endereco do LIVRO existe SEMPRE. Nao depende de conta, de fila
+     nem de servidor, porque e feito da chave da obra e de mais nada. */
+  function enderecoDoLivro(chave) {
+    return location.origin + location.pathname + rotaLivro(chave);
+  }
+
+  /* Tres motivos para uma resenha nao ter endereco, nao dois. A fila DESISTE
+     depois de cinco tentativas (js/sinc.js), e ate aqui o app respondia a esse
+     caso mandando criar uma conta a quem ja tem uma. */
+  function motivoSemEndereco(v) {
+    if (v.naFila) return 'fila';
+    if (Nuvem.ligada() && Nuvem.entrou()) return 'desistiu';
+    return 'local';
+  }
+
+  /* A mesma historia contada em dois lugares — na tela, atras da folha, e
+     dentro dela — sai com as mesmas palavras, senao sao duas versoes. */
+  function avisoDaPagina(v) {
+    var m = motivoSemEndereco(v);
+    if (m === 'fila') {
+      return 'Esta resenha está na fila para subir. Assim que subir, ela ganha ' +
+             'um endereço próprio para compartilhar.';
+    }
+    if (m === 'desistiu') {
+      return 'Esta resenha ainda não subiu. O app tenta de novo na próxima vez ' +
+             'que você abrir — até lá ela não tem endereço próprio.';
+    }
+    return 'Esta resenha só existe neste aparelho. ' +
+      (Nuvem.ligada() ? '<a href="#/conta">Crie uma conta</a> para ela ganhar um endereço.'
+                      : 'Sem nuvem ligada, ela não ganha endereço.');
+  }
+
+  /* O aviso de dentro da folha e o que impede a troca de virar fraude: o link
+     que a folha B oferece abre a FICHA DO LIVRO, e a resenha nao vai nele. */
+  function avisoDaFolha(v) {
+    var m = motivoSemEndereco(v);
+    var cabeca = 'Este link abre a <b>ficha do livro</b>. A sua resenha não vai nele — ';
+    if (m === 'fila') {
+      return cabeca + 'ela ainda não tem endereço. Quando subir, esta folha ' +
+             'passa a oferecer o link dela.';
+    }
+    if (m === 'desistiu') {
+      return cabeca + 'ela não subiu. O app tenta de novo na próxima vez que você abrir.';
+    }
+    return cabeca + 'ela só existe neste aparelho.' +
+      (Nuvem.ligada() ? ' <a href="#/conta">Crie uma conta</a> para ela ganhar um endereço.' : '');
+  }
+
   function desenhaResenha(v) {
     var livroHref = rotaLivro(v.chave);
-    var podeCompartilhar = v.noAr;
+    var podeCompartilhar = v.noAr || v.minha;
 
     /* Quatro faces, uma zona de ação. Compartilhar aparece SEM conta de
-       propósito: quem recebeu o link é quem mais repassa. E some inteiro na
-       face B — um botão que promete link e entrega nada é a pior variante
-       possível desta história. */
+       propósito: quem recebeu o link é quem mais repassa.
+
+       E aparece TAMBÉM na face B, o que reverte uma decisão que este arquivo
+       defendia: até a V15 o botão sumia porque "um botão que promete link e
+       entrega nada é a pior variante possível desta história". O argumento
+       continua de pé inteiro — o que mudou é que a folha da face B deixou de
+       prometer o link da resenha. Ela oferece o que EXISTE neste aparelho
+       agora, que é o texto, e um link nomeado pelo que ele abre. Some só
+       quando não há nada de fato: resenha alheia nunca chega fora do ar
+       (daLeituraRemota fixa noAr: true), então !noAr implica minha. */
     var botoes = [];
     if (podeCompartilhar) {
       botoes.push('<button class="botao' + (v.minha ? ' destaque' : '') +
@@ -1714,10 +1768,7 @@
     var estado = v.minha
       ? (v.noAr
           ? '<p class="rotulo resenha-estado">No ar · quem tem o link lê sem conta</p>'
-          : '<p class="fila-aviso">' + (v.naFila
-              ? 'Esta resenha está na fila para subir. Assim que subir, ela ganha um endereço para compartilhar.'
-              : 'Esta resenha só existe neste aparelho. ' +
-                '<a href="#/conta">Crie uma conta</a> para ela ganhar um endereço.') + '</p>')
+          : '<p class="fila-aviso">' + avisoDaPagina(v) + '</p>')
       : '';
 
     /* Spoiler da SUA resenha não se esconde de você: o texto é seu e você já
@@ -1895,17 +1946,108 @@
      linha da imagem é a compensação disponível: a imagem É a prévia, e vai com
      o link colado. */
   function abrirFolhaCompartilharResenha(v) {
-    abrirFolhaDeLink({
+    if (v.noAr) {
+      var oA = {
+        titulo: 'Compartilhar esta resenha',
+        sub: v.titulo + ' · qualquer pessoa abre, sem conta.',
+        url: enderecoDaResenha(v),
+        tituloShare: 'Resenha de ' + v.titulo,
+        texto: v.resenha ? recortar(v.resenha, 120) : '',
+        imagem: function () {
+          return cartaoDeCompartilhar(livroDe(v.chave), v.nota,
+                                      enderecoDaResenha(v));
+        }
+      };
+      oA.linhas = linhasDeLink(oA);
+      return abrirFolhaDeLink(oA);
+    }
+
+    /* FACE B — a resenha ainda nao tem endereco proprio.
+
+       A folha NAO promove o link do livro a substituto do link da resenha.
+       Quem recebe `#/livro/<chave>` ve a ficha da obra, e a resenha nao esta
+       la: no aparelho de quem recebeu, `Dados.logsDo` esta vazio, e o servidor
+       nao tem a linha — esse e o proprio estado que estamos desenhando. Se o
+       rotulo dissesse so "copiar o link", a folha mentiria.
+
+       O que existe de verdade aqui e o TEXTO, neste aparelho, agora. Por isso
+       ele vem primeiro, o link do livro vem nomeado pelo que abre, e o aviso
+       diz em voz alta o que o link nao leva. */
+    var urlLivro = enderecoDoLivro(v.chave);
+    var oB = {
       titulo: 'Compartilhar esta resenha',
-      sub: esc(v.titulo) + ' · qualquer pessoa abre, sem conta.',
-      url: enderecoDaResenha(v),
-      tituloShare: 'Resenha de ' + v.titulo,
-      texto: v.resenha ? recortar(v.resenha, 120) : '',
+      sub: v.titulo + (v.naFila ? ' · está na fila para subir.'
+                                : ' · ainda sem endereço próprio.'),
+      aviso: avisoDaFolha(v),
       imagem: function () {
-        return cartaoDeCompartilhar(livroDe(v.chave), v.nota,
-                                    enderecoDaResenha(v));
-      }
-    });
+        /* SEM o terceiro argumento, de proposito: neste estado nao ha link
+           para carregar dentro do cartao, e prometer um seria repetir aqui o
+           defeito que este item conserta na ficha do livro. */
+        return cartaoDeCompartilhar(livroDe(v.chave), v.nota);
+      },
+      linhas: []
+    };
+    if (v.resenha) {
+      oB.linhas.push({ precisa: 'copia', rotulo: 'Copiar o texto',
+                       valor: plural(v.resenha.length, 'caractere', 'caracteres'),
+                       copia: v.resenha, rotuloCampo: 'Copie o texto',
+                       aviso: 'Texto copiado.' });
+      oB.linhas.push({ precisa: 'share', rotulo: 'Mandar o texto',
+                       valor: 'pelo aparelho',
+                       share: { title: 'Resenha de ' + v.titulo, text: v.resenha } });
+    }
+    oB.linhas.push({ precisa: 'copia', rotulo: 'Copiar o link do livro',
+                     valor: 'abre a ficha', copia: urlLivro,
+                     rotuloCampo: 'Copie o endereço do livro' });
+    oB.linhas.push({ acao: 'imagem', rotulo: 'Mandar como imagem',
+                     valor: 'capa e nota' });
+    abrirFolhaDeLink(oB);
+  }
+
+  /* A ficha do livro ia DIRETO para o cartao PNG: sem folha, sem escolha e sem
+     endereco. O terceiro argumento de cartaoDeCompartilhar nunca chegou aqui,
+     entao a imagem saia sozinha e nao levava a lugar nenhum — que e
+     literalmente o que o comentario daquela funcao diz que nao pode acontecer.
+
+     E sao DOIS chamadores, nao um. `.painel` e display:none abaixo de 720px
+     (css/app.css), de modo que a folha rapida e o UNICO caminho de
+     compartilhar um livro no celular — e era justamente o que ninguem tinha
+     olhado, porque nenhuma suite clicava nele. */
+  function abrirFolhaCompartilharLivro(livro, nota) {
+    var url = enderecoDoLivro(livro.chave);
+    var o = {
+      titulo: 'Compartilhar este livro',
+      sub: livro.titulo + ' · a ficha abre para qualquer pessoa, sem conta.',
+      url: url,
+      tituloShare: livro.titulo,
+      texto: 'de ' + autoria(livro),
+      imagem: function () { return cartaoDeCompartilhar(livro, nota, url); }
+    };
+    o.linhas = linhasDeLink(o);
+    /* O link mostra a ficha; a SUA nota so existe no seu aparelho e so viaja
+       dentro da imagem. Prometer nota no link seria mentira de um toque. */
+    o.linhas[o.linhas.length - 1].valor = 'com a sua nota';
+    abrirFolhaDeLink(o);
+  }
+
+  /* O trio padrao de uma folha de link. Existe para que resenha, lista e livro
+     nao escrevam tres vezes a mesma coisa e divirjam com o tempo. */
+  function linhasDeLink(o) {
+    var curto = o.url.replace(/^https?:\/\//, '').replace(/\/index\.html/, '/');
+    if (curto.length > 42) curto = curto.slice(0, 24) + '…' + curto.slice(-14);
+    var linhas = [
+      { precisa: 'copia', rotulo: 'Copiar o link', valor: curto,
+        copia: o.url, rotuloCampo: 'Copie o endereço' },
+      { precisa: 'share', rotulo: 'Mandar o link', valor: 'pelo aparelho',
+        share: { title: o.tituloShare, text: o.texto || '', url: o.url } }
+    ];
+    /* Era "com a capa e a nota", que escondia justamente o que faz a imagem
+       valer quando ha endereco — o link vai desenhado dentro dela. */
+    if (o.imagem) {
+      linhas.push({ acao: 'imagem', rotulo: 'Mandar como imagem',
+                    valor: 'com o link dentro' });
+    }
+    return linhas;
   }
 
   /* Uma folha de link só, usada pela resenha e pela lista. A ordem é link
@@ -1917,39 +2059,46 @@
      Open Graph por página — o cartão que o WhatsApp mostra é o genérico do
      index.html. Por isso nada aqui sugere prévia rica; onde há imagem, ela É a
      prévia disponível, e vai com o link colado. */
-  function abrirFolhaDeLink(o) {
-    var curto = o.url.replace(/^https?:\/\//, '').replace(/\/index\.html/, '/');
-    if (curto.length > 42) curto = curto.slice(0, 24) + '…' + curto.slice(-14);
-    var temCopia = !!(navigator.clipboard && navigator.clipboard.writeText);
+  function abrirFolhaDeLink(o, semCopia) {
+    var temCopia = !semCopia && !!(navigator.clipboard && navigator.clipboard.writeText);
     var temShare = !!navigator.share;
+
+    /* `o.sub` entrava CRU no HTML, e o título vem da Open Library, que qualquer
+       pessoa edita: um título com <img onerror=…> executava dentro da folha.
+       Agora ele é escapado aqui, e os chamadores mandam texto puro. `o.aviso`
+       continua sendo HTML — mas é HTML NOSSO, sem nenhum dado de fora. */
+    var visiveis = (o.linhas || []).filter(function (l) {
+      if (l.precisa === 'copia') return temCopia;
+      if (l.precisa === 'share') return temShare;
+      return true;
+    });
+
+    /* Sem clipboard (contexto não seguro, iPhone antigo) cada linha de copiar
+       vira um campo já selecionado — nunca um botão que não faz nada. É o mesmo
+       caminho que a cópia RECUSADA reusa: em vez de mandar "segure no endereço"
+       quando não há endereço nenhum na tela, a folha põe o endereço na tela. */
+    var campos = temCopia ? '' :
+      (o.linhas || []).filter(function (l) { return l.precisa === 'copia'; })
+        .map(function (l, i) {
+          return '<label class="campo" style="margin-top:16px"><span>' +
+            esc(l.rotuloCampo || 'Copie o endereço') + '</span>' +
+            '<input' + (i === 0 ? ' id="link-para-copiar"' : '') +
+            ' readonly value="' + esc(l.copia) + '"></label>';
+        }).join('');
 
     camada.innerHTML =
       '<div class="folha-fundo" data-fechar="fundo"><div class="folha" role="dialog" ' +
         'aria-modal="true" aria-label="' + esc(o.titulo) + '">' +
         '<h2>' + esc(o.titulo) + '</h2>' +
-        '<p class="folha-sub">' + o.sub + '</p>' +
+        '<p class="folha-sub">' + esc(o.sub) + '</p>' +
+        (o.aviso ? '<p class="fila-aviso" style="margin:0 0 14px">' + o.aviso + '</p>' : '') +
         '<div class="linhas">' +
-          (temCopia
-            ? '<button data-link="copiar">Copiar o link' +
-              '<span class="valor">' + esc(curto) + '</span>' +
-              '<span class="chevron" aria-hidden="true">›</span></button>'
-            : '') +
-          (temShare
-            ? '<button data-link="mandar">Mandar o link' +
-              '<span class="valor">pelo aparelho</span>' +
-              '<span class="chevron" aria-hidden="true">›</span></button>'
-            : '') +
-          (o.imagem
-            ? '<button data-link="imagem">Mandar como imagem' +
-              '<span class="valor">com a capa e a nota</span>' +
-              '<span class="chevron" aria-hidden="true">›</span></button>'
-            : '') +
-        '</div>' +
-        /* Sem clipboard (contexto não seguro, iPhone antigo) a linha vira um
-           campo já selecionado — nunca um botão que não faz nada. */
-        (temCopia ? '' :
-          '<label class="campo" style="margin-top:16px"><span>Copie o endereço</span>' +
-          '<input id="link-para-copiar" readonly value="' + esc(o.url) + '"></label>') +
+          visiveis.map(function (l, i) {
+            return '<button data-link="' + i + '">' + esc(l.rotulo) +
+              '<span class="valor">' + esc(l.valor) + '</span>' +
+              '<span class="chevron" aria-hidden="true">›</span></button>';
+          }).join('') +
+        '</div>' + campos +
         '<div class="folha-rodape"><button class="botao" data-fechar="ok">Fechar</button></div>' +
       '</div></div>';
 
@@ -1959,7 +2108,7 @@
 
     painel.addEventListener('click', function (ev) {
       var linha = ev.target.closest('[data-link]');
-      if (linha) return executarLink(linha.getAttribute('data-link'), o);
+      if (linha) return executarLink(visiveis[+linha.getAttribute('data-link')], o, linha);
       var alvo = ev.target.closest('[data-fechar]');
       if (!alvo) return;
       if (alvo.getAttribute('data-fechar') === 'fundo' && ev.target !== alvo) return;
@@ -1968,23 +2117,41 @@
     ligarEscape();
   }
 
-  function executarLink(qual, o) {
-    if (qual === 'copiar') {
-      return navigator.clipboard.writeText(o.url).then(function () {
+  function executarLink(l, o, botao) {
+    if (!l) return;
+    if (l.copia !== undefined) {
+      return navigator.clipboard.writeText(l.copia).then(function () {
         camada.innerHTML = '';
-        aviso('Link copiado.');
-      }, function () { aviso('Não consegui copiar. Segure no endereço para copiar à mão.'); });
+        aviso(l.aviso || 'Link copiado.');
+      }, function () {
+        /* Não mandar "segure no endereço": no ramo COM clipboard não existe
+           endereço na tela para segurar — a folha instruía um gesto que ela
+           mesma não oferecia. Redesenha sem clipboard, que é o ramo do campo. */
+        abrirFolhaDeLink(o, true);
+        aviso('Não consegui copiar. O endereço está no campo abaixo.');
+      });
     }
-    if (qual === 'mandar') {
-      return navigator.share({ title: o.tituloShare, text: o.texto || '', url: o.url })
-        .then(function () { camada.innerHTML = ''; },
-              function () { /* cancelar não é erro */ });
+    if (l.share) {
+      return navigator.share(l.share).then(function () { camada.innerHTML = ''; },
+                                           function () { /* cancelar não é erro */ });
     }
-    if (qual === 'imagem') {
-      camada.innerHTML = '';
+    if (l.acao === 'imagem') {
+      /* NÃO fechar antes de montar. `o.imagem()` espera a capa da Open Library
+         num new Image() sem timeout: fechar aqui deixa tela nua entre o toque e
+         a folha do sistema — e apagaria o "Montando…" que a ficha do livro
+         tinha antes de passar a abrir esta folha. */
+      var valor = botao && botao.querySelector('.valor');
+      var antes = valor && valor.textContent;
+      if (botao) botao.setAttribute('aria-disabled', 'true');
+      if (valor) valor.textContent = 'montando…';
       return o.imagem().then(function (msg) {
+        camada.innerHTML = '';
         if (msg) aviso(msg);
-      }, function (err) { aviso('Não consegui montar a imagem: ' + err.message); });
+      }, function (err) {
+        if (valor) valor.textContent = antes;
+        if (botao) botao.removeAttribute('aria-disabled');
+        aviso('Não consegui montar a imagem: ' + err.message);
+      });
     }
   }
 
@@ -2719,13 +2886,15 @@
   }
 
   function abrirFolhaCompartilharLista(v) {
-    abrirFolhaDeLink({
+    var o = {
       titulo: 'Compartilhar esta lista',
-      sub: esc(v.nome) + ' · qualquer pessoa abre, sem conta.',
+      sub: v.nome + ' · qualquer pessoa abre, sem conta.',
       url: location.origin + location.pathname + '#/lista/' + encodeURIComponent(v.id),
       tituloShare: 'Lista: ' + v.nome,
       texto: v.descricao || plural(v.chaves.length, 'livro', 'livros')
-    });
+    };
+    o.linhas = linhasDeLink(o);
+    abrirFolhaDeLink(o);
   }
 
   function abrirFolhaApagarLista(v) {
@@ -3380,11 +3549,12 @@
         }
         if (qual === 'reler') { fechar(); return abrirFolhaRegistro(livro, null); }
         if (qual === 'listas')    { fechar(); return abrirFolhaListas(livro); }
+        /* ESTE é o chamador que importa: `.painel` some abaixo de 720px, então
+           no celular a folha rápida é o único caminho de compartilhar um livro.
+           Era o que estava mais quebrado e o que ninguém tinha olhado. */
         if (qual === 'compartilhar') {
           fechar();
-          return cartaoDeCompartilhar(livro, Dados.notaDe(livro.chave)).then(function (m) {
-            if (m) aviso(m);
-          }).catch(function (e) { aviso('Não consegui montar a imagem: ' + e.message); });
+          return abrirFolhaCompartilharLivro(livro, Dados.notaDe(livro.chave));
         }
         if (qual === 'curtir')  Dados.alternarCurtida(livro.chave);
         if (qual === 'quero')   Dados.alternarQuerLer(livro.chave);
@@ -3561,10 +3731,17 @@
 
         /* No celular, a folha de compartilhamento do sistema — que e onde o
            Instagram, o WhatsApp e o resto aparecem. */
-        if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
-          var carga = { files: [arquivo], title: livro.titulo };
-          /* Sem isto a imagem chega sozinha e não leva a lugar nenhum. */
-          if (endereco) carga.url = endereco;
+        var carga = { files: [arquivo], title: livro.titulo };
+        /* Sem isto a imagem chega sozinha e não leva a lugar nenhum. */
+        if (endereco) carga.url = endereco;
+        /* Checava `{files}` e emitia `{files, title, url}` — uma carga para
+           perguntar e outra para mandar. Onde a plataforma aceita arquivo mas
+           recusa arquivo+url, o share rejeita, o catch cai em baixar(), e no
+           PWA do iPhone um <a download> programático não salva nada: a pessoa
+           toca em Compartilhar e não acontece NADA. Verde em toda suíte, porque
+           o Chromium headless não tem canShare e o ramo nunca roda. Provar a
+           forma que o cliente EMITE vale para o share, não só para o SQL. */
+        if (navigator.canShare && navigator.canShare(carga)) {
           return navigator.share(carga)
             .then(function () { ok(''); })
             .catch(function (e) { ok(e && e.name === 'AbortError' ? '' : baixar(blob, nome)); });

@@ -143,6 +143,34 @@ Sobreviveu porque o rastreador classifica alvo miúdo como gravidade MÉDIA e o
 portão só conta ALTA: a ferramenta via a dívida e relatava verde. Só apareceu
 quando alguém mediu o **computado** em vez de acreditar no relatório.
 
+**Uma asserção de DOM prova que a linha existe; nunca que ela funciona.** Todo
+o "Compartilhar" do app foi dado por bom durante meses com base em asserções
+que contavam botões e liam rótulos. O que ninguém mediu foi a CARGA: o objeto
+que chega ao `navigator.share`. Quando a medição finalmente existiu, apareceu
+que a ficha do livro mandava a imagem sem link nenhum — e que a pior das três
+portas era a única que a usuária de fato alcança, porque `.painel` some abaixo
+de 720px e no celular só a folha rápida existe. **Antes de acreditar que uma
+tela entrega alguma coisa, pergunte o que sai por ela e escreva a asserção
+sobre isso.**
+
+**O caminho que a plataforma de teste não tem é o caminho que ninguém mediu.**
+O Chromium headless de Linux não implementa `navigator.share` nem `canShare`.
+Consequência: a linha "Mandar" nunca era desenhada, e o ramo principal do
+celular — o único que importa no aparelho da usuária — não era tocado por
+suíte nenhuma. Foi lá que morava um `canShare({files})` perguntando por uma
+carga e um `share({files, title, url})` mandando outra. Um stub de quatro
+linhas devolveu esse ramo ao alcance da medição. **Ausência de API na suíte
+não é ausência de risco: é ausência de olho.**
+
+**Quando os especialistas derrubam o enunciado, o enunciado é que estava
+errado.** Nesta volta os três derrubaram o mesmo ponto por caminhos
+diferentes: oferecer o link do LIVRO no lugar do link da resenha é entregar
+outra coisa com cara de entrega, porque quem recebe abre uma ficha onde a
+resenha não está. O que existe de verdade naquele estado é o TEXTO. A folha
+passou a oferecer o texto primeiro, o link nomeado pelo que ele abre, e um
+aviso dizendo o que o link não leva. **Quando a troca é honesta, é a redação
+que a torna honesta — e a redação é testável.**
+
 A regra que sai daí: **conserto de CSS se prova medindo o computado, na
 largura em que a regra vale.** E o corolário é mais amplo — quando o commit
 descreve o conserto com confiança e nenhuma asserção o mede, a confiança é do
@@ -334,7 +362,7 @@ DECLARADA (`data-fechar`) tem que ganhar do palpite.
 **Quando parar de dar voltas:** não é quando o backlog acabar — ele sempre
 volta a encher. É quando `python3 docs/processo/portoes.py` fechar os dois
 portões que ele mede (fidelidade e solidez). Hoje: fidelidade **aberto** em
-65% de paridade e 2 itens, solidez **fechado**.
+72% de paridade e 12 itens, solidez **fechado**.
 
 Marque o item do backlog com `entregue` ao publicá-lo. Sem isso o portão conta
 para sempre os mesmos itens e não pode fechar nunca.

@@ -148,10 +148,51 @@ with sync_playwright() as pw:
     pg.click('.painel [data-acao="favorito"]')   # alimenta a fileira de favoritos
     pg.wait_for_timeout(400)
 
-    print('6. compartilhar gera imagem no proprio aparelho')
+    print('6. compartilhar o LIVRO: folha com link, e a imagem leva o link dentro')
+    # Ate a V15 este botao ia DIRETO para o PNG: sem folha, sem escolha, e sem
+    # o terceiro argumento de cartaoDeCompartilhar — a imagem saia sozinha e
+    # nao levava a lugar nenhum. Agora ele abre a mesma folha da resenha.
+    pg.click('.painel [data-acao="compartilhar"]')
+    pg.wait_for_selector('.folha', timeout=5000)
+    linhas = [t.lower() for t in pg.locator('.folha .linhas button').all_inner_texts()]
+    ok('link' in linhas[0] and 'imagem' in linhas[-1],
+       'a ficha do livro oferece o link antes da imagem — %r' % linhas)
+    ok('/livro/' in pg.input_value('#link-para-copiar') if
+       pg.locator('#link-para-copiar').count() else
+       '/livro/' in pg.inner_text('.folha .valor'),
+       'e o endereco oferecido e o da ficha do livro')
+    # A nota so existe no aparelho de quem tem: o link nao a leva, a imagem sim.
+    ok('sua nota' in linhas[-1], 'e a linha da imagem nao promete o que o link nao leva')
+    # Sonda: o endereco tem que ser DESENHADO no canvas, nao so passado.
+    pg.evaluate("() => { window.__textos = [];"
+                " const f = CanvasRenderingContext2D.prototype.fillText;"
+                " CanvasRenderingContext2D.prototype.fillText = function (t) {"
+                "   window.__textos.push(String(t)); return f.apply(this, arguments); }; }")
     with pg.expect_download(timeout=20000) as dl:
-        pg.click('.painel [data-acao="compartilhar"]')
+        pg.click('.folha .linhas button:last-child')
     arquivo = dl.value
+    ok(any('/livro/' in t for t in pg.evaluate('window.__textos')),
+       'o endereco do livro foi DESENHADO no cartao (o 3o argumento chegou)')
+
+    # A copia RECUSADA. A folha mandava 'Segure no endereco para copiar a mao'
+    # — mas no ramo COM clipboard nao ha endereco nenhum na tela para segurar:
+    # o campo selecionavel so e desenhado quando NAO ha clipboard. A folha
+    # instruia um gesto que ela mesma nao oferecia.
+    pg.evaluate("() => { navigator.clipboard.writeText = "
+                "  () => Promise.reject(new Error('negado')); }")
+    pg.click('.painel [data-acao="compartilhar"]')
+    pg.wait_for_selector('.folha', timeout=5000)
+    pg.locator('.folha .linhas button', has_text='Copiar o link').click()
+    pg.wait_for_timeout(500)
+    ok(pg.locator('.folha').count() == 1,
+       'copia recusada NAO fecha a folha, que e o unico lugar de onde copiar a mao')
+    ok(pg.locator('#link-para-copiar').count() == 1 and
+       '/livro/' in pg.input_value('#link-para-copiar'),
+       'e o endereco passa a existir na tela, em vez de so ser mencionado')
+    pg.click('.folha-rodape .botao')
+    pg.wait_for_timeout(300)
+    pg.reload(wait_until='networkidle')
+    pg.wait_for_timeout(600)
     ok(arquivo.suggested_filename.startswith('letterbooks-'), 'nome do arquivo: ' + arquivo.suggested_filename)
     caminho = arquivo.path()
     tamanho = os.path.getsize(caminho)
@@ -288,19 +329,77 @@ with sync_playwright() as pw:
     ok('narrador' in pg.locator('.resenha-texto').inner_text(), 'o texto inteiro, sem cobrir')
     ok('/resenha/' in pg.evaluate('location.hash'), 'a resenha tem endereço próprio')
     # FACE B da tela única: é minha e ainda NÃO subiu (sem log.remoto — aqui a
-    # nuvem está abortada, então nada subiu). O endereço público não existe
-    # ainda, e um botão que promete link e entrega nada é a pior variante desta
-    # tela: Compartilhar não pode ser desenhado.
+    # nuvem está abortada, então nada subiu). O endereço público não existe.
+    #
+    # ATÉ A V15 esta seção afirmava o CONTRÁRIO: "sem endereço, sem botão de
+    # compartilhar", porque um botão que promete link e entrega nada é a pior
+    # variante desta tela. O argumento continua inteiro e é por isso que as
+    # asserções abaixo são as que são: o botão passou a existir SÓ porque a
+    # folha dele deixou de prometer o link da resenha. Ela oferece o texto, que
+    # existe neste aparelho agora, e um link nomeado pelo que ele abre. Testar
+    # só a existência do botão deixaria passar a versão desonesta.
     ok(pg.locator('.resenha .fila-aviso').count() == 1,
-       'a resenha ainda só local diz por que não dá para compartilhar')
+       'a resenha ainda só local diz por que não tem endereço próprio')
     ok('só existe neste aparelho' in pg.locator('.resenha .fila-aviso').inner_text() or
        'na fila' in pg.locator('.resenha .fila-aviso').inner_text(),
-       'e diz qual dos dois motivos é')
+       'e diz qual dos motivos é')
     # .botao usa text-transform: uppercase — comparar sem normalizar mediria a
     # folha de estilo, não o que a tela oferece.
     textos = [t.lower() for t in pg.locator('.resenha-botoes .botao').all_inner_texts()]
-    ok(not any('compartilhar' in t for t in textos),
-       'sem endereço, sem botão de compartilhar — %r' % textos)
+    ok(any('compartilhar' in t for t in textos),
+       'sem endereço próprio, ainda assim há o que mandar — %r' % textos)
+    pg.click('[data-acao="compartilhar-resenha"]')
+    pg.wait_for_selector('.folha', timeout=5000)
+    rotulos = [t.lower() for t in pg.locator('.folha .linhas button').all_inner_texts()]
+    ok(any('texto' in t for t in rotulos),
+       'a folha oferece o TEXTO, que é o que existe de verdade — %r' % rotulos)
+    ok(rotulos and 'texto' in rotulos[0],
+       'e ele vem primeiro, porque aqui o link não é o produto — %r' % rotulos)
+    # O rótulo é a primeira linha do botão; o resto é o .valor e o chevron.
+    # "copiar o link do livro" É legítimo — o que não pode existir é o rótulo
+    # nu, que neste estado prometeria o link da resenha.
+    nus = [t.split('\n')[0].strip() for t in rotulos]
+    ok('copiar o link' not in nus and 'mandar o link' not in nus,
+       'nenhuma linha promete "o link" sem dizer o link de quê — %r' % nus)
+    ok(any('link do livro' in t for t in rotulos),
+       'o link é nomeado pelo que ele abre: a ficha do livro — %r' % rotulos)
+    aviso_folha = pg.inner_text('.folha .fila-aviso')
+    ok('ficha do livro' in aviso_folha and 'não vai nele' in aviso_folha,
+       'e a folha diz, em voz alta, que a resenha NÃO vai no link — %r' % aviso_folha)
+    ok('resenha' not in pg.inner_text('.folha .valor'),
+       'o endereço oferecido não é um /resenha/ que não abre para ninguém')
+    # A imagem, aqui, não tem link para carregar — prometer um seria repetir
+    # nesta folha o defeito que este item conserta na ficha do livro.
+    ok(any('capa e nota' in t for t in rotulos) and
+       not any('link dentro' in t for t in rotulos),
+       'e a imagem não promete link que ela não leva — %r' % rotulos)
+    pg.click('.folha-rodape .botao')
+    pg.wait_for_timeout(200)
+
+    # O `sub` da folha entrava CRU no innerHTML, e o titulo vem da Open
+    # Library, que qualquer pessoa edita. Os dois chamadores de entao escapavam
+    # por fora — o que fazia do terceiro uma armadilha esperando ser escrita.
+    guardado = pg.evaluate("() => localStorage.getItem('letterbooks:v1')")
+    pg.evaluate(
+        "() => { const k = 'letterbooks:v1',"
+        "              e = JSON.parse(localStorage.getItem(k));"
+        "        for (const c in e.livros) { e.livros[c].titulo ="
+        "          'Dom <img src=x onerror=\\\"window.__xss=1\\\"> Casmurro'; }"
+        "        localStorage.setItem(k, JSON.stringify(e)); }")
+    pg.reload(wait_until='networkidle')
+    pg.wait_for_selector('.resenha', timeout=8000)
+    pg.click('[data-acao="compartilhar-resenha"]')
+    pg.wait_for_selector('.folha', timeout=5000)
+    ok(pg.evaluate('() => window.__xss') is None,
+       'titulo hostil da Open Library nao executa dentro da folha')
+    ok(pg.locator('.folha-sub img').count() == 0 and
+       '<img' in pg.inner_text('.folha-sub'),
+       'ele aparece como texto, que e o que um titulo e')
+    pg.click('.folha-rodape .botao')
+    pg.wait_for_timeout(200)
+    pg.evaluate("g => localStorage.setItem('letterbooks:v1', g)", guardado)
+    pg.reload(wait_until='networkidle')
+    pg.wait_for_selector('.resenha', timeout=8000)
     ok(any('editar' in t for t in textos) and any('apagar' in t for t in textos),
        'mas editar e apagar continuam, que são ações locais')
     ok(pg.locator('.resenha-estado').count() == 0, 'e nada diz "no ar", porque não está')
@@ -370,6 +469,42 @@ with sync_playwright() as pw:
     pg.wait_for_timeout(300)
     depois = pg.locator('.rapida-acao[data-r="curtir"]').get_attribute('class')
     ok('ativa' in depois and 'ativa' not in antes, 'curtir alterna dentro do cartão')
+
+    # ESTE é o caminho que importa e que nenhuma suíte clicava: `.painel` é
+    # display:none abaixo de 720px, então no celular a folha rápida é o ÚNICO
+    # jeito de compartilhar um livro. Até a V15 ela ia direto para o PNG, sem
+    # folha e sem endereço — a metade mais quebrada, e a que a auditoria do
+    # item 17 não tinha achado.
+    pg.click('[data-r="compartilhar"]')
+    pg.wait_for_selector('.folha', timeout=5000)
+    rot = [t.lower() for t in pg.locator('.folha .linhas button').all_inner_texts()]
+    ok('link' in rot[0], 'no celular, compartilhar o livro abre a folha de link — %r' % rot)
+    endereco = (pg.input_value('#link-para-copiar')
+                if pg.locator('#link-para-copiar').count()
+                else pg.inner_text('.folha .valor'))
+    ok('/livro/' in endereco or 'livro' in endereco,
+       'e o endereço é o mesmo da ficha, não outro — %r' % endereco)
+    # A régua de toque e a de largura, MEDIDAS, a 390: nenhuma linha desta
+    # folha pode quebrar em duas nem empurrar a página para o lado.
+    medidas = pg.evaluate(
+        "() => [...document.querySelectorAll('.folha .linhas button')].map(b => "
+        "({h: b.getBoundingClientRect().height, r: b.firstChild.textContent.trim()}))")
+    alturas = [m['h'] for m in medidas]
+    ok(all(a >= 44 for a in alturas), 'toda linha da folha tem alvo de 44px — %r' % alturas)
+    # UMA linha pode quebrar em duas, e só uma: a que mostra o endereço.
+    # Truncar mais do que os 42 caracteres de abrirFolhaDeLink deixa de ser um
+    # endereço legível — o preço é a segunda linha, e é o preço certo. Rótulo
+    # que quebra por texto comprido, não. Foi assim que "com a capa e a nota"
+    # estourou o orçamento sem ninguém ver.
+    quebradas = [m for m in medidas if m['h'] >= 60]
+    ok(len(quebradas) <= 1 and all('link' in m['r'].lower() for m in quebradas),
+       'só a linha do endereço pode quebrar em duas — %r' % medidas)
+    fechar = pg.locator('.folha-rodape .botao').bounding_box()
+    ok(fechar['height'] >= 44, 'e o Fechar mede 44 no computado (%.2f)' % fechar['height'])
+    ok(pg.evaluate("() => document.documentElement.scrollWidth") <= 390,
+       'a folha não empurra a página para o lado')
+    pg.click('.folha-rodape .botao')
+    pg.wait_for_timeout(300)
     pg.keyboard.press('Escape')
     pg.wait_for_timeout(400)
 

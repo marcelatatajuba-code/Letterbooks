@@ -212,7 +212,8 @@
       "depende": "nada",
       "fecha": [
         "Compartilhar"
-      ]
+      ],
+      "entregue": "V16 — as quatro portas com link, e a carga medida. O enunciado foi DERRUBADO em tres pontos pela squad, e os tres tinham razao: (1) \"a folha some sem explicar\" era falso — a tela ja explicava, com duas frases distintas e uma assercao a travando; o que faltava era acao, nao explicacao. (2) oferecer o link do LIVRO como se fosse a entrega da resenha e consolo com cara de entrega: quem recebe ve uma ficha onde a resenha nao esta. O que existe de verdade nesse estado e o TEXTO, e e ele que a folha oferece primeiro; o link vem nomeado pelo que abre, com um aviso dizendo que a resenha nao vai nele. (3) cartaoDeCompartilhar tem TRES chamadores, nao dois, e o que a auditoria nao achou era o pior: .painel e display:none abaixo de 720px, entao a folha rapida e o UNICO caminho no celular — e nenhuma suite clicava nele. Fecha a feature porque a evidencia passou a ser a CARGA que o navigator.share recebe, nao a linha que a folha desenha."
     },
     {
       "ordem": 18,
