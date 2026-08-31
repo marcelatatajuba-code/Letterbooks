@@ -65,16 +65,64 @@ def _doc(l, completo=True):
          "edition_count": edicoes}
     if capa:
         d["cover_i"] = capa
+    if chave in ISBNS:
+        d["isbn"] = list(ISBNS[chave])
     if completo:
         d["subject"] = assuntos
     return d
 
 
-def busca(termo, pagina=1):
+# ISBN por obra. Fica num dicionario a parte, e nao numa nona posicao da
+# tupla, porque `_livro` e `_doc` desempacotam LIVROS em oito nomes em varios
+# lugares — acrescentar um campo la quebraria todos eles por um dado que so a
+# importacao usa.
+#
+# So metade do acervo tem ISBN, DE PROPOSITO: importar um CSV de outro app
+# sempre traz linha que nao casa, e um fixture em que tudo casa nao consegue
+# provar a metade dificil da feature (a prévia que diz "24 de 312 nao
+# casaram"). O acervo precisa ter buraco para o teste ter o que medir.
+ISBNS = {
+    "/works/OL1917719W": ["8535910662", "9788535910667"],   # Dom Casmurro
+    "/works/OL2745271W": ["8572322000", "9788572322003"],   # Bras Cubas
+    # Um ISBN-10 terminado em X, de proposito: o digito verificador vale de 0
+    # a 10 e o 10 se escreve X. Sem um destes no acervo, o D122 nao tem como
+    # ficar vermelho — e ele viveu ~150 dias justamente porque ninguem tinha
+    # um ISBN com X para colar.
+    "/works/OL3140834W": ["850101254X", "9788501012548"],   # Grande Sertao
+}
+
+
+def porIsbn(isbn):
+    """A obra de um ISBN, ou None. EXATO — sem cair no acervo inteiro."""
+    so = "".join(c for c in (isbn or "") if c.isdigit() or c in "Xx")
+    for chave, lista in ISBNS.items():
+        if so in lista:
+            return next((l for l in LIVROS if l[0] == chave), None)
+    return None
+
+
+def busca(termo, pagina=1, isbn=None):
+    # ISBN E BUSCA EXATA, e nao cai no fallback abaixo. Sem isto, procurar por
+    # um ISBN que o acervo nao tem devolvia TODOS os livros — e um importador
+    # de CSV casaria cada linha com o primeiro da lista, mostrando "312 de 312
+    # casaram" e passando VERDE enquanto casava tudo errado. A tela "Nada
+    # encontrado" (js/app.js) tambem nunca tinha sido alcancada por teste
+    # nenhum pelo mesmo motivo (D118).
+    if isbn:
+        achado = porIsbn(isbn)
+        docs = [_doc(achado)] if achado else []
+        return {"numFound": len(docs), "start": 0,
+                "numFoundExact": True, "docs": docs}
+
     t = (termo or "").lower()
     achados = [l for l in LIVROS
                if t in l[1].lower() or any(t in a.lower() for a in l[2])
                or any(t in s.lower() for s in l[7])]
+    # O fallback para o acervo inteiro FICA, e e divida conhecida: os recortes
+    # de "Explorar por" consultam `subject` que o acervo nao cobre, e sem ele a
+    # suite morre na secao 2 (medido). Enquanto ele existir, a tela "Nada
+    # encontrado" da busca por TEXTO continua sem como ser provada. Consertar
+    # exige o fixture cobrir os seis recortes, que e trabalho proprio.
     if not achados:
         achados = LIVROS
     return {"numFound": len(achados) * 3, "start": (pagina - 1) * 24,
@@ -190,8 +238,11 @@ def responder(rota):
     if p.path.endswith('/trending/weekly.json'):
         return j(tendencia())
     if p.path.endswith('/search.json'):
-        return j(busca((q.get('q') or q.get('subject') or q.get('isbn') or [''])[0],
-                       int((q.get('page') or ['1'])[0])))
+        # o isbn vai por parametro proprio: ele e busca EXATA, nao mais um
+        # termo de texto que cai no fallback do acervo inteiro
+        return j(busca((q.get('q') or q.get('subject') or [''])[0],
+                       int((q.get('page') or ['1'])[0]),
+                       isbn=(q.get('isbn') or [None])[0]))
     if p.path.startswith('/works/'):
         return j(obra(p.path[:-5]))
     if p.path.startswith('/authors/'):

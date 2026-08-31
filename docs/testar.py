@@ -81,6 +81,31 @@ with sync_playwright() as pw:
     ok(pg.locator('.escopos a').count() == esperado,
        'pilulas de escopo: %d (nuvem %s)' % (esperado, 'ligada' if naNuvem else 'desligada'))
 
+    # ---- ISBN-10 terminado em X (D122) --------------------------------
+    # O digito verificador do ISBN-10 vale de 0 a 10, e o 10 se escreve X.
+    # `somenteDigitos` fazia replace(/[^0-9]/) e o comia: '850101254X' virava
+    # nove caracteres, o teste de tamanho falhava, o app NAO mandava
+    # params.isbn e caia numa busca de texto livre. Um em cada onze ISBN-10.
+    #
+    # O fixture carrega um ISBN com X de proposito — sem ele esta assercao nao
+    # tem como ficar vermelha.
+    r = pg.evaluate("""async () => {
+      const a = await API.buscar('850101254X');
+      const b = await API.buscar('850-101-254-x');
+      const c = await API.buscar('XXXXXXXXXX');
+      return { comX: a.livros.map(x => x.titulo), n: a.total,
+               hifen: b.livros.map(x => x.titulo),
+               dezX: c.total };
+    }""")
+    ok(r['comX'] == ['Grande Sertão: Veredas'],
+       'ISBN-10 terminado em X acha o livro certo: %s' % r['comX'])
+    ok(r['hifen'] == ['Grande Sertão: Veredas'],
+       'e com hifen e em minuscula tambem: %s' % r['hifen'])
+    # dez letras X nao sao ISBN: o X so vale na ultima casa. Cai em busca de
+    # texto, que no fixture devolve o acervo inteiro — o importante e que NAO
+    # devolveu a resposta exata de um ISBN.
+    ok(r['dezX'] != 1, 'dez letras X nao viram consulta por ISBN (total=%s)' % r['dezX'])
+
     print('3. ficha e autoria clicavel')
     pg.locator('.resultado').first.click()
     pg.wait_for_selector('.livro-titulo', timeout=20000)

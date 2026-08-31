@@ -4757,8 +4757,16 @@
        (nao ha o que casar, `fundir` so faz uniao de arrays) e reenvia-las e
        idempotente, porque sobem com `ignore-duplicates`. Conta-las daria um
        numero que nunca zera e o convite nunca sumiria. */
-    var soAquiLeituras = d.logs.filter(function (l) { return !l.remoto; }).length;
-    var soAquiListas   = d.listas.filter(function (l) { return !l.remoto; }).length;
+    /* A MESMA funcao que monta a carga do envio — nao uma segunda contagem.
+       Havia duas, em dois arquivos, e elas divergiam: esta contava as leituras
+       sem `remoto` e o `migrar` descartava calado as que nao tinham o livro no
+       cache. A tela dizia 3 e o fio mandava 2 (D121). Agora o numero impresso
+       e o `length` do objeto que vai subir. */
+    var carga = Nuvem.entrou() ? Nuvem.oQueSoEstaAqui(d)
+                               : { leituras: [], listas: [], semLivro: [], marcadores: [] };
+    var soAquiLeituras = carga.leituras.length;
+    var soAquiListas   = carga.listas.length;
+    var semLivro       = carga.semLivro.length;
     var soAqui = soAquiLeituras + soAquiListas;
 
     /* O bloco de migracao so aparece se houver o que migrar e ainda nao tiver
@@ -4772,7 +4780,13 @@
           linhaAjuste('span', 'class="sem-link"', 'Diário enviado para a conta',
                       esc(dataCurta(migrado))) +
         '</div></section>';
-    } else if (soAqui) {
+    /* `|| semLivro` e nao so `soAqui`: quando o unico residuo e uma leitura
+       cujo livro nao esta no cache, `soAqui` e ZERO e o bloco inteiro sumia —
+       levando junto a frase que explica por que ela nao subiu e o botao que a
+       resgataria. Era o D121 de novo, um passo adiante: a leitura ficava sem
+       caminho E sem aviso. Achado pela assercao "o botao continua la enquanto
+       houver residuo". */
+    } else if (soAqui || semLivro) {
       /* O rotulo diz o ESCOPO, e o inventario diz o tamanho. "Enviar para a
          conta" podia ser lido como subir por cima do que ja esta la; "Enviar o
          que so esta aqui" nao pode. E o inventario sai do paragrafo e vira
@@ -4794,6 +4808,18 @@
                       String(soAquiListas) + ' só aqui') +
           linhaAjuste('span', 'class="sem-link"', 'Marcações', String(marcacoes)) +
         '</div>' +
+        /* As que NAO podem subir aparecem, com o motivo e a saida. Elas eram
+           filtradas em silencio pelo `migrar`, e depois a marca de migrado
+           escondia o botao para sempre — a leitura ficava sem caminho nenhum
+           de volta. Dizer o numero e dizer o que fazer custa tres linhas. */
+        (semLivro
+          ? '<p class="conta-texto">' +
+            plural(semLivro, 'leitura não pode subir agora porque o livro dela não está '
+                             + 'neste aparelho',
+                   'leituras não podem subir agora porque o livro delas não está '
+                   + 'neste aparelho') +
+            '. Abra a ficha de cada uma e o app busca o livro.</p>'
+          : '') +
         '<p class="conta-erro" id="migrar-erro" role="alert" hidden></p>' +
         '<div class="linha-botoes">' +
           '<button class="botao destaque" data-acao="migrar">' +

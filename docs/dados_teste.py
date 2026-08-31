@@ -264,6 +264,34 @@ CASOS = [
         ],
     },
     {
+        'nome': 'leitura-com-livro-fora-do-cache-nao-some-calada',
+        'defeitos': ['D121'],
+        'porque': 'FORMA DE DADO QUE CORROMPE: um log pode apontar para um livro que '
+                  'não está em estado.livros — acontece quando a ficha foi apagada do '
+                  'cache, ou quando a leitura veio de um aparelho que tinha o livro e '
+                  'este não tem. A carga da migração NÃO pode levar essa leitura (a '
+                  'chave estrangeira exige o livro no acervo), mas também não pode '
+                  'descartá-la em silêncio: era o que acontecia, e depois a marca de '
+                  'migrado escondia o botão para sempre. O comportamento travado é '
+                  'que ela sai da lista do que sobe E aparece em `semLivro`, que é o '
+                  'que a tela usa para explicar e para manter o botão.',
+        'banco': {'livros': [ACERVO[CASMURRO]], 'perfis': perfil('marcela')},
+        'diario': diario(livros=[CASMURRO],
+                         logs=[log('t1', CASMURRO, nota=4.0),
+                               log('t2', '/works/OL_SEM_FICHA', nota=3.0)]),
+        'sessao': 'marcela',
+        'rota': '#/perfil',
+        'esperar': '.perfil-nome',
+        'checagens': [
+            ('a leitura sem ficha NÃO entra no que vai subir',
+             "Nuvem.oQueSoEstaAqui(Dados.estado()).leituras.length === 1"),
+            ('e ela aparece nomeada em semLivro, em vez de sumir',
+             "Nuvem.oQueSoEstaAqui(Dados.estado()).semLivro.length === 1"),
+            ('e a que tem ficha continua indo',
+             "Nuvem.oQueSoEstaAqui(Dados.estado()).leituras[0].id === 't1'"),
+        ],
+    },
+    {
         'nome': 'meta-nula-no-servidor-nao-zera-a-local',
         'defeitos': ['D117'],
         'porque': 'FORMA DE DADO QUE CORROMPE: a conta pode ter meta_ano/meta_total '
@@ -618,6 +646,18 @@ def cobertura(caminho_csv=None):
 # propósito: "não coberto" sem motivo escrito vira dívida invisível.
 
 SO_DE_TELA = {
+    'D118': 'defeito do FIXTURE (busca caindo no acervo inteiro, sem ISBN), '
+            'não do app — provado desfazendo o conserto e vendo um ISBN '
+            'inexistente devolver os 12 livros de novo',
+    'D119': 'defeito de um CRITÉRIO do portoes.py ([] é falsy), não do app — '
+            'provado recriando o D114 e vendo o critério acusar o item 1',
+    'D120': 'defeito de ÍNDICE no esquema (parcial vs. a forma que o PostgREST '
+            'emite), não alcançável por dado do navegador — provado em Postgres '
+            'real por servidor/provar-v8.sql, com controle negativo que recria '
+            'o índice parcial e vê o 42P10 estourar',
+    'D122': 'comportamento de API.buscar com ISBN, e não forma do diário local '
+            '— provado em docs/testar.py, asserção "ISBN-10 terminado em X acha '
+            'o livro certo", com o fixture carregando um ISBN com X de propósito',
     'D116': 'gatilho de uma seção de #/conta (quanto vs. soAqui) — o caso é de '
             'FLUXO com duas contas e um aparelho zerado, e vive em '
             'jornada_e2e "o aparelho novo NAO e convidado a enviar o que veio '

@@ -157,6 +157,16 @@ DIARIO = {
         {'id': 'c', 'chave': '/works/OL9W', 'nota': 3.0, 'resenha': '',
          'lidoEm': '2026-03-01', 'relido': False, 'spoiler': False,
          'criadoEm': '2026-03-01T10:00:00Z'},
+        # A QUARTA leitura ja tem `remoto`: a conta ja a conhece. Ela existe
+        # para a assercao do residuo ter como ficar VERMELHA — sem uma linha
+        # ja conhecida, "manda o residuo" e "manda tudo" produzem exatamente o
+        # mesmo envio, e a assercao passa nas duas implementacoes. Descobri
+        # isso desfazendo o conserto e vendo o teste continuar verde, que e o
+        # mesmo que nao ter teste (foi o D98).
+        {'id': 'd', 'chave': '/works/OL1W', 'nota': 5.0, 'resenha': 'Ja subiu.',
+         'lidoEm': '2026-04-01', 'relido': False, 'spoiler': False,
+         'remoto': 'uuid-do-servidor-1',
+         'criadoEm': '2026-04-01T10:00:00Z'},
     ],
     'querLer': ['/works/OL2W'],
     'curtidas': ['/works/OL1W'],
@@ -295,11 +305,27 @@ def rodar():
         pg.goto(BASE + '#/conta', wait_until='networkidle')
         pg.reload(wait_until='networkidle')
         pg.wait_for_selector('[data-acao=migrar]')
+        # Espera o INVENTARIO, e nao so o botao: `pintarConta` repinta quando o
+        # perfil chega da rede, e ler o texto entre os dois quadros devolvia so
+        # o <h1>. A espera tem que casar com o que a assercao vai ler.
+        pg.wait_for_selector('.conta .linhas', timeout=10000)
+        pg.wait_for_timeout(400)
         texto = pg.inner_text('.conta')
+        # A FONTE tem que ser lida ANTES do clique: `marcarRemoto` carimba
+        # `remoto` nas leituras durante o passo 2, entao ler depois devolve
+        # zero residuo e a assercao mediria o proprio efeito.
+        antes_ls = pg.evaluate("JSON.parse(localStorage.getItem('letterbooks:v1'))")
+        fonte = {l['id'] for l in antes_ls['logs']
+                 if not l.get('remoto') and l['chave'] in antes_ls['livros']}
+        ja_remotas = {l['id'] for l in antes_ls['logs'] if l.get('remoto')}
         # O inventario agora diz o ESCOPO: nao "voce tem 3 leituras" (que
         # conta tambem o que ja esta na conta), e sim quantas so existem
         # aqui. Com o diario semeado e nada migrado, as tres sao locais.
-        checa('conta as leituras que SO estao aqui', '3 só aqui' in texto, texto[:160])
+        # DOIS, e nao tres: a terceira leitura do DIARIO aponta para um livro
+        # que nao esta no cache, entao ela nao pode subir e nao entra na
+        # conta do que esta pronto. Antes a tela dizia 3 e o fio mandava 2.
+        checa('conta as leituras que SO estao aqui e PODEM subir',
+              '2 só aqui' in texto, texto[texto.find('Leituras'):][:80])
         # .lower() porque o CSS deixa o botao em versalete: o inner_text
         # devolve "ENVIAR O QUE SO ESTA AQUI".
         checa('e o botao diz o escopo, nao "enviar para a conta"',
@@ -325,6 +351,26 @@ def rodar():
         checa('so sobem os livros que existem no cache', len(livros[3]) == 2,
               str(len(livros[3])))
 
+        # A ASSERCAO DE TRES PONTAS (D121): a FONTE (o localStorage), o FIO (o
+        # que saiu) e a TELA (o numero impresso) tem que dizer a mesma coisa.
+        #
+        # Antes daqui havia duas contas em dois arquivos: a tela contava as
+        # leituras sem `remoto` e o migrar descartava calado as que nao tinham
+        # livro no cache. Este arquivo afirmava AS DUAS, verdes, sobre o mesmo
+        # diario — "conta as leituras que SO estao aqui: 3" e "leitura sem
+        # livro no cache fica de fora: 2".
+        #
+        # Compara CONJUNTO e nao contagem, e nos DOIS sentidos: contagem pega
+        # o excesso e nao pega a falta. `cliente_id` e o id do aparelho e e
+        # estavel; o id que o mock inventa nao e.
+        fio = {l['cliente_id']
+               for p in escritas if p[1].endswith('/leituras')
+               for l in (p[3] or [])}
+        checa('o envio e exatamente o residuo, nem mais nem menos',
+              fio == fonte, 'diferenca: ' + str(sorted(fio ^ fonte)))
+        checa('e nao reescreve o que a conta ja conhece',
+              not (fio & ja_remotas), str(sorted(fio & ja_remotas)))
+
         leituras = [p for p in escritas if p[1].endswith('/leituras')][0]
         checa('leitura sem livro no cache fica de fora', len(leituras[3]) == 2,
               str([l['livro'] for l in leituras[3]]))
@@ -346,9 +392,18 @@ def rodar():
         checa('itens guardam a ordem', [i['ordem'] for i in itens[3]] == [0, 1])
 
         local = pg.evaluate("JSON.parse(localStorage.getItem('letterbooks:v1'))")
-        checa('nao apagou o diario do aparelho', len(local['logs']) == 3)
-        checa('marcou a data da migracao',
-              pg.evaluate("localStorage.getItem('letterbooks:migrado:uid-1')") is not None)
+        # 4 desde que o DIARIO ganhou a leitura ja conhecida pela conta
+        checa('nao apagou o diario do aparelho', len(local['logs']) == 4,
+              str(len(local['logs'])))
+        # MUDOU DE PROPOSITO (D121): com residuo, a marca NAO e gravada. O
+        # DIARIO semeado tem uma leitura cujo livro nao esta no cache, entao
+        # ela nao pode subir (a chave estrangeira exige o livro). Antes, a
+        # marca era gravada assim mesmo, o bloco virava "Diario enviado em
+        # <data>" e aquela leitura ficava sem caminho nenhum de volta: a fila
+        # nao a pega (ela nunca falhou — nunca foi tentada) e o botao sumia
+        # para sempre. Agora o botao fica, que e o unico resgate que ela tem.
+        checa('com residuo, NAO marca a data — o botao precisa continuar la',
+              pg.evaluate("localStorage.getItem('letterbooks:migrado:uid-1')") is None)
         # A migracao mandava com return=minimal e nunca gravava o id do
         # servidor de volta. Toda leitura ficava orfa, e a proxima edicao
         # criava uma linha nova la em vez de corrigir a que existia. O defeito
@@ -360,14 +415,46 @@ def rodar():
 
         pg.reload(wait_until='networkidle')
         pg.wait_for_selector('.conta')
-        checa('botao de migrar some depois de migrar',
-              pg.locator('[data-acao=migrar]').count() == 0)
+        pg.wait_for_selector('.conta .linhas', timeout=10000)
+        pg.wait_for_timeout(400)
         conta_txt = pg.inner_text('.conta')
-        checa('mostra a data no lugar', 'enviado para a conta' in conta_txt, conta_txt[:160])
-        # e a data DE VERDADE, nao so o rotulo: antes bastava a frase
+        # As duas que subiram ganharam `remoto`, entao o residuo agora e SO a
+        # leitura sem livro — e a tela diz isso em vez de calar.
+        checa('o botao continua la enquanto houver residuo',
+              pg.locator('[data-acao=migrar]').count() == 1)
+        checa('e a tela DIZ por que aquela leitura nao subiu',
+              'não está neste aparelho' in conta_txt, conta_txt[:200])
+        checa('o inventario agora conta 0 leituras prontas para subir',
+              '0 só aqui' in conta_txt, conta_txt[:200])
+        nav.close()
+
+        # ---- e sem residuo, a marca e gravada e o bloco vira a data ---------
+        estado = {}
+        del pedidos[:]
+        nav, ctx, pg = montar(pw, estado)
+        print('\nmigracao sem residuo: a marca e a data')
+        pg.goto(BASE, wait_until='networkidle')
+        # o mesmo diario, sem a leitura cujo livro falta no cache
+        limpo = json.loads(json.dumps(DIARIO))
+        limpo['logs'] = [l for l in limpo['logs'] if l['chave'] in limpo['livros']]
+        semear(pg, diario=limpo, sessao=SESSAO_VIVA)
+        pg.goto(BASE + '#/conta', wait_until='networkidle')
+        pg.reload(wait_until='networkidle')
+        pg.wait_for_selector('[data-acao=migrar]')
+        pg.click('[data-acao=migrar]')
+        pg.wait_for_timeout(2500)
+        pg.reload(wait_until='networkidle')
+        pg.wait_for_selector('.conta')
+        limpo_txt = pg.inner_text('.conta')
+        checa('sem residuo, marcou a data da migracao',
+              pg.evaluate("localStorage.getItem('letterbooks:migrado:uid-1')") is not None)
+        checa('o botao de migrar some',
+              pg.locator('[data-acao=migrar]').count() == 0)
+        checa('e mostra a data no lugar',
+              'enviado para a conta' in limpo_txt, limpo_txt[:160])
         import re as _re
-        checa('e a data aparece, formatada',
-              bool(_re.search(r'\d{2}/\d{2}/\d{4}', conta_txt)), conta_txt[:160])
+        checa('com a data formatada',
+              bool(_re.search(r'\d{2}/\d{2}/\d{4}', limpo_txt)), limpo_txt[:160])
         nav.close()
 
         # ------------------------------------------------------- migracao ruim
@@ -388,7 +475,7 @@ def rodar():
         checa('NAO marcou como migrado',
               pg.evaluate("localStorage.getItem('letterbooks:migrado:uid-1')") is None)
         checa('diario local intacto',
-              len(pg.evaluate("JSON.parse(localStorage.getItem('letterbooks:v1')).logs")) == 3)
+              len(pg.evaluate("JSON.parse(localStorage.getItem('letterbooks:v1')).logs")) == 4)
         nav.close()
 
         # ------------------------------------------------------ token vencido
@@ -453,7 +540,7 @@ def rodar():
         checa('avisou o servidor',
               any(p[1] == '/auth/v1/logout' for p in pedidos))
         checa('diario do aparelho continua',
-              len(pg.evaluate("JSON.parse(localStorage.getItem('letterbooks:v1')).logs")) == 3)
+              len(pg.evaluate("JSON.parse(localStorage.getItem('letterbooks:v1')).logs")) == 4)
         nav.close()
 
         # ------------------------------------------- o app local nao regrediu

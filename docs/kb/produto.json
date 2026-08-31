@@ -364,9 +364,9 @@
       "nome": "Meta de leitura do ano",
       "area": "Perfil",
       "noOriginal": "NOVO — não existe no Letterboxd; o mais próximo é a contagem de filmes do ano.",
-      "noLetterbooks": "Seção 'Meta de <ano>' com barra de progresso em telaPerfil (js/app.js ~1280), editável por 'editar-meta'; contas em Dados.estatisticas (noAno, meta). O banco até tem meta_ano/meta_total em perfis (servidor/esquema.sql:16), mas o app nunca lê nem grava essas colunas.",
+      "noLetterbooks": "Seção 'Meta de <ano>' com barra de progresso em telaPerfil (js/app.js ~1280), editável por 'editar-meta'; contas em Dados.estatisticas (noAno, meta). E desde a V13 ela vai para a conta e volta: `meta_ano`/`meta_total` em `perfis` sobem pela fila do sinc.js (tipo `meta`) e descem com `Sinc.descer()`, com a guarda que impede a descida de sobrescrever uma edicao que ainda espera na fila. A frase anterior deste campo dizia que o app nunca lia nem gravava essas colunas — verdade ate a V12, falsa depois dela, e achada por auditoria. O estado da feature nunca mudou (ela ja era `completo` pela tela), entao isto nao move numero nenhum: corrige o que o arquivo AFIRMA para quem o abre para se orientar.",
       "estado": "completo",
-      "evidencia": "js/app.js:1219 telaPerfil; js/dados.js estatisticas"
+      "evidencia": "js/app.js:1219 telaPerfil; js/dados.js estatisticas; js/sinc.js enviarMeta e aplicarMeta (V13); docs/testar_social.py \"a meta desceu da conta para o aparelho\""
     },
     {
       "nome": "Instalar como app (PWA)",

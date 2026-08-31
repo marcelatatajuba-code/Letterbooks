@@ -107,11 +107,36 @@ alter table leituras add column if not exists cliente_id text;
 comment on column leituras.cliente_id is
   'Id opaco gerado no aparelho. Publicamente legível: nunca derive de e-mail.';
 
--- Índice único parcial: o Postgres permite N nulos num índice único, e uma
--- linha sem cliente_id nunca colidiria. Com o "where not null" explícito fica
--- claro que linha antiga (sem id) fica de fora até o backfill passar.
+-- Índice único TOTAL, e o "where cliente_id is not null" que estava aqui foi
+-- REMOVIDO porque quebrava toda subida de leitura (D120).
+--
+-- O app manda `?on_conflict=perfil,cliente_id` (js/nuvem.js, em salvarLeitura,
+-- no passo 2 de migrar e em salvarLista). O PostgREST traduz isso para
+-- `ON CONFLICT (perfil, cliente_id) DO UPDATE` — e NÃO existe sintaxe na URL
+-- para mandar junto o predicado do índice. O Postgres não infere índice
+-- PARCIAL sem o predicado, então a resposta era:
+--
+--   ERROR 42P10: there is no unique or exclusion constraint matching the
+--                ON CONFLICT specification
+--
+-- Medido contra Postgres 16 de verdade, nos dois sentidos: com o predicado
+-- estoura, sem o predicado passa.
+--
+-- E o predicado NÃO era o que protegia a linha antiga sem cliente_id, que é o
+-- que o comentário anterior dizia: num índice único NULL é distinto de NULL,
+-- então um índice TOTAL continua aceitando N linhas com cliente_id nulo. Isso
+-- também foi medido — duas linhas nulas entram sem reclamação. O predicado só
+-- documentava uma intenção que o índice já cumpria sozinho, e cobrava por isso
+-- o preço de o upsert inteiro não funcionar.
+--
+-- POR QUE `drop index` E NÃO SÓ `create ... if not exists`: o índice velho JÁ
+-- EXISTE no banco da usuária, e o `if not exists` acha que está tudo certo e
+-- não troca nada. O caminho de upgrade é o que importa aqui — o de banco vazio
+-- funcionaria dos dois jeitos, e é por isso que este tipo de erro sobrevive.
+-- Mesma lição do D72.
+drop index if exists leituras_cliente;
 create unique index if not exists leituras_cliente
-  on leituras (perfil, cliente_id) where cliente_id is not null;
+  on leituras (perfil, cliente_id);
 
 create index if not exists leituras_perfil_data on leituras (perfil, lido_em desc);
 create index if not exists leituras_livro       on leituras (livro);
@@ -150,8 +175,11 @@ alter table listas add column if not exists cliente_id text;
 comment on column listas.cliente_id is
   'Id opaco gerado no aparelho. Publicamente legível: nunca derive de e-mail.';
 
+-- Mesmo caso do leituras_cliente, e pelo mesmo motivo: `salvarLista` manda
+-- `?on_conflict=perfil,cliente_id` e levava 42P10 (D120).
+drop index if exists listas_cliente;
 create unique index if not exists listas_cliente
-  on listas (perfil, cliente_id) where cliente_id is not null;
+  on listas (perfil, cliente_id);
 
 create index if not exists listas_perfil on listas (perfil, criado_em desc);
 

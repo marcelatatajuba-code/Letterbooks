@@ -108,6 +108,28 @@ da conta. A resposta ("o que só existe aqui") já estava gravada em toda linha,
 no campo `remoto`, e ninguém perguntava a ela. Antes de acrescentar coluna ou
 estado para responder uma pergunta, procure se o dado já responde.
 
+**Prove a forma que o CLIENTE emite.** O índice único de `leituras` era
+parcial (`where cliente_id is not null`), e o `provar-v1.sql` escrevia o
+`ON CONFLICT` **com** o predicado — verde, por cento e cinquenta dias. Só que o
+aplicativo não tem como mandar isso: ele manda `?on_conflict=perfil,cliente_id`
+na URL, o PostgREST traduz para `ON CONFLICT (perfil, cliente_id)` sem
+predicado, e o Postgres responde 42P10. Nenhuma leitura subia. A prova usava
+uma sintaxe mais poderosa que a do chamador, e por isso provava o autor da
+prova, não o chamador.
+
+Vale para além do SQL: quando a verificação pode escolher a própria forma de
+chamar, ela vai escolher a que funciona. Escreva a chamada como o cliente a
+escreve, ou verifique com o cliente de verdade.
+
+**Duas contagens do mesmo fato divergem — sempre.** A tela contava as leituras
+sem `remoto`; o envio contava as mesmas menos as que não tinham o livro no
+cache. A tela dizia 3, o fio mandava 2, e a suíte afirmava **as duas**, verdes,
+sobre o mesmo diário. Depois disso a marca de migrado escondia o botão e a
+leitura descartada não tinha mais caminho nenhum de volta. O conserto não é
+acertar as duas contas: é ter **uma conta só** — a tela imprime o `length` do
+objeto que o fio envia. Foi o mesmo defeito do mapa que existia em duas cópias
+e já tinha divergido.
+
 **Espera de teste tem que casar só com o destino.** Duas vezes uma
 `wait_for_selector` casou com a tela ANTERIOR (`.conta h1`, depois
 `.grade .cartao` — que a busca também desenha) e o teste virou moeda. O sinal

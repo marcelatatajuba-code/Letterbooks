@@ -710,23 +710,80 @@ var Nuvem = (function () {
      algo der errado no meio, o Letterbooks continua funcionando local e da
      para tentar de novo. Roda uma vez por conta — depois disso, marca a data
      e nao repete, para nao duplicar o diario a cada visita. */
+  /* O QUE SO ESTA AQUI — a carga da migracao, e a UNICA fonte do numero que a
+     tela mostra.
+
+     Isto existe porque havia DUAS contas, em dois arquivos, e ninguem as
+     comparava: `pintarConta` contava `logs.filter(!remoto)` sem filtro nenhum,
+     e `migrar` filtrava tambem por `dados.livros[l.livro]` — descartando em
+     silencio a leitura cujo livro nao esta no cache deste aparelho. A tela
+     dizia 3 e o fio mandava 2, e a suite provava AS DUAS, verdes, no mesmo
+     diario. Depois disso `migrar` gravava a marca de migrado, o bloco virava
+     "Diario enviado em <data>", e aquela terceira leitura nunca mais tinha
+     caminho para subir (D121).
+
+     E o mesmo defeito do mapa que existia duas vezes e que o
+     `guardarLivroDaLinha` ja consertou uma vez: o conserto nao e acertar as
+     duas contas, e ter uma conta so. A tela imprime os `length` DESTE objeto,
+     e o fio manda ESTE objeto.
+
+     O QUE ENTRA, e o criterio e "escope o que o reenvio MUDA":
+     - leituras: sem `remoto` e com livro no cache. Reenviar leitura que ja
+       tem `remoto` e um UPDATE com a copia local por cima da linha do
+       servidor — se outro aparelho editou aquela resenha depois da ultima
+       descida, o envio a sobrescreve. Perda de dado, nao desperdicio.
+     - listas: sem `remoto`, pelo mesmo motivo e por um pior:
+       `salvarItensDaLista` termina com um DELETE do que nao esta na copia
+       local, entao reenviar lista conhecida PODA no servidor.
+     - marcadores: TODOS, de proposito. A chave e (perfil, livro, tipo) e eles
+       sobem com `ignore-duplicates`: reenviar nao altera byte nenhum la.
+       Filtrar so acrescentaria uma conta para divergir.
+     - livros: so as chaves referenciadas pelo que vai subir.
+     - semLivro: as leituras sem `remoto` cujo livro NAO esta no cache. Elas
+       nao podem subir (a chave estrangeira exige o livro), e ate aqui sumiam
+       caladas. Agora tem nome, e quem chama decide o que dizer. */
+  function oQueSoEstaAqui(dados) {
+    var soAqui   = dados.logs.filter(function (l) { return !l.remoto; });
+    var comLivro = soAqui.filter(function (l) { return !!dados.livros[l.chave]; });
+    var semLivro = soAqui.filter(function (l) { return !dados.livros[l.chave]; });
+    var listas   = dados.listas.filter(function (l) { return !l.remoto; });
+
+    var chaves = {};
+    comLivro.forEach(function (l) { chaves[l.chave] = 1; });
+    dados.querLer.concat(dados.curtidas, dados.favoritos).forEach(function (c) { chaves[c] = 1; });
+    listas.forEach(function (l) { l.livros.forEach(function (c) { chaves[c] = 1; }); });
+
+    var marcadores = [];
+    [['querLer', 'quero'], ['curtidas', 'curtida'], ['favoritos', 'favorito']]
+      .forEach(function (par) {
+        dados[par[0]].forEach(function (c) {
+          if (dados.livros[c]) marcadores.push({ livro: c, tipo: par[1] });
+        });
+      });
+
+    return {
+      leituras: comLivro,
+      semLivro: semLivro,
+      listas: listas,
+      marcadores: marcadores,
+      chaves: Object.keys(chaves).filter(function (c) { return !!dados.livros[c]; })
+    };
+  }
+
   function migrar(dados, aoAndar) {
     var passo = aoAndar || function () {};
     if (!entrou()) return Promise.reject(new Error('Entre na sua conta primeiro.'));
 
-    var chaves = {};
-    dados.logs.forEach(function (l) { chaves[l.chave] = 1; });
-    dados.querLer.concat(dados.curtidas, dados.favoritos).forEach(function (c) { chaves[c] = 1; });
-    dados.listas.forEach(function (l) { l.livros.forEach(function (c) { chaves[c] = 1; }); });
+    var carga = oQueSoEstaAqui(dados);
 
     /* Um livro so pode virar leitura depois de existir no acervo — e o que a
        chave estrangeira exige. Por isso os livros vao primeiro. */
-    var livros = Object.keys(chaves)
+    var livros = carga.chaves
       .map(function (c) { return dados.livros[c]; })
       .filter(Boolean)
       .map(linhaLivro);
 
-    var leituras = dados.logs.map(function (l) {
+    var leituras = carga.leituras.map(function (l) {
       return {
         perfil:  sessao.id,
         cliente_id: l.id,
@@ -737,15 +794,11 @@ var Nuvem = (function () {
         relido:  !!l.relido,
         spoiler: !!l.spoiler
       };
-    }).filter(function (l) { return chaves[l.livro] && dados.livros[l.livro]; });
+    });
 
-    var marcadores = [];
-    [['querLer', 'quero'], ['curtidas', 'curtida'], ['favoritos', 'favorito']]
-      .forEach(function (par) {
-        dados[par[0]].forEach(function (c) {
-          if (dados.livros[c]) marcadores.push({ perfil: sessao.id, livro: c, tipo: par[1] });
-        });
-      });
+    var marcadores = carga.marcadores.map(function (m) {
+      return { perfil: sessao.id, livro: m.livro, tipo: m.tipo };
+    });
 
     passo('livros', 0, 4);
     return emLotes('livros', livros, 'return=minimal,resolution=merge-duplicates')
@@ -771,14 +824,22 @@ var Nuvem = (function () {
       })
       .then(function () {
         passo('listas', 3, 4);
-        return migrarListas(dados.listas);
+        return migrarListas(carga.listas);
       })
       .then(function () {
-        try { localStorage.setItem(chaveMigrado(), new Date().toISOString()); } catch (e) {}
+        /* A marca de migrado SO e gravada se nao sobrou leitura sem livro. Com
+           resíduo, o botao precisa continuar aparecendo: e o unico caminho de
+           volta que essas leituras tem. A fila nao as pega (elas nunca falharam
+           — nunca foram tentadas), e o Sinc descarta item depois de cinco
+           tentativas, entao sem esta guarda elas ficariam sem porta nenhuma. */
+        if (!carga.semLivro.length) {
+          try { localStorage.setItem(chaveMigrado(), new Date().toISOString()); } catch (e) {}
+        }
         passo('pronto', 4, 4);
         return {
           livros: livros.length, leituras: leituras.length,
-          marcadores: marcadores.length, listas: dados.listas.length
+          marcadores: marcadores.length, listas: carga.listas.length,
+          semLivro: carga.semLivro.length
         };
       });
   }
@@ -979,6 +1040,7 @@ var Nuvem = (function () {
     denunciar:      denunciar,
 
     migrar:    migrar,
+    oQueSoEstaAqui: oQueSoEstaAqui,
     jaMigrou:  jaMigrou
   };
 })();

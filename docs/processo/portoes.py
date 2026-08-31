@@ -70,7 +70,16 @@ criterio(1, 'itens de fidelidade em aberto', str(len(fid_abertos)), '0', len(fid
 _nomes = set(f['nome'] for f in prod['features'])
 _por_nome = {f['nome']: f for f in prod['features']}
 _entregues = [x for x in back['backlog'] if x.get('entregue')]
-_sem_fecha = [x for x in _entregues if not x.get('fecha')]
+# `is None` e nao `not`: [] e falsy em Python, e ha entrega que legitimamente
+# NAO fecha feature nenhuma — a V9 (denunciar, que continua parcial por falta
+# de moderacao) e a V10 (tirar o prompt() do navegador, conserto transversal).
+# Com `not`, essas duas ficavam indistinguiveis de "ninguem conferiu", e como
+# elas nunca vao fechar uma feature o criterio ficava ABERTO PARA SEMPRE por
+# causa de duas entregas corretas (D119). E o mesmo defeito do D114 — um
+# medidor que nao sabe separar "nao foi feito" de "foi feito e e assim mesmo" —
+# so que desta vez na ferramenta, e escrito por mim na volta passada.
+# Campo ausente = ninguem conferiu. Lista vazia = conferido, e nao fecha nada.
+_sem_fecha = [x for x in _entregues if x.get('fecha') is None]
 _quebrados, _desconhecidos = [], []
 for x in _entregues:
     for nome in (x.get('fecha') or []):

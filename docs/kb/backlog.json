@@ -22,7 +22,10 @@
       "valor": "Para qualquer pessoa abrindo a ficha de um livro que não leu. Hoje ela vê o SEU histograma geral, idêntico em todo livro do acervo, rotulado como se fosse do livro. Não é uma ausência, é um rótulo que mente — e é a promessa central do original (saber o que o mundo achou antes de ler) invertida em ruído.",
       "esforco": "M",
       "depende": "nada",
-      "entregue": "V3 — avaliações da comunidade na ficha"
+      "entregue": "V3 — avaliações da comunidade na ficha",
+      "fecha": [
+        "Nota média e histograma da comunidade na ficha"
+      ]
     },
     {
       "ordem": 3,
@@ -32,7 +35,10 @@
       "valor": "Para quem já segue gente e abre um livro que a rede leu. No original é o principal motivo de abrir a ficha. Hoje o social do Letterbooks vive todo preso dentro de #/atividade e nunca encosta no livro — a ficha é uma ilha 100% local.",
       "esforco": "M",
       "depende": "item 2 (mesma consulta sobre leituras por livro)",
-      "entregue": "V3 — a rede na ficha (quem você segue, resenhas)"
+      "entregue": "V3 — a rede na ficha (quem você segue, resenhas)",
+      "fecha": [
+        "Quem você segue leu / resenhas do livro na ficha"
+      ]
     },
     {
       "ordem": 4,
@@ -42,7 +48,10 @@
       "valor": "Para quem escreveu uma resenha e quer mandar para alguém. Hoje o único compartilhar entrega um PNG bonito, sem o texto e sem para onde clicar. Também é o pré-requisito de qualquer notificação: não dá para avisar 'comentaram na sua resenha' sem um endereço para onde levar.",
       "esforco": "M",
       "depende": "item 1 (a resenha precisa ter subido de forma confiável)",
-      "entregue": "V4 — um endereço só para a resenha, com compartilhar e apagar"
+      "entregue": "V4 — um endereço só para a resenha, com compartilhar e apagar",
+      "fecha": [
+        "Página de resenha com endereço próprio"
+      ]
     },
     {
       "ordem": 5,
@@ -52,7 +61,10 @@
       "valor": "Para quem cria uma lista depois de migrar. Hoje ela morre no aparelho e some se a pessoa limpar o navegador — as tabelas listas/lista_itens só recebem dado uma vez na vida, dentro de Nuvem.migrar (js/nuvem.js:537). Uma das três abas do topo do original está, na prática, offline.",
       "esforco": "M",
       "depende": "item 1 (mesmo encanamento de fila e de descida)",
-      "entregue": "V5 — listas sobem, descem e a lista alheia tem tela"
+      "entregue": "V5 — listas sobem, descem e a lista alheia tem tela",
+      "fecha": [
+        "Aba Lists (listas)"
+      ]
     },
     {
       "ordem": 6,
@@ -62,7 +74,10 @@
       "valor": "Para quem abre a aba esperando ler os outros e encontra o que já viu no Diário. No original, Reviews é da sua rede — é onde você lê gente. É o item mais barato da corrente social e o que faz o app parecer habitado.",
       "esforco": "P",
       "depende": "item 4 (as linhas precisam levar a um endereço de resenha)",
-      "entregue": "V6 — a aba Resenhas passa a ser a da rede"
+      "entregue": "V6 — a aba Resenhas passa a ser a da rede",
+      "fecha": [
+        "Aba Reviews (resenhas de quem você segue)"
+      ]
     },
     {
       "ordem": 7,
@@ -81,7 +96,10 @@
       "valor": "Para quem já curtiu, comentou ou seguiu — tudo isso já funciona (js/app.js:2102, 2223, 2259) e ninguém do outro lado fica sabendo. É o motor que faz voltar ao app; sem ele, toda a camada social já construída fica parada. Fica atrás do 7 porque é G, depende do 4, e a dor só aparece quando houver tráfego — que os itens 1 a 6 é que criam.",
       "esforco": "G",
       "depende": "item 4 (a notificação precisa de um endereço para onde levar)",
-      "entregue": "V7 — avisos por view, ponto na aba, marca dágua no aparelho"
+      "entregue": "V7 — avisos por view, ponto na aba, marca dágua no aparelho",
+      "fecha": [
+        "Notificações"
+      ]
     },
     {
       "ordem": 9,
@@ -91,7 +109,10 @@
       "valor": "Para quem entregou e-mail e publica o que lê e depois quer sair, ou quer ler sem virar vitrine. Num app que pede cadastro e torna público o diário por padrão, a porta de saída e o controle de exposição não são detalhe de configuração — são o que se deve a quem entrou.",
       "esforco": "M",
       "depende": "nada",
-      "entregue": "V8 — a chave de privacidade do diário (seis portas no RLS) e apagar a conta de verdade, auth.users inclusive"
+      "entregue": "V8 — a chave de privacidade do diário (seis portas no RLS) e apagar a conta de verdade, auth.users inclusive",
+      "fecha": [
+        "Apagar a conta"
+      ]
     },
     {
       "ordem": 10,
@@ -101,7 +122,8 @@
       "valor": "Para quem lê o feed 'Todo mundo', que mostra texto de estranhos sem nenhum caminho de moderação. O caro já foi feito no servidor; deixar a saída fechada é escolher não ter resposta no dia em que aparecer o primeiro abuso.",
       "esforco": "P",
       "depende": "nada",
-      "entregue": "V9 — denunciar resenha e comentário, com as duas políticas que faltavam no servidor e o × da dona da resenha"
+      "entregue": "V9 — denunciar resenha e comentário, com as duas políticas que faltavam no servidor e o × da dona da resenha",
+      "fecha": []
     },
     {
       "ordem": 11,
@@ -111,7 +133,8 @@
       "valor": "Para quem instalou o PWA na tela do iPhone. O prompt do sistema quebra a ilusão de app na hora — cinza, fora da paleta, às vezes em inglês. Num projeto cujo pedido é identidade total com o original, essas são as últimas portas que ainda são do navegador, e são seis, não três.",
       "esforco": "M",
       "depende": "nada",
-      "entregue": "V10 — as 12 portas do navegador viraram folhas do app, e os cinco defeitos que elas escondiam"
+      "entregue": "V10 — as 12 portas do navegador viraram folhas do app, e os cinco defeitos que elas escondiam",
+      "fecha": []
     },
     {
       "ordem": 12,
@@ -163,14 +186,21 @@
     },
     {
       "ordem": 16,
-      "titulo": "CSV para fora, Goodreads e Skoob para dentro",
+      "titulo": "CSV para fora, CSV de fora para dentro (Goodreads primeiro)",
       "tipo": "fidelidade",
-      "resumo": "exportarArquivo escreve JSON proprio e Dados.importar exige d.versao. Exportar CSV com as colunas do original, e importar de fora casando por ISBN (API.buscar ja trata ISBN de 10 e 13) com queda para titulo+autoria. Previa antes de gravar, e o nao casado NAO entra: livro sem chave vira leitura orfa.",
+      "resumo": "PARTIDO EM DOIS na V14, depois de gpm e tech lead concordarem que o enunciado escondia o tamanho. 16a — CSV PARA FORA: colunas fixas, BOM, CRLF, aspas por RFC 4180, e a coluna `chave` que faz o nosso proprio arquivo reimportar sem uma consulta de rede. Esforco P, 100% provavel no conteiner. 16b — CSV DE FORA PARA DENTRO: analisador, mapeamento por cabecalho, previa antes de gravar, e a regra de que a linha que nao casa NAO entra (livro sem chave e forma de dado que o dados_teste ja prende). Identidade por `assinaturaDaLeitura`, que ja existe e ja resolve isso na descida — reusar, nao inventar uma segunda. A importacao ACRESCENTA e nunca substitui: `Dados.importar` substitui porque a entrada dela e um retrato deste app, e um CSV do Goodreads nao e — substituir por ele seria apagar em silencio tudo sobre o que o arquivo nao tem opiniao. O SKOOB SAIU DO ITEM: ninguem aqui viu um export real, e escrever mapa para um formato suposto e invencao com cara de entrega. A tela de mapeamento manual atende quem vem de la, e o mapa novo custa uma entrada de dicionario no dia em que houver arquivo.",
       "valor": "Quem tem 300 livros no Skoob nao recomeca do zero. Foi cortado da rodada 1 por sequencia — sem a descida da nuvem, importar 300 e perde-los na troca de celular era pior que nao importar — e esse motivo caducou na V1.",
-      "esforco": "M",
+      "esforco": "G (o backlog dizia M; contadas as portas, sao doze)",
       "depende": "nada",
       "fecha": [
         "Exportar e importar os dados"
+      ],
+      "bloqueado_por": "16b esta BLOQUEADO por uma medicao que so o navegador da usuaria pode fazer: 50 ISBN brasileiros reais (978-85 e 978-65) contra search.json?isbn=, contando quantos voltam com key, capa e titulo. Se a cobertura for baixa, o recurso e pior que a ausencia dele — a pessoa ve \"94 de 312 entraram\" e sai do app. Vinte minutos, e muda o tamanho do item. Enquanto nao houver esse numero, nenhuma taxa de casamento pode aparecer em tela, commit ou release note.",
+      "nao_verificavel_daqui": [
+        "a taxa de casamento contra a Open Library viva",
+        "o cabecalho real do Goodreads (e memoria, nao arquivo — exige docs/amostras/goodreads.csv)",
+        "o formato do Skoob (desconhecido; nada foi escrito para ele)",
+        "se search.json?isbn= devolve obra (/works/) ou edicao (/books/) — se vier edicao, ela entra como chave de livro, vira FK de leituras, e a ficha nunca renderiza"
       ]
     },
     {

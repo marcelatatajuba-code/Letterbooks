@@ -79,8 +79,9 @@ var API = (function () {
 
     var so = somenteDigitos(termo);
     var params = { fields: CAMPOS, limit: 24, page: pagina };
-    /* 10 ou 13 digitos: a pessoa colou um ISBN, entao busca pelo campo certo. */
-    if (so.length === 10 || so.length === 13) params.isbn = so;
+    /* somenteDigitos devolve '' quando aquilo nao e um ISBN valido em forma,
+       entao aqui basta perguntar se sobrou alguma coisa. */
+    if (so) params.isbn = so;
     else params.q = termo;
 
     return pegar(url(BUSCA, params)).then(function (d) {
@@ -92,7 +93,25 @@ var API = (function () {
     });
   }
 
-  function somenteDigitos(s) { return String(s).replace(/[^0-9]/g, ''); }
+  /* O ISBN que a pessoa colou, ou '' se aquilo nao e um ISBN.
+
+     O X do ISBN-10 FICA, e e por isso que esta funcao existe. O digito
+     verificador do ISBN-10 vale de 0 a 10, e o 10 se escreve X — cerca de 9%
+     deles terminam assim. Antes daqui o filtro era `[^0-9]`, entao
+     '850101254X' virava '850101254', nove caracteres, o teste de tamanho
+     falhava, o app NAO mandava `params.isbn` e caia numa busca de texto livre
+     pelo numero — que nao acha nada. Um em cada onze ISBN-10 colados nunca
+     funcionou (D122).
+
+     E o X so vale na ULTIMA casa, que e o que a norma diz: sem essa parte,
+     um titulo de dez letras X viraria uma consulta por ISBN. Aqui a regra e
+     a norma, e nao "tem digito e X em algum lugar". */
+  function somenteDigitos(s) {
+    var cru = String(s).replace(/[\s-]/g, '').toUpperCase();
+    if (/^[0-9]{13}$/.test(cru)) return cru;      // ISBN-13
+    if (/^[0-9]{9}[0-9X]$/.test(cru)) return cru; // ISBN-10, X so no fim
+    return '';
+  }
 
   /* Livros em alta na semana — alimenta a tela inicial. */
   function emAlta(limite) {
