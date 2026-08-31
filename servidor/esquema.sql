@@ -28,6 +28,35 @@ create table if not exists perfis (
 comment on column perfis.usuario is
   'Minúsculas, números e _, de 3 a 20. É o endereço público do perfil.';
 
+-- A chave de privacidade do diário. `default false` de propósito: no dia em
+-- que esta coluna aparece, NADA muda para ninguém — as políticas novas se
+-- comportam exatamente como as antigas até a primeira pessoa ligar a chave.
+--
+-- O que ela fecha, e o que ela NÃO fecha, está decidido aqui e não na tela:
+-- ela fecha CONTEÚDO (leituras, marcadores, listas, itens, curtidas,
+-- comentários) e deixa aberto o CARTÃO (perfis, seguidores). Três motivos,
+-- nesta ordem:
+--   (i)   a view `avisos` é INNER JOIN em perfis: restringir perfis faria
+--         sumir, sem erro e sem log, todo aviso vindo de alguém privado;
+--   (ii)  a view `feed` também junta perfis, então a pessoa privada sumiria
+--         até de telas onde só o nome dela apareceria;
+--   (iii) uma política em perfis que consulta perfis estoura 42P17,
+--         'infinite recursion detected in policy' — em TODA leitura de
+--         perfil, o app inteiro branco. Não é hipótese: é o passo natural de
+--         quem lê "privado" e pensa "então o perfil também". Não faça.
+-- Perfil privado, portanto, é: cartão visível pelo @, diário fechado. Quem
+-- quiser sumir do índice apaga a conta, que é a outra metade deste item.
+alter table perfis add column if not exists privado boolean not null default false;
+
+comment on column perfis.privado is
+  'Diário fechado: leituras, estante, listas, curtidas e comentários só para o dono.';
+
+-- O predicado das seis políticas é um `not exists` sobre esta tabela, e a
+-- ficha de um livro pede até 200 leituras de uma vez. Sem o índice parcial
+-- são 200 buscas; com ele, um anti-join sobre uma tabela que na prática tem
+-- as poucas linhas de quem fechou o diário.
+create index if not exists perfis_privados on perfis (id) where privado;
+
 -- ---------------------------------------------------------------- livros ---
 -- Cache compartilhado do acervo da Open Library. Não é dado de ninguém:
 -- qualquer pessoa lê, e qualquer pessoa autenticada pode inserir um livro
@@ -230,22 +259,53 @@ create policy "quem entrou pode somar dados" on livros for update
   using (auth.uid() is not null);
 
 -- --- leituras: diário público, escrita do dono ---------------------------
-create policy "diário é público"        on leituras for select using (true);
+-- O PREDICADO DA PRIVACIDADE, escrito seis vezes de propósito.
+--
+-- Ele é repetido em vez de virar função porque uma função `security definer`
+-- ignoraria o RLS por inteiro (a mesma superfície que a view `avisos` já
+-- recusou por escrito, mais abaixo), e uma função `invoker` chamada por
+-- política de perfis reintroduz a recursão. Seis linhas parecidas e legíveis
+-- ganham de uma indireção que esconde qual tabela está protegida.
+--
+-- NÃO respeite `privado` só aqui. As portas do diário são seis, e as duas
+-- views (`feed`, `avisos`) NÃO são portas próprias: são `security_invoker` e
+-- herdam o RLS de baixo. Fechar só `leituras` deixa estante, listas, itens,
+-- curtidas e comentários saindo por `?perfil=eq.<uuid>` — a chave viraria
+-- decoração. Elas mudam em bloco, nesta transação, ou não mudam.
+create policy "diário é público, salvo se privado" on leituras for select
+  using (perfil = auth.uid()
+         or not exists (select 1 from perfis p
+                         where p.id = leituras.perfil and p.privado));
 create policy "registro a minha"        on leituras for insert with check (auth.uid() = perfil);
 create policy "edito a minha"           on leituras for update using (auth.uid() = perfil);
 create policy "apago a minha"           on leituras for delete using (auth.uid() = perfil);
 
 -- --- marcadores, listas, itens -------------------------------------------
-create policy "marcadores são públicos" on marcadores for select using (true);
+-- A estante. É a porta que se esquece, porque NENHUMA tela mostra a estante
+-- alheia — só a API mostra. Esquecê-la deixa quero/curtida/favorito inteiros
+-- saindo por `?perfil=eq.`.
+create policy "marcadores são públicos, salvo se privado" on marcadores for select
+  using (perfil = auth.uid()
+         or not exists (select 1 from perfis p
+                         where p.id = marcadores.perfil and p.privado));
 create policy "marco o meu"             on marcadores for insert with check (auth.uid() = perfil);
 create policy "desmarco o meu"          on marcadores for delete using (auth.uid() = perfil);
 
-create policy "listas são públicas"     on listas for select using (true);
+create policy "listas são públicas, salvo se privado" on listas for select
+  using (perfil = auth.uid()
+         or not exists (select 1 from perfis p
+                         where p.id = listas.perfil and p.privado));
 create policy "crio lista minha"        on listas for insert with check (auth.uid() = perfil);
 create policy "edito lista minha"       on listas for update using (auth.uid() = perfil);
 create policy "apago lista minha"       on listas for delete using (auth.uid() = perfil);
 
-create policy "itens são públicos"      on lista_itens for select using (true);
+-- Os itens herdam a decisão da lista sem repetir a regra: a subconsulta de
+-- uma política sofre o RLS da tabela que ela consulta. Se a lista não é
+-- visível, este exists não acha nada. E a política "mexo na minha lista"
+-- logo abaixo é `for all` e permissiva, então ela OR-a com esta — o dono
+-- continua enxergando os próprios itens por aquele caminho.
+create policy "itens são públicos, salvo se privado" on lista_itens for select
+  using (exists (select 1 from listas l where l.id = lista_itens.lista));
 create policy "mexo na minha lista"     on lista_itens for all
   using (exists (select 1 from listas l where l.id = lista and l.perfil = auth.uid()))
   with check (exists (select 1 from listas l where l.id = lista and l.perfil = auth.uid()));
@@ -256,11 +316,20 @@ create policy "eu sigo"                 on seguidores for insert with check (aut
 create policy "eu deixo de seguir"      on seguidores for delete using (auth.uid() = seguidor);
 
 -- --- curtidas e comentários ----------------------------------------------
-create policy "curtidas são públicas"   on curtidas for select using (true);
+-- Curtidas e comentários herdam da LEITURA, pelo mesmo mecanismo. Não basta
+-- olhar `curtidas.perfil`: o par (perfil, leitura) também é por onde se
+-- enumera o uuid de uma leitura privada.
+create policy "curtidas são públicas, salvo se privado" on curtidas for select
+  using (exists (select 1 from leituras l where l.id = curtidas.leitura));
 create policy "eu curto"                on curtidas for insert with check (auth.uid() = perfil);
 create policy "eu descurto"             on curtidas for delete using (auth.uid() = perfil);
 
-create policy "comentários são públicos" on comentarios for select using (true);
+-- Prosa de terceiro pendurada numa leitura: fechar o diário fecha a conversa
+-- que aconteceu nele. O autor do comentário continua vendo o próprio texto
+-- pela primeira metade do predicado.
+create policy "comentários são públicos, salvo se privado" on comentarios for select
+  using (perfil = auth.uid()
+         or exists (select 1 from leituras l where l.id = comentarios.leitura));
 create policy "eu comento"              on comentarios for insert with check (auth.uid() = perfil);
 create policy "edito o meu comentário"  on comentarios for update using (auth.uid() = perfil);
 -- Apagar comentário: o autor OU o dono da resenha onde ele está.

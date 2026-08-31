@@ -77,6 +77,12 @@ begin
       'veja a linha de cima');
   end if;
 
+  insert into conferencia values (9, 'coluna privado em perfis',
+    case when exists (select 1 from information_schema.columns
+                       where table_name='perfis' and column_name='privado')
+         then 'ok' else 'FALTA — rode o esquema.sql de novo' end,
+    'a chave de diário privado grava e o banco recusa: 400 na cara da pessoa');
+
   -- ---- as duas coisas que não são "falta atualizar", são perigo ------------
   select count(*) into n
     from pg_tables t
