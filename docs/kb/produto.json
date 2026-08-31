@@ -284,9 +284,9 @@
       "nome": "Perfil de outra pessoa",
       "area": "Atividade",
       "noOriginal": "O perfil alheio mostra favoritos, diário, listas, watchlist, resenhas e estatísticas.",
-      "noLetterbooks": "telaLeitor/desenhaLeitor mostram avatar-inicial, @, bio, botão seguir, contagens sociais, até 10 resenhas, um trilho de 16 leituras recentes e as LISTAS da pessoa (enfeitarComAsListas, desde a V5). PARCIAL pelo que continua ausente: favoritos, estante/quero ler, diário completo e histograma — nada disso é consultado, embora `marcadores` seja público por RLS e `meusMarcadores` já saiba ler a tabela. É o recorte mais barato de fechar entre as parciais: o dado já é público e a função de leitura já existe.",
+      "noLetterbooks": "telaLeitor/desenhaLeitor mostram avatar-inicial, @, bio, botão seguir, contagens sociais, até 10 resenhas, um trilho de 16 leituras recentes, as LISTAS da pessoa e — desde a V11 — os FAVORITOS em vitrine e as prateleiras Quero ler e Curtidos, numa consulta só a `marcadores`. Os cartões destas seções são `htmlCartaoNu`: sem os selos e sem a nota do SEU aparelho, que estavam sendo carimbados em conteúdo alheio. PARCIAL pelos DOIS que continuam ausentes: diário completo (não há rota para o diário alheio) e histograma de avaliações (exigiria count=exact ou agregação — a distribuição não pode sair da janela de 40 linhas). É o item 14.",
       "estado": "parcial",
-      "evidencia": "js/app.js:2166 desenhaLeitor; servidor/esquema.sql:203 e :207 políticas públicas"
+      "evidencia": "js/app.js enfeitarComAEstante; js/nuvem.js marcadoresDe; docs/testar_social.py bloco da estante"
     },
     {
       "nome": "Notificações",

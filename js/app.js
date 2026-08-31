@@ -178,6 +178,26 @@
 
   /* Um item da grade: so a capa, como as grades de posters do original. O que
      voce marcou naquele livro aparece na fita do pe. */
+  /* O cartão SEM os meus selos e SEM a minha nota.
+     `htmlCartao` carimba ◉ ♥ ◷ e a estrela lendo `Dados` — ou seja, o que EU
+     marquei, no MEU aparelho. Isso é fidelidade quando a capa está numa tela
+     minha ou numa vitrine do acervo: o original também marca os seus vistos
+     nos pôsteres alheios. Mas numa seção intitulada "Favoritos de @bia", um
+     coração diz que a Bia curtiu quando quem curtiu fui eu — é o rótulo que
+     mente, e é o defeito do histograma noutro lugar.
+
+     Serve dois lugares além da estante alheia: o trilho "Leu recentemente" do
+     perfil de outra pessoa, que já fazia isso hoje; e o espelho de
+     #/privacidade, que promete "como outra pessoa vê você" e desenhava
+     justamente o que outra pessoa NÃO vê. */
+  function htmlCartaoNu(livro) {
+    var dica = livro.titulo + (livro.ano ? ' (' + livro.ano + ')' : '');
+    return '<a class="cartao" href="' + rotaLivro(livro.chave) + '" title="' + esc(dica) + '"' +
+           ' aria-label="' + esc(livro.titulo) + '">' +
+           htmlCapa(livro, '') +
+           '<div class="cartao-legenda">' + esc(livro.titulo) + '</div></a>';
+  }
+
   function htmlCartao(livro, ordem) {
     var selos = '';
     if (Dados.jaLeu(livro.chave))   selos += '<i title="Lido" style="color:var(--a1)">◉</i>';
@@ -2429,20 +2449,27 @@
 
   /* As fichas que faltam vêm da tabela comum de livros, numa consulta só, e
      entram no cache do aparelho — a grade se repinta quando chegam. */
-  function completarLivrosDaLista(v) {
-    var faltando = v.chaves.filter(function (c) { return !Dados.livro(c); });
+  /* As fichas que faltam, numa consulta só. `aoChegar` é de quem chamou: cada
+     tela sabe repintar só o pedaço dela.
+
+     ATENÇÃO ao que `aoChegar` pode fazer: a versão da lista repinta a TELA
+     inteira, e copiar isso para o perfil apagaria as contagens, o botão de
+     seguir e as listas, que chegam pela rede em callbacks independentes. Quem
+     enriquece uma seção escreve no innerHTML DELA. */
+  function completarLivros(chaves, aoChegar) {
+    var faltando = chaves.filter(function (c) { return !Dados.livro(c); });
     if (!faltando.length || !Nuvem.ligada()) return;
     Nuvem.livrosPorChave(faltando).then(function (bs) {
       if (!bs || !bs.length) return;
-      bs.forEach(function (b) {
-        Dados.guardarLivro({
-          chave: b.chave, titulo: b.titulo, autores: b.autores || [],
-          ano: b.ano, capa: b.capa, capaGrande: b.capa_grande,
-          paginas: b.paginas, edicoes: b.edicoes
-        });
-      });
-      if (location.hash.indexOf('#/lista/') === 0) desenhaLista(v);
+      bs.forEach(Dados.guardarLivroDaLinha);
+      aoChegar();
     }).catch(function () { /* a grade fica com as lombadas, e tudo bem */ });
+  }
+
+  function completarLivrosDaLista(v) {
+    completarLivros(v.chaves, function () {
+      if (location.hash.indexOf('#/lista/') === 0) desenhaLista(v);
+    });
   }
 
   function abrirFolhaCompartilharLista(v) {
@@ -3359,12 +3386,18 @@
       if (!alvo) return;
       if (alvo.getAttribute('data-fechar') === 'fundo' && ev.target !== alvo) return;
 
-      var nome = (document.getElementById('nova-lista') || {}).value;
-      if (nome && nome.trim()) {
-        var l = Dados.criarLista(nome.trim());
-        Dados.guardarLivro(livro);
-        Dados.alternarNaLista(l.id, livro.chave);
-        aviso('Lista “' + l.nome + '” criada.');
+      /* SÓ o botão cria. Antes este bloco rodava também para
+         `data-fechar="fundo"` — tocar no escuro para DESISTIR criava a lista,
+         que é o contrário do gesto. Nenhuma outra folha do app faz isso, e
+         nenhuma suíte passava por aqui. */
+      if (alvo.getAttribute('data-fechar') === 'ok') {
+        var nome = (document.getElementById('nova-lista') || {}).value;
+        if (nome && nome.trim()) {
+          var l = Dados.criarLista(nome.trim());
+          Dados.guardarLivro(livro);
+          Dados.alternarNaLista(l.id, livro.chave);
+          aviso('Lista “' + l.nome + '” criada.');
+        }
       }
       camada.innerHTML = '';
       rotear();
@@ -3592,7 +3625,8 @@
       if (eu && eu.id === p.id) return ir('#/perfil');
 
       desenhaLeitor(p, leituras);
-      enfeitarComAsListas(usuario);
+      enfeitarComAsListas(p);
+      enfeitarComAEstante(p);
       /* Contagens e o estado do "seguir" chegam depois: a pagina ja e util
          sem eles, e sao duas idas a mais na rede. */
       Nuvem.contagemSocial(p.id).then(function (c) {
@@ -3634,6 +3668,10 @@
           : '') +
       '</div>' +
 
+      /* Os favoritos ficam ACIMA das contagens, que é a ordem do perfil
+         próprio e a do original: favorito é vitrine de topo, não prateleira. */
+      '<section class="bloco" id="favoritos-do-leitor" hidden></section>' +
+
       '<div class="linhas linhas-conta" id="leitor-numeros"></div>' +
 
       '<section class="secao" id="listas-do-leitor" hidden></section>' +
@@ -3648,9 +3686,12 @@
 
       (leituras.length
         ? '<section class="secao"><h2>Leu recentemente</h2>' +
-          htmlTrilho(leituras.slice(0, 16).map(function (l) {
-            return { chave: l.livro, titulo: l.titulo, capa: l.capa, ano: l.ano };
-          })) + '</section>'
+          '<div class="trilho">' +
+            leituras.slice(0, 16).map(function (l) {
+              return htmlCartaoNu({ chave: l.livro, titulo: l.titulo,
+                                    capa: l.capa, ano: l.ano });
+            }).join('') +
+          '</div></section>'
         /* "Ainda sem leituras registradas" AFIRMA que a pessoa não leu nada, e
            para um diário fechado isso é falso — é o rótulo que mente, e passa a
            ser o estado mais comum desta tela. Sem a frase, a página também faz
@@ -3661,7 +3702,9 @@
                       'Essa pessoa escolheu não mostrar o que lê. Você pode seguir e ' +
                       'continuar por aqui — se ela abrir, as leituras aparecem.')
           : htmlVazio('Ainda sem leituras registradas',
-                      'Quando ' + esc(nome) + ' registrar a primeira, ela aparece aqui.'))
+                      'Quando ' + esc(nome) + ' registrar a primeira, ela aparece aqui.')) +
+
+      '<section id="estante-do-leitor" hidden></section>'
     );
 
     acoes({
@@ -3675,9 +3718,96 @@
   /* As listas de outra pessoa. Chegam DEPOIS da página estar de pé, como as
      contagens — é mais uma ida à rede, e o perfil é útil sem ela. Sem conta
      também aparecem: a política "listas são públicas" já permite. */
-  function enfeitarComAsListas(usuario) {
+  /* A ESTANTE de outra pessoa: favoritos em vitrine, quero-ler e curtidos em
+     trilho. Chega DEPOIS da página estar de pé, como as contagens e as listas.
+
+     NÃO entra no Promise.all lá de cima, e a razão é dura: aquele Promise.all
+     é portão — qualquer rejeição pinta <p class="erro"> no lugar do perfil
+     INTEIRO. Marcadores passariam a poder apagar uma página que hoje desenha.
+     Além disso a consulta precisa do `p.id`, que só existe depois de perfilDe
+     resolver.
+
+     Uma consulta para as três prateleiras, separadas aqui pelo `tipo`. */
+  function enfeitarComAEstante(p) {
+    /* Guarda antes da rede. A política já devolveria zero linhas — ter cliente
+       E política concordando é o padrão que a seção de resenhas segue. Se um
+       dia alguém afrouxar a política, a tela não começa a desenhar estante
+       fechada em silêncio. */
+    if (p.privado) return;
+
+    var vitrine = document.getElementById('favoritos-do-leitor');
+    var caixa   = document.getElementById('estante-do-leitor');
+    if (!vitrine || !caixa) return;
+
+    Nuvem.marcadoresDe(p.id).then(function (ms) {
+      if (!document.body.contains(caixa)) return;
+      ms = ms || [];
+      /* Se voltou o teto, o total é desconhecido daqui para cima e o contador
+         cala. Melhor não contar do que contar errado — a mesma regra que fez o
+         histograma da ficha não trazer número. */
+      var sabeOTotal = ms.length < Nuvem.TETO_ESTANTE;
+
+      var por = { favorito: [], querLer: [], curtida: [] };
+      ms.forEach(function (m) {
+        var b = por[m.tipo === 'quero' ? 'querLer'
+                  : m.tipo === 'curtida' ? 'curtida' : 'favorito'];
+        if (b) b.push(m.livro);
+      });
+
+      function desenha() {
+        if (!document.body.contains(caixa)) return;
+
+        var favs = por.favorito.slice(0, Dados.MAX_FAVORITOS);
+        vitrine.innerHTML = favs.length
+          ? '<span class="rotulo">Favoritos' +
+            (sabeOTotal && por.favorito.length > favs.length
+              ? '<span class="contador">' + por.favorito.length + '</span>' : '') +
+            '</span><div class="fileira">' +
+            favs.map(function (c) { return htmlCartaoNu(livroDe(c)); }).join('') +
+            '</div>'
+          : '';
+        vitrine.hidden = !favs.length;
+
+        /* Seção sem item NÃO é desenhada, e isto é decisão, não economia. Os
+           textos de vazio da estante são instrução em segunda pessoa dirigida
+           ao dono ("Marque 'Quero ler' na ficha de um livro") — apontados para
+           a estante de outra pessoa, mandam o visitante arrumar a prateleira
+           alheia. E três frases de ausência empilhadas transformam um perfil
+           rico num muro de "não tem". */
+        caixa.innerHTML = [['querLer', 'Quero ler'], ['curtida', 'Curtidos']]
+          .map(function (par) {
+            var chaves = por[par[0]];
+            if (!chaves.length) return '';
+            return '<section class="secao"><h2>' + par[1] +
+              (sabeOTotal ? '<span class="contador">' + chaves.length + '</span>' : '') +
+              '</h2><div class="trilho">' +
+              chaves.slice(0, 16).map(function (c) { return htmlCartaoNu(livroDe(c)); }).join('') +
+              '</div></section>';
+          }).join('');
+        caixa.hidden = !caixa.innerHTML;
+      }
+
+      desenha();
+      /* As fichas que faltam chegam depois e repintam SÓ estas duas seções.
+         Copiar o repintar-a-tela-toda da lista apagaria as contagens, o botão
+         de seguir e as listas, que chegam por callbacks independentes. */
+      var todas = por.favorito.concat(por.querLer, por.curtida);
+      completarLivros(todas, desenha);
+    }).catch(function () {
+      /* Enriquecimento que falhou não é ação da pessoa que falhou: as seções
+         ficam escondidas, sem caixa de erro e sem aviso. E NUNCA dizer
+         "fechado" aqui — privacidade se lê de `p.privado`, nunca de uma
+         resposta vazia, que também é o que a rede caindo produz. */
+    });
+  }
+
+  function enfeitarComAsListas(p) {
     var caixa = document.getElementById('listas-do-leitor');
-    Nuvem.listasDe(usuario).then(function (listas) {
+    /* Recebe o PERFIL, não o @: `listasDe(usuario)` ia buscar o mesmo perfil de
+       novo pelo @, e esta tela já o tem em mãos. Era a terceira das sete idas à
+       rede desta página, e era desperdício puro — é ela que paga a consulta
+       nova da estante. */
+    Nuvem.listasDoPerfil(p.id).then(function (listas) {
       if (!caixa || !document.body.contains(caixa)) return;
       var comLivro = (listas || []).filter(function (l) {
         return (l.lista_itens || []).length;
@@ -4515,7 +4645,7 @@
           '</div>' +
           (capas.length
             ? '<div class="fileira" style="margin-top:14px">' +
-              capas.map(function (l) { return htmlCartao(l); }).join('') + '</div>'
+              capas.map(htmlCartaoNu).join('') + '</div>'
             : '');
       }
       caixa.innerHTML = '<span class="rotulo">Como outra pessoa vê você</span>' + corpo;

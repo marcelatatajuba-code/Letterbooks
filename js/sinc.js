@@ -264,14 +264,9 @@ var Sinc = (function () {
         var faltando = Object.keys(chaves).filter(function (c) { return !Dados.livro(c); });
 
         return Nuvem.livrosPorChave(faltando).then(function (livros) {
-          (livros || []).forEach(function (b) {
-            Dados.guardarLivro({
-              chave: b.chave, titulo: b.titulo, autores: b.autores || [],
-              autoresIds: b.autores_ids || [], ano: b.ano, capa: b.capa,
-              capaGrande: b.capa_grande, paginas: b.paginas, edicoes: b.edicoes,
-              sinopse: b.sinopse
-            });
-          });
+          /* O mapa mora em Dados desde que as duas cópias divergiram — esta
+             guardava sinopse e autores_ids, a do app.js não. */
+          (livros || []).forEach(Dados.guardarLivroDaLinha);
           var contas = Dados.fundir(leituras, marcadores);
           var deListas = Dados.fundirListas(listas);
           contas.listas = deListas.vieram;

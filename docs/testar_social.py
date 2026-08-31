@@ -1692,7 +1692,171 @@ def rodar():
               and not pg.locator('#denuncia-erro').is_hidden())
         nav.close()
 
+        # ============================ a estante de outra pessoa ==============
+        #
+        # DUAS coisas que este bloco faz de propósito, e as duas vêm de furos
+        # que o tech lead achou no mock:
+        #
+        # 1. Semeia BANCO['marcadores']. Ele nascia vazio em zerar() e NADA nas
+        #    1706 linhas do arquivo punha linha lá. Um teste escrito sem semear
+        #    passaria verde contra o nada.
+        # 2. Usa um SEGUNDO livro (/works/OL2W) que existe só no BANCO. Toda
+        #    cena de conteúdo alheio usava /works/OL1W — o mesmo que semear()
+        #    grava no localStorage —, então o aparelho já tinha a ficha,
+        #    completarLivros pulava e livrosPorChave NUNCA rodava. O caminho de
+        #    resolução de capa nunca foi exercitado nesta casa, nem hoje.
+        print('\nperfil alheio: os favoritos e a estante')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        BANCO['livros'].append({'chave': '/works/OL2W', 'titulo': 'Vidas Secas',
+                                'autores': ['Graciliano Ramos'], 'ano': 1938,
+                                'capa': 'c2.jpg', 'paginas': 176,
+                                # sem estes dois a asserção do D94 mediria o vazio
+                                'autores_ids': ['/authors/OL1A'],
+                                'sinopse': 'A família de Fabiano atravessa o sertão.'})
+        BANCO['marcadores'] += [
+            {'perfil': 'uid-2', 'livro': '/works/OL2W', 'tipo': 'favorito',
+             'criado_em': '2026-08-20T00:00:00Z'},
+            {'perfil': 'uid-2', 'livro': '/works/OL1W', 'tipo': 'quero',
+             'criado_em': '2026-08-21T00:00:00Z'},
+            {'perfil': 'uid-2', 'livro': '/works/OL2W', 'tipo': 'curtida',
+             'criado_em': '2026-08-22T00:00:00Z'},
+        ]
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        # O APARELHO precisa ter marcado os MESMOS livros, senão a asserção do
+        # selo passa dos dois lados: htmlCartao só emite `.selos` quando EU
+        # marquei, e um diário local vazio não emite nada nem com o cartão
+        # errado. Descobri isso desfazendo o conserto — a suíte continuou
+        # verde, que é o mesmo que não ter teste.
+        pg.evaluate("""() => {
+          var e = JSON.parse(localStorage.getItem('letterbooks:v1'));
+          e.curtidas = ['/works/OL2W'];
+          e.querLer  = ['/works/OL1W'];
+          e.favoritos = ['/works/OL2W'];
+          localStorage.setItem('letterbooks:v1', JSON.stringify(e));
+        }""")
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/leitor/bia', wait_until='networkidle')
+        pg.wait_for_selector('.perfil-topo', timeout=10000)
+        pg.wait_for_timeout(1500)
+
+        checa('os favoritos aparecem, e acima das contagens',
+              not pg.locator('#favoritos-do-leitor').is_hidden())
+        # compara com a FONTE, não com "existe pelo menos um"
+        favs_api = len([m for m in BANCO['marcadores']
+                        if m['perfil'] == 'uid-2' and m['tipo'] == 'favorito'])
+        checa('e a vitrine mostra o mesmo número que a API tem',
+              pg.locator('#favoritos-do-leitor .cartao').count() == favs_api,
+              '%d na tela, %d na API' % (pg.locator('#favoritos-do-leitor .cartao').count(), favs_api))
+        ordem = pg.evaluate("""() => {
+          var f = document.getElementById('favoritos-do-leitor');
+          var n = document.getElementById('leitor-numeros');
+          return f.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING ? 'antes' : 'depois';
+        }""")
+        checa('a vitrine vem ANTES do bloco de contagens', ordem == 'antes', ordem)
+
+        texto = pg.inner_text('#estante-do-leitor')
+        checa('a estante tem Quero ler e Curtidos',
+              'Quero ler' in texto and 'Curtidos' in texto)
+        checa('e NÃO tem uma prateleira "Lidos" — isso já é "Leu recentemente"',
+              'Lidos' not in texto)
+        # o furo nº 2: este livro só existe no BANCO, então a capa TEVE que ser
+        # resolvida pela rede para o título aparecer
+        checa('o livro que só existe no servidor foi resolvido e tem título',
+              'Vidas Secas' in pg.inner_text('body'))
+        # D94: as duas cópias do mapa snake→camel tinham divergido, e a do
+        # app.js descartava sinopse e autores_ids. Agora há uma cópia só, em
+        # Dados.guardarLivroDaLinha — esta asserção é o que prende a volta dela.
+        guardado = pg.evaluate(
+            "() => (JSON.parse(localStorage.getItem('letterbooks:v1')).livros||{})['/works/OL2W']")
+        checa('e chegou COMPLETO no aparelho, com sinopse e ids de autoria',
+              bool(guardado) and 'sinopse' in guardado and 'autoresIds' in guardado,
+              str(sorted(guardado.keys()) if guardado else None))
+
+        # o achado do GPM e do tech lead: htmlCartao carimba os MEUS marcadores
+        # o aparelho marcou os dois livros logo acima, então um cartão errado
+        # AQUI carimbaria — é o que faz esta asserção valer alguma coisa
+        checa('nenhum cartão da estante alheia carimba selo meu',
+              pg.locator('#estante-do-leitor .selos').count() == 0
+              and pg.locator('#favoritos-do-leitor .selos').count() == 0)
+        checa('nem o trilho "Leu recentemente" do perfil alheio',
+              pg.evaluate("""() => {
+                var s = [...document.querySelectorAll('.secao')].find(
+                  x => x.querySelector('h2') && /Leu recentemente/.test(x.querySelector('h2').innerText));
+                return !s || s.querySelectorAll('.selos').length === 0;
+              }"""))
+        nav.close()
+
+        print('\nperfil alheio: estante vazia e diário fechado')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/leitor/bia', wait_until='networkidle')
+        pg.wait_for_selector('.perfil-topo', timeout=10000)
+        pg.wait_for_timeout(1200)
+        corpo = pg.inner_text('body')
+        checa('sem marcador nenhum, as seções não são desenhadas',
+              pg.locator('#estante-do-leitor').is_hidden()
+              and pg.locator('#favoritos-do-leitor').is_hidden())
+        # os vazios da estante são instrução em SEGUNDA pessoa dirigida ao dono
+        checa('e nenhum texto manda o visitante arrumar a prateleira alheia',
+              'Marque' not in corpo and 'Escolha até' not in corpo)
+        nav.close()
+
+        zerar(); estado = {}
+        BANCO['perfis'][1]['privado'] = True
+        BANCO['livros'].append(LIVRO)
+        BANCO['marcadores'].append({'perfil': 'uid-2', 'livro': '/works/OL1W',
+                                    'tipo': 'favorito', 'criado_em': '2026-08-20T00:00:00Z'})
+        nav, ctx, pg = montar(pw, estado)
+        pedidos_marcadores = []
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        pg.reload(wait_until='networkidle')
+        pg.on('request', lambda r: pedidos_marcadores.append(r.url)
+              if '/rest/v1/marcadores' in r.url else None)
+        pg.goto(BASE + '#/leitor/bia', wait_until='networkidle')
+        pg.wait_for_selector('.perfil-topo', timeout=10000)
+        pg.wait_for_timeout(1500)
+        checa('com o diário fechado, a estante nem é pedida à rede',
+              not pedidos_marcadores, str(pedidos_marcadores[:1]))
+        checa('e as seções continuam escondidas',
+              pg.locator('#estante-do-leitor').is_hidden())
+        checa('a frase "está fechado" aparece UMA vez, não uma por seção',
+              pg.inner_text('body').count('está fechado') == 1)
+        nav.close()
+
+        # ---- desistir da folha de listas NÃO pode criar a lista ------------
+        print('\nfolha de listas: tocar no escuro é desistir, não criar')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        pg.reload(wait_until='networkidle')
+        # o painel lateral da ficha não existe em 390px — alargo só aqui
+        pg.set_viewport_size({'width': 1180, 'height': 900})
+        pg.goto(BASE + '#/livro/' + '%2Fworks%2FOL1W', wait_until='networkidle')
+        pg.wait_for_timeout(1200)
+        pg.locator('[data-acao=listas]').first.click()
+        pg.wait_for_selector('#nova-lista', timeout=8000)
+        pg.fill('#nova-lista', 'Lista que eu desisti')
+        antes = pg.evaluate("() => Dados.estado().listas.length")
+        # toca no FUNDO escuro, que é o gesto de desistir
+        pg.locator('.folha-fundo').click(position={'x': 8, 'y': 8})
+        pg.wait_for_timeout(800)
+        checa('desistir no fundo escuro NÃO cria a lista',
+              pg.evaluate("() => Dados.estado().listas.length") == antes,
+              '%d -> %d' % (antes, pg.evaluate("() => Dados.estado().listas.length")))
+        nav.close()
+
     print('\n' + '-' * 60)
+
 
 
     if erros:

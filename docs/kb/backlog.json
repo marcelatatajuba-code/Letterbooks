@@ -126,7 +126,17 @@
       "resumo": "desenhaLeitor já mostra @, bio, seguir, contagens, 10 resenhas, um trilho de leituras e as listas. Faltam FAVORITOS e ESTANTE (quero ler / curtidas / favoritos). O dado já é público por RLS (\"marcadores são públicos, salvo se privado\") e `Nuvem.meusMarcadores` já sabe ler a tabela — falta a leitura por perfil alheio e o desenho. Diário completo e histograma ficam FORA: são consulta pesada na tabela mais quente e merecem item próprio.",
       "valor": "É o recorte mais barato entre as 11 parciais, e é fidelidade — no original o perfil de outra pessoa é uma vitrine, não um cartão de visita. Também é o primeiro item escolhido pela cadência nova: atacar recorte de parcial em vez de item novo inteiro, que é o que o portão 1 precisa para se mover.",
       "esforco": "P",
-      "depende": "nada"
+      "depende": "nada",
+      "entregue": "V11 — favoritos e estante no perfil alheio, e o cartão que carimbava selo alheio"
+    },
+    {
+      "ordem": 14,
+      "titulo": "Histograma e diário completo de outra pessoa",
+      "tipo": "fidelidade",
+      "resumo": "Os dois buracos que sobraram da feature \"Perfil de outra pessoa\" depois da V11. Precisa de SERVIDOR: a distribuição não pode sair da janela de 40 linhas que `leiturasDe` traz — seria um rótulo vitalício sobre amostra recente, o defeito do histograma outra vez. Exige `Prefer: count=exact` em `pedir()` ou uma view de agregação. Traz junto a rota do diário alheio, que não existe.",
+      "valor": "É o par do item 13, e o par importa: o GPM mostrou que recorte solto não fecha feature. Só com os dois entregues a feature vira `completo` e a paridade se move.",
+      "esforco": "M",
+      "depende": "item 13"
     }
   ],
   "cortados": [

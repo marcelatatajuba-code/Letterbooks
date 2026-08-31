@@ -830,9 +830,37 @@ var Nuvem = (function () {
   function listasDe(usuario) {
     return perfilDe(usuario).then(function (p) {
       if (!p) return [];
-      return publico('listas', '?select=' + CAMPOS_LISTA +
-        '&perfil=eq.' + p.id + '&order=criado_em.desc');
+      return listasDoPerfil(p.id);
     });
+  }
+
+  /* Quem já tem o perfil em mãos usa esta e economiza uma ida à rede. A tela do
+     perfil alheio tinha o `p` e mesmo assim chamava listasDe(usuario), que ia
+     buscar o MESMO perfil de novo pelo @ — era a terceira das sete requisições
+     daquela tela, e era desperdício puro. */
+  function listasDoPerfil(perfilId) {
+    return publico('listas', '?select=' + CAMPOS_LISTA +
+      '&perfil=eq.' + perfilId + '&order=criado_em.desc');
+  }
+
+  /* A ESTANTE de outra pessoa: uma consulta para as três prateleiras.
+     Por `publico()` e NÃO por `tabela()`, e a diferença não é estilo:
+     `tabela` passa por `comSessao`, que rejeita sem sessão — e esta tela abre
+     sem conta de propósito. `publico` ainda tem a queda para a chave anon
+     quando o token venceu, que é o que impede um "sua sessão expirou" numa
+     página pública.
+
+     E é função NOVA em vez de um parâmetro em `meusMarcadores`: aquela monta
+     `'...perfil=eq.' + sessao.id` como ARGUMENTO, avaliado antes de a função
+     rodar — sem sessão ela não rejeita, ela estoura com TypeError síncrono, e
+     nenhum .catch do chamador pega. Ela continua existindo e continua em
+     `tabela()`, porque o dono precisa ler a própria estante com o diário
+     fechado, e isso exige o token. */
+  var TETO_ESTANTE = 500;
+
+  function marcadoresDe(perfilId) {
+    return publico('marcadores', '?select=livro,tipo,criado_em' +
+      '&perfil=eq.' + perfilId + '&order=criado_em.desc&limit=' + TETO_ESTANTE);
   }
 
   function listaPorId(idRemoto) {
@@ -883,6 +911,9 @@ var Nuvem = (function () {
     apagarLista:    apagarLista,
     minhasListas:   minhasListas,
     listasDe:       listasDe,
+    listasDoPerfil: listasDoPerfil,
+    marcadoresDe:   marcadoresDe,
+    TETO_ESTANTE:   TETO_ESTANTE,
     listaPorId:     listaPorId,
     avisos:         avisos,
     temAvisoNovo:   temAvisoNovo,

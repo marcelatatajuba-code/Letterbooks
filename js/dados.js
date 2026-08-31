@@ -95,6 +95,26 @@ var Dados = (function () {
     return atual;
   }
 
+  /* A linha do servidor vem em snake_case; o aparelho guarda em camelCase. Este
+     mapa existia DUAS vezes — uma em js/app.js (completarLivrosDaLista) e outra
+     em js/sinc.js (a descida) — e as duas JÁ TINHAM DIVERGIDO: a do app.js
+     descartava `autores_ids` e `sinopse`, então um livro cuja capa foi
+     resolvida por uma lista chegava sem sinopse e sem os ids de autoria, e a
+     ficha dele ficava mais pobre do que a do mesmo livro descido pelo Sinc.
+     Ninguém veria isso: as duas escrevem no mesmo lugar e nenhuma reclama.
+
+     Fica aqui porque é o único lugar que os dois alcançam — sinc.js não enxerga
+     função interna do IIFE de app.js. */
+  function guardarLivroDaLinha(b) {
+    if (!b || !b.chave) return null;
+    return guardarLivro({
+      chave: b.chave, titulo: b.titulo, autores: b.autores || [],
+      autoresIds: b.autores_ids || [], ano: b.ano, capa: b.capa,
+      capaGrande: b.capa_grande, paginas: b.paginas, edicoes: b.edicoes,
+      sinopse: b.sinopse
+    });
+  }
+
   function livro(chave) { return estado.livros[chave] || null; }
 
   /* ---------------------------------------------------------------- leituras */
@@ -504,6 +524,7 @@ var Dados = (function () {
     fundir:     fundir,
     salvar:     salvar,
     guardarLivro: guardarLivro,
+    guardarLivroDaLinha: guardarLivroDaLinha,
     livro:      livro,
 
     registrar:  registrar,
