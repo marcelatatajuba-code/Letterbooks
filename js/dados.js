@@ -518,6 +518,81 @@ var Dados = (function () {
     return JSON.stringify(estado, null, 2);
   }
 
+  /* ------------------------------------------------------------ CSV -------
+     O diario numa planilha. Uma linha por leitura, e o destino declarado e
+     "abrir noutro app" — por isso o cabecalho e legivel, em portugues e com
+     acento, e por isso os valores sao `sim`/`nao` e nao `true`/`false`.
+
+     A COLUNA `Chave` e o que faz o nosso proprio arquivo voltar sem uma
+     consulta de rede: com ela, reimportar nao depende de casar titulo com a
+     Open Library.
+
+     NAO HA COLUNA DE ID, e a razao e perda de dado, nao arrumacao. O CSV e
+     uma visao COM PERDAS (nao leva listas, nem as fichas dos livros, nem o
+     `remoto`) e EDITAVEL A MAO. Se ele carregasse o id local, um arquivo
+     parado numa pasta poderia, na reimportacao, sobrescrever uma edicao que
+     ja subiu e ja desceu para os outros aparelhos — e o `on_conflict` do
+     servidor gravaria a versao velha por cima da nova, calado. Sem id, a
+     reimportacao so consegue DEDUPLICAR (pela assinatura de chave + data +
+     nota + resenha, que ja existe neste arquivo), nunca sobrescrever: linha
+     divergente entra como leitura nova, que e visivel, em vez de reverter
+     outra, que nao e. Custo aceito e escrito: quem editar a nota na planilha
+     e reimportar fica com duas linhas, em vez de uma corrigida.
+
+     NAO SANITIZA `=`/`+`/`@` no comeco de campo (a "injecao de formula"): o
+     texto e escrito e exportado pela propria pessoa, nao ha terceiro no
+     caminho, e prefixar aspa corromperia a resenha e quebraria a volta que a
+     coluna `Chave` existe para permitir. Isto fica escrito para ninguem
+     "consertar" daqui a tres versoes e destruir a reimportacao sem entender.
+
+     UTF-8 com BOM porque o cabecalho tem acento e o Excel no Windows, sem
+     BOM, mostra `TÃ­tulo`. CRLF e aspas por RFC 4180: aspas SO quando o campo
+     contem aspa, virgula, CR ou LF, e aspa interna dobrada. Aspar tudo
+     tambem seria valido — a escolha esta travada no teste justamente para a
+     proxima pessoa nao reescrever sem perceber. */
+  var CSV_COLUNAS = ['Título', 'Autoria', 'Ano', 'Chave', 'Nota',
+                     'Lido em', 'Relido', 'Spoiler', 'Resenha'];
+
+  function campoCSV(v) {
+    var t = (v === null || v === undefined) ? '' : String(v);
+    /* A quebra dentro de um campo vira CRLF junto com o resto: assim o UNICO
+       fim de linha do arquivo inteiro e CRLF, e o teste consegue afirmar isso
+       sobre os bytes, em qualquer posicao. */
+    t = t.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, '\r\n');
+    if (/["\r\n,]/.test(t)) return '"' + t.replace(/"/g, '""') + '"';
+    return t;
+  }
+
+  function exportarCSV() {
+    var linhas = [CSV_COLUNAS.map(campoCSV).join(',')];
+    logs().forEach(function (l) {
+      /* A ficha vem do acervo DESTE aparelho, e pode nao estar la: a descida
+         busca as que faltam numa consulta so, e se ela falhar a leitura entra
+         sem ficha. Titulo ausente sai VAZIO — nunca o substituto "Livro" que
+         a tela usa, que numa planilha se leria como dado de verdade. A Chave
+         continua na linha, que e o que a faz voltar. */
+      var b = estado.livros[l.chave] || {};
+      linhas.push([
+        campoCSV(b.titulo || ''),
+        /* autores.join('; ') e nao a autoria da TELA, que resume em "Fulano e
+           mais 2" e apagaria autoria de verdade no arquivo. */
+        campoCSV((b.autores || []).join('; ')),
+        campoCSV(b.ano === null || b.ano === undefined ? '' : b.ano),
+        campoCSV(l.chave),
+        /* Ponto e nao virgula, e VAZIO quando nao ha nota — nunca 0, que e
+           uma nota de verdade, nem a string "null". */
+        campoCSV(typeof l.nota === 'number' ? l.nota.toFixed(1) : ''),
+        campoCSV(l.lidoEm || ''),
+        campoCSV(l.relido ? 'sim' : 'não'),
+        campoCSV(l.spoiler ? 'sim' : 'não'),
+        campoCSV(l.resenha || '')
+      ].join(','));
+    });
+    /* O BOM entra aqui, e nao no Blob, para o retorno ser o arquivo inteiro:
+       assim o teste afirma sobre a mesma string que vira bytes. */
+    return '\ufeff' + linhas.join('\r\n') + '\r\n';
+  }
+
   function importar(texto) {
     var d = JSON.parse(texto);
     if (!d || typeof d !== 'object' || !d.versao) throw new Error('Arquivo fora do formato do Letterbooks.');
@@ -579,6 +654,7 @@ var Dados = (function () {
 
     estatisticas: estatisticas,
     exportar:     exportar,
+    exportarCSV:  exportarCSV,
     importar:     importar,
     limpar:       limpar
   };

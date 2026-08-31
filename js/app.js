@@ -2983,7 +2983,7 @@
           }
         });
       },
-      exportar: exportarArquivo,
+      exportar: abrirFolhaExportar,
       importar: function () { document.getElementById('arquivo-importar').click(); },
       limpar: abrirFolhaApagarTudo,
       'editar-log': function (a) {
@@ -3057,16 +3057,75 @@
     });
   }
 
+  /* NAO MUDA DE COMPORTAMENTO, e isso e proposital: esta funcao e chamada
+     DIRETO de dentro de duas folhas — a de "Apagar tudo deste aparelho" e a
+     de apagar a conta. `camada.innerHTML` e substituicao total e nao ha
+     pilha de folhas: se ela passasse a ABRIR a folha de exportar, o botao
+     "Exportar o diário antes" destruiria a folha de onde foi clicado. Na de
+     apagar a conta isso apagaria junto o @ que a pessoa acabou de digitar
+     para confirmar. Quem abre a folha nova e a linha de #/perfil, e so ela.
+
+     E as duas suites so afirmam que aquele botao EXISTE — nenhuma clica —,
+     entao essa regressao entraria verde. O clique virou asserção nesta volta.
+
+     O `baixar` e a mesma danca escrita duas vezes; agora e uma. O retorno
+     dele e ignorado de proposito: e a frase "Imagem salva nos seus
+     downloads", que serve ao cartao de compartilhar e nao a este caminho. */
   function exportarArquivo() {
-    var blob = new Blob([Dados.exportar()], { type: 'application/json' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'letterbooks-' + hoje() + '.json';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    baixar(new Blob([Dados.exportar()], { type: 'application/json' }),
+           'letterbooks-' + hoje() + '.json');
+  }
+
+  function exportarCSV() {
+    baixar(new Blob([Dados.exportarCSV()], { type: 'text/csv;charset=utf-8' }),
+           'letterbooks-' + hoje() + '.csv');
+  }
+
+  /* A escolha entre dois arquivos so e decidivel por quem sabe PARA QUE serve
+     cada um, e isso e uma frase — por isso folha, e nao duas linhas irmas em
+     "Seus dados". Duas linhas ofereceriam dois backups quando so um volta.
+
+     O `.valor` de cada linha carrega a RAZAO e nao o formato: a extensao nao
+     e informacao para quem esta escolhendo; o destino e. */
+  function abrirFolhaExportar() {
+    var d = Dados.estado();
+    camada.innerHTML =
+      '<div class="folha-fundo" data-fechar="fundo"><div class="folha" role="dialog" ' +
+        'aria-modal="true" aria-label="Exportar o diário">' +
+        '<h2>Exportar o diário</h2>' +
+        '<p class="folha-sub">' +
+          plural(d.logs.length, 'leitura', 'leituras') + ' · ' +
+          plural(d.listas.length, 'lista', 'listas') + '</p>' +
+        '<div class="linhas">' +
+          linhaAjuste('button', 'data-acao="exportar-json"',
+                      'Arquivo do Letterbooks', 'volta para cá') +
+          linhaAjuste('button', 'data-acao="exportar-csv"',
+                      'Planilha CSV', 'vai para outro app') +
+        '</div>' +
+        /* A frase existe para a folha nao mentir sobre o tamanho do que cada
+           arquivo guarda — a mesma etica da folha de apagar tudo. */
+        '<p class="folha-sub">A planilha leva título, autoria, ano, nota, data e ' +
+          'resenha. Ela não traz de volta as suas listas nem os favoritos: para ' +
+          'uma cópia completa, use o arquivo do Letterbooks.</p>' +
+        '<div class="folha-rodape">' +
+          '<span class="espaco"></span>' +
+          '<button class="botao" data-fechar="ok">Fechar</button>' +
+        '</div>' +
+      '</div></div>';
+    ligarFolha();
+    camada.firstElementChild.addEventListener('click', function (ev) {
+      /* `camada.innerHTML = ''` e como o ligarFolha fecha; nao ha um
+         fecharFolha global (o que existe com esse nome mora dentro de outra
+         funcao). Fecha DEPOIS de baixar: o clique ja disparou o download, e
+         deixar a folha aberta sobre um arquivo que ja saiu e a tela pedindo
+         uma decisao que a pessoa acabou de tomar. */
+      if (ev.target.closest('[data-acao=exportar-json]')) {
+        exportarArquivo(); camada.innerHTML = '';
+      }
+      if (ev.target.closest('[data-acao=exportar-csv]')) {
+        exportarCSV(); camada.innerHTML = '';
+      }
+    });
   }
 
   /* ================================================== folha: registrar leitura */

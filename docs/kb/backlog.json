@@ -186,22 +186,21 @@
     },
     {
       "ordem": 16,
-      "titulo": "CSV para fora, CSV de fora para dentro (Goodreads primeiro)",
+      "titulo": "CSV para fora (16a)",
       "tipo": "fidelidade",
       "resumo": "PARTIDO EM DOIS na V14, depois de gpm e tech lead concordarem que o enunciado escondia o tamanho. 16a — CSV PARA FORA: colunas fixas, BOM, CRLF, aspas por RFC 4180, e a coluna `chave` que faz o nosso proprio arquivo reimportar sem uma consulta de rede. Esforco P, 100% provavel no conteiner. 16b — CSV DE FORA PARA DENTRO: analisador, mapeamento por cabecalho, previa antes de gravar, e a regra de que a linha que nao casa NAO entra (livro sem chave e forma de dado que o dados_teste ja prende). Identidade por `assinaturaDaLeitura`, que ja existe e ja resolve isso na descida — reusar, nao inventar uma segunda. A importacao ACRESCENTA e nunca substitui: `Dados.importar` substitui porque a entrada dela e um retrato deste app, e um CSV do Goodreads nao e — substituir por ele seria apagar em silencio tudo sobre o que o arquivo nao tem opiniao. O SKOOB SAIU DO ITEM: ninguem aqui viu um export real, e escrever mapa para um formato suposto e invencao com cara de entrega. A tela de mapeamento manual atende quem vem de la, e o mapa novo custa uma entrada de dicionario no dia em que houver arquivo.",
       "valor": "Quem tem 300 livros no Skoob nao recomeca do zero. Foi cortado da rodada 1 por sequencia — sem a descida da nuvem, importar 300 e perde-los na troca de celular era pior que nao importar — e esse motivo caducou na V1.",
       "esforco": "G (o backlog dizia M; contadas as portas, sao doze)",
       "depende": "nada",
-      "fecha": [
-        "Exportar e importar os dados"
-      ],
+      "fecha": [],
       "bloqueado_por": "16b esta BLOQUEADO por uma medicao que so o navegador da usuaria pode fazer: 50 ISBN brasileiros reais (978-85 e 978-65) contra search.json?isbn=, contando quantos voltam com key, capa e titulo. Se a cobertura for baixa, o recurso e pior que a ausencia dele — a pessoa ve \"94 de 312 entraram\" e sai do app. Vinte minutos, e muda o tamanho do item. Enquanto nao houver esse numero, nenhuma taxa de casamento pode aparecer em tela, commit ou release note.",
       "nao_verificavel_daqui": [
         "a taxa de casamento contra a Open Library viva",
         "o cabecalho real do Goodreads (e memoria, nao arquivo — exige docs/amostras/goodreads.csv)",
         "o formato do Skoob (desconhecido; nada foi escrito para ele)",
         "se search.json?isbn= devolve obra (/works/) ou edicao (/books/) — se vier edicao, ela entra como chave de livro, vira FK de leituras, e a ficha nunca renderiza"
-      ]
+      ],
+      "entregue": "V15 — a folha de exportar com JSON e CSV, o formato travado por assercoes de BYTES, e o clique em exportar-antes que nenhuma suite fazia. NAO fecha a feature sozinho: a metade de entrada virou o item 29, bloqueado pela medicao dos 50 ISBN."
     },
     {
       "ordem": 17,
@@ -345,6 +344,19 @@
       "depende": "item 12, entrega 1",
       "fecha": [
         "Filtros de grade (Ano, Gênero, País, Idioma, Duração)"
+      ]
+    },
+    {
+      "ordem": 29,
+      "titulo": "CSV de fora para dentro (Goodreads primeiro) — o 16b",
+      "tipo": "fidelidade",
+      "resumo": "A metade de entrada do item 16, separada na V15 porque o 16a saiu sozinho. Analisador de CSV, mapeamento por nome de cabecalho (nunca por 'que app e este'), previa antes de gravar, e a regra de que a linha que nao casa NAO entra — livro sem chave e forma de dado que o dados_teste ja prende. Identidade por assinaturaDaLeitura: a importacao ACRESCENTA e nunca substitui, e e por isso que o CSV nao tem coluna de id. O Skoob fica de fora ate alguem ter um export real; a tela de mapeamento manual atende quem vem de la, e o mapa novo custa uma entrada de dicionario.",
+      "valor": "Quem tem 300 livros no Skoob nao recomeca do zero. E o item de aquisicao mais forte do conjunto.",
+      "esforco": "M-para-G",
+      "depende": "medicao dos 50 ISBN (item 12, entrega 1)",
+      "bloqueado_por": "50 ISBN brasileiros reais (978-85 e 978-65) contra search.json?isbn=, contando quantos voltam com key, capa e titulo. So o navegador da usuaria alcanca. Sem esse numero nenhuma taxa de casamento pode aparecer em tela, commit ou release note.",
+      "fecha": [
+        "Exportar e importar os dados"
       ]
     }
   ],

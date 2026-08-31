@@ -594,6 +594,109 @@ with sync_playwright() as pw:
     pg.wait_for_timeout(700)
     ok(pg.evaluate("() => Dados.estado().perfil.meta.total") == 24, 'a meta gravou 24')
 
+    # --- a regua de 44 dos .botao, medida no COMPUTADO (D123) ----------------
+    # A V13 pos a regra dentro de um @media que fica ANTES da declaracao base
+    # `.botao { min-height: 34px }` — mesma especificidade, e a de baixo vence.
+    # A regra nunca aplicou, e os tres remendos que funcionavam tinham sido
+    # apagados junto. Nenhuma suite media isso, e o rastreador classifica alvo
+    # miudo como gravidade MEDIA, que o portao nao conta.
+    #
+    # Mede o CSS computado, e nao um elemento especifico de uma tela: assim a
+    # assercao vale para todo .botao do app, inclusive os que ainda nao existem.
+    # A LARGURA IMPORTA e por pouco isto virou uma assercao errada: o bloco 8
+    # deixa a janela em 1180px, onde 34px e o certo. A regra e do celular, entao
+    # a medicao tem que ser no celular — mede nos DOIS e afirma os dois, senao
+    # alguem "conserta" tirando o @media e o desktop passa a ter botao gordo.
+    _mede = """() => {
+      const b = document.createElement('button');
+      b.className = 'botao'; b.textContent = 'X';
+      document.body.appendChild(b);
+      const h = getComputedStyle(b).minHeight;
+      b.remove();
+      return h;
+    }"""
+    _antes = pg.viewport_size
+    pg.set_viewport_size({'width': 390, 'height': 844})
+    noCelular = pg.evaluate(_mede)
+    pg.set_viewport_size({'width': 1180, 'height': 900})
+    noComputador = pg.evaluate(_mede)
+    pg.set_viewport_size(_antes)
+    ok(noCelular == '44px',
+       'todo .botao tem min-height de 44px no celular (deu %s)' % noCelular)
+    ok(noComputador == '34px',
+       'e continua compacto no computador, onde nao ha dedo (deu %s)' % noComputador)
+
+    # --- 16a: o CSV para fora -----------------------------------------------
+    # ANTES do bloco de apagar tudo, de proposito: depois dele o Dados.limpar()
+    # ja rodou e o diario esta vazio — um CSV so com cabecalho passaria em
+    # metade das assercoes sem provar nada.
+    #
+    # A forma de dado que faz este teste valer: UMA resenha com os tres
+    # perigos ao mesmo tempo (aspa, virgula e quebra de linha). Sem ela, uma
+    # implementacao que so junta com virgula passa.
+    pg.evaluate("""() => {
+      const e = Dados.estado();
+      e.livros['/works/OL45804W'] = {chave:'/works/OL45804W', titulo:'Dom Casmurro',
+                                     autores:['Machado de Assis'], ano:1899};
+      e.logs = [
+        {id:'a', chave:'/works/OL45804W', nota:4.5, lidoEm:'2026-08-01', relido:false,
+         spoiler:false, resenha:'Ela disse "sim", e virou a página.'
+                                + String.fromCharCode(10) + 'Depois calou.'},
+        {id:'b', chave:'/works/OL45804W', nota:null, lidoEm:'2026-08-02', relido:true,
+         spoiler:false, resenha:''},
+        {id:'c', chave:'/works/OL_SEM_FICHA', nota:3.0, lidoEm:'2026-08-03', relido:false,
+         spoiler:false, resenha:''}
+      ];
+      Dados.salvar();
+    }""")
+    pg.goto(BASE + '#/perfil', wait_until='networkidle')
+    pg.wait_for_timeout(600)
+    pg.locator('[data-acao=exportar]').first.click()
+    pg.wait_for_selector('.folha', timeout=6000)
+    fx = pg.inner_text('.folha')
+    ok('não traz de volta' in fx or 'não traz' in fx,
+       'a folha DIZ que a planilha nao restaura tudo')
+    with pg.expect_download() as baixa:
+        pg.locator('[data-acao=exportar-csv]').click()
+    arq = baixa.value
+    ok(re.match(r'^letterbooks-\d{4}-\d{2}-\d{2}\.csv$', arq.suggested_filename) is not None,
+       'nome do arquivo: %s' % arq.suggested_filename)
+    bruto = open(arq.path(), 'rb').read()
+
+    ok(bruto[:3] == b'\xef\xbb\xbf', 'o CSV comeca com BOM UTF-8')
+    ok(bruto[3:].split(b'\r\n')[0] ==
+       'Título,Autoria,Ano,Chave,Nota,Lido em,Relido,Spoiler,Resenha'.encode('utf-8'),
+       'cabecalho legivel, na ordem, terminado em CRLF')
+    # Tirados todos os CRLF, nao pode sobrar LF nem CR solto — pega troca de
+    # fim de linha em QUALQUER posicao, inclusive dentro de campo aspado.
+    sem = bruto.replace(b'\r\n', b'')
+    ok(b'\n' not in sem and b'\r' not in sem, 'nao ha LF nem CR soltos no arquivo')
+    esperado = '"Ela disse ""sim"", e virou a página.\r\nDepois calou."'.encode('utf-8')
+    ok(esperado in bruto, 'aspa dobrada e CRLF dentro do campo aspado')
+    # CONTROLE: a forma CRUA nao pode existir no arquivo
+    ok('disse "sim", e virou'.encode('utf-8') not in bruto,
+       'o campo cru nao vazou sem escape')
+    # `Título` e a PRIMEIRA coluna, entao um campo sem perigo aparece no
+    # comeco da linha, sem virgula antes. E logs() ordena por data decrescente,
+    # entao nao da para supor qual linha e a primeira.
+    corpo = bruto[3:].split(b'\r\n')
+    ok(any(l.startswith('Dom Casmurro,'.encode('utf-8')) for l in corpo),
+       'campo sem perigo sai SEM aspas')
+
+    # E um parser que nao e o nosso: prova a promessa "abre noutro app".
+    import csv as _csv, io as _io
+    linhas = list(_csv.reader(_io.StringIO(bruto.decode('utf-8-sig'), newline='')))
+    ok(len(linhas) == 4, 'cabecalho + 3 leituras: a quebra interna nao virou linha (%d)' % len(linhas))
+    porChave = {l[3]: l for l in linhas[1:]}
+    a1 = porChave['/works/OL45804W']
+    ok(a1[3] == '/works/OL45804W', 'a chave sai inteira')
+    notas = sorted(l[4] for l in linhas[1:])
+    ok('4.5' in notas, 'nota com ponto, nao 4,5 nem 4.50: %s' % notas)
+    ok('' in notas, 'nota ausente e VAZIO, nao "null" nem 0: %s' % notas)
+    semFicha = porChave['/works/OL_SEM_FICHA']
+    ok(semFicha[0] == '', 'ficha ausente sai com titulo vazio, nunca "Livro"')
+    ok(any(l[6] == 'sim' for l in linhas[1:]), 'relido em portugues, como o cabecalho')
+
     # --- apagar tudo: inventario, e a fila que sobrevivia -------------------
     pg.evaluate("""() => localStorage.setItem('letterbooks:fila',
       JSON.stringify([{tipo:'leitura', dado:{cliente_id:'x'}, tentativas:0, em:1}]))""")
@@ -606,6 +709,19 @@ with sync_playwright() as pw:
     ok('cópia' in f or 'conta não é apagada' in f,
        'e diz se ha copia em algum lugar')
     ok(pg.locator('[data-acao=exportar-antes]').count() == 1, 'oferece exportar antes')
+    # E CLICA NELE — as duas suites so contavam o botao, e nenhuma clicava.
+    # `exportarArquivo` e chamado DIRETO daqui e da folha de apagar a conta, e
+    # `camada.innerHTML` e substituicao total: se ele passasse a abrir a folha
+    # de exportar, este clique destruiria a folha de apagar (e, na outra, o @
+    # que a pessoa acabou de digitar para confirmar). A regressao entraria
+    # verde sem esta linha.
+    with pg.expect_download() as baixaAntes:
+        pg.locator('[data-acao=exportar-antes]').click()
+    ok(baixaAntes.value.suggested_filename.endswith('.json'),
+       'exportar antes baixa o JSON, que e o que restaura: %s'
+       % baixaAntes.value.suggested_filename)
+    ok('Apagar tudo deste aparelho' in pg.inner_text('.folha'),
+       'e a folha de apagar CONTINUA aberta depois de exportar')
     pg.locator('[data-acao=confirmar-apagar-tudo]').click()
     pg.wait_for_timeout(1000)
     ok(pg.evaluate("() => Dados.estado().logs.length") == 0, 'o diario foi apagado')

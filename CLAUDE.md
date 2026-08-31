@@ -130,6 +130,24 @@ acertar as duas contas: é ter **uma conta só** — a tela imprime o `length` d
 objeto que o fio envia. Foi o mesmo defeito do mapa que existia em duas cópias
 e já tinha divergido.
 
+**Saber descrever bem um conserto não é prova de que ele funciona.** O commit
+da V13 explicava com todas as letras que a régua de 44px passava a ser paga na
+raiz: uma regra no lugar de três, duas linhas a menos de CSS, a dívida sem
+poder reaparecer. Estava errado do jeito que importa — a regra ficou num
+`@media` ANTES da declaração base, com a mesma especificidade, então a de baixo
+vencia e ela nunca aplicou; e os três remendos que de fato funcionavam foram
+apagados junto. Todo botão do aplicativo passou a medir 34px no celular,
+inclusive a porta de entrada.
+
+Sobreviveu porque o rastreador classifica alvo miúdo como gravidade MÉDIA e o
+portão só conta ALTA: a ferramenta via a dívida e relatava verde. Só apareceu
+quando alguém mediu o **computado** em vez de acreditar no relatório.
+
+A regra que sai daí: **conserto de CSS se prova medindo o computado, na
+largura em que a regra vale.** E o corolário é mais amplo — quando o commit
+descreve o conserto com confiança e nenhuma asserção o mede, a confiança é do
+autor, não do código.
+
 **Espera de teste tem que casar só com o destino.** Duas vezes uma
 `wait_for_selector` casou com a tela ANTERIOR (`.conta h1`, depois
 `.grade .cartao` — que a busca também desenha) e o teste virou moeda. O sinal

@@ -646,6 +646,10 @@ def cobertura(caminho_csv=None):
 # propósito: "não coberto" sem motivo escrito vira dívida invisível.
 
 SO_DE_TELA = {
+    'D123': 'ordem de cascata do CSS (a regra de 44px vinha antes da base de '
+            '34px), não alcançável por dado — provado em docs/testar.py pela '
+            'asserção "todo .botao tem min-height de 44px no celular", que mede '
+            'o COMPUTADO nas duas larguras e ficou vermelha com a ordem da V13',
     'D118': 'defeito do FIXTURE (busca caindo no acervo inteiro, sem ISBN), '
             'não do app — provado desfazendo o conserto e vendo um ISBN '
             'inexistente devolver os 12 livros de novo',
