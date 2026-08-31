@@ -64,6 +64,11 @@ JS_DESCREVER = """
 
   const alvos = [...document.querySelectorAll(
     'main a[href^="#/"], main [data-acao], main button, main [data-r], main [data-escolher], ' +
+    // A folha vive em #camada, que e IRMAO de <main>: nada dentro dela era
+    // enumerado, medido ou nomeado. E a causa registrada do D67 ("o rastreador
+    // nao abre folha") e, depois desta entrega, e onde mora quase todo controle
+    // novo do app.
+    '.folha [data-acao], .folha button, .folha input, ' +
     'nav.segmentos a, nav.perfil-atalhos a, nav.escopos a, .abas-pe a, .topo-nav a')]
     .filter(vis);
 
@@ -120,7 +125,9 @@ JS_SAUDE = """
     return { l: Math.max(l, r.width), a: Math.max(a, r.height) };
   };
 
-  for (const el of document.querySelectorAll('main button, main a, .abas-pe a, .abas-pe button')) {
+  for (const el of document.querySelectorAll(
+      'main button, main a, .abas-pe a, .abas-pe button, ' +
+      '.folha button, .folha a, .folha input')) {
     if (!vis(el)) continue;
     const nome = (el.getAttribute('aria-label') || el.innerText || el.getAttribute('title') || '').trim();
     if (!nome) out.semNome.push(el.outerHTML.slice(0, 90));
@@ -161,8 +168,9 @@ def localizar(pg, d):
        Devolve (locator, estrategia) ou (None, None)."""
     tentativas = []
     if d['acao']:
-        tentativas.append(('data-acao', 'main [data-acao="%s"], main [data-r="%s"]'
-                           % (d['acao'], d['acao'])))
+        tentativas.append(('data-acao', 'main [data-acao="%s"], main [data-r="%s"], '
+                          '.folha [data-acao="%s"], .folha [data-r="%s"]'
+                           % (d['acao'], d['acao'], d['acao'], d['acao'])))
     if d['href']:
         tentativas.append(('href', '[href="%s"]' % d['href'].replace('"', '\\"')))
     if d['nome']:
@@ -204,10 +212,24 @@ def rastrear():
             erros_console.append(('console', t))
         pg.on('console', deConsole)
 
-        # confirm()/alert() travam o clique ate alguem responder. O rastreador
-        # aceita, para conseguir andar pelos caminhos destrutivos — e por isso
-        # ele roda contra um banco de mentira, nunca contra o seu.
-        pg.on('dialog', lambda d: d.accept())
+        # DIALOGO DO NAVEGADOR AGORA E ACHADO, e a inversao tem historia.
+        #
+        # Antes daqui o rastreador ACEITAVA todo dialogo, para andar pelos
+        # caminhos destrutivos. O efeito colateral nunca foi notado: aceitar um
+        # prompt sem texto devolve STRING VAZIA, entao a cada rodada ele vinha
+        # clicando "Apagar tudo", apagando registro e ZERANDO A BIO do perfil
+        # (`d.perfil.bio = (bio || '').trim()`). Nada afirmava nada sobre isso
+        # depois, entao passou nove entregas em silencio.
+        #
+        # Depois da entrega que tirou as 12 portas do navegador, dialogo nenhum
+        # deve existir. Esta linha e a UNICA coisa no repositorio inteiro que
+        # pega um prompt() reintroduzido daqui a seis entregas — e custa tres
+        # linhas. `dismiss` em vez de `accept`: se um voltar, ele nao vai levar
+        # dado junto ao ser descoberto.
+        def deDialogo(d):
+            achado('alta', 'dialogo-do-navegador', d.type, d.message[:120])
+            d.dismiss()
+        pg.on('dialog', deDialogo)
 
         pg.goto(BASE, wait_until='networkidle')
         pg.evaluate("""(l) => { localStorage.clear();
@@ -271,7 +293,16 @@ def rastrear():
             # rastreador. Sem isto, a alternativa era reordenar a tela para
             # agradar a ferramenta — e ai a ferramenta estaria desenhando o
             # produto.
-            acoes = sorted(acoes, key=lambda d: 1 if d.get('acao') == 'sair' else 0)
+            # DESTRUTIVOS POR ULTIMO, e agora sao dois. "sair" ja estava aqui.
+            # "limpar" entra porque, com as folhas enumeraveis (acima), o
+            # rastreador passa a alcancar "Apagar tudo deste aparelho" pelo
+            # data-acao e ESVAZIA o localStorage no meio do rastreio: todas as
+            # telas seguintes viram "tela-vazia" de gravidade alta, e o
+            # portoes.py mede exatamente "achados graves = 0" para fechar o
+            # portao 2. Sem esta linha, esta entrega ABRIRIA o portao que hoje
+            # esta fechado — nao por defeito do app, por ordem de clique.
+            DESTRUTIVOS = ('sair', 'limpar')
+            acoes = sorted(acoes, key=lambda d: 1 if d.get('acao') in DESTRUTIVOS else 0)
 
             for d in acoes:
                 if d['href'].startswith('#/'):

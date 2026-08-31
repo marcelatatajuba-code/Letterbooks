@@ -445,6 +445,152 @@ with sync_playwright() as pw:
     ok(len(d['logs']) == 1 and d['logs'][0]['nota'] == 4.5, 'registro gravado com 4,5')
     ok(len(d['listas']) == 1 and len(d['listas'][0]['livros']) == 1, 'lista gravada com o livro')
 
+    print('12. as portas que deixaram de ser do navegador')
+    # ZERO assercao de interface existia nestas 12 portas — e foi por isso que
+    # elas sobreviveram nove entregas. Nenhum dialogo nativo deve mais existir:
+    # se algum voltar, este bloco trava esperando um selector que nunca aparece.
+    dialogos = []
+    pg.on('dialog', lambda dg: (dialogos.append(dg.message), dg.dismiss()))
+
+    # --- apagar leitura: a folha nomeia o que some -------------------------
+    # Pela folha de REGISTRO, que era a pior das 12: um confirm() do sistema
+    # empilhado POR CIMA de uma folha do app ja aberta. Agora ela fecha e abre
+    # a de apagar — uma folha por vez, sem pilha e sem estado a restaurar.
+    # (A coluna de acoes do #/diario e `display:none` abaixo de 720px, entao
+    # naquele viewport ela nao e a porta que a pessoa usa.)
+    # A coluna de acoes do diario e `display:none` abaixo de 720px — ela e a
+    # porta de quem usa no computador. Alargo so para este bloco.
+    pg.set_viewport_size({'width': 1180, 'height': 900})
+    antes = pg.evaluate("() => Dados.estado().logs.length")
+    ok(antes >= 1, 'ha pelo menos uma leitura para apagar')
+    pg.goto(BASE + '#/diario', wait_until='networkidle')
+    pg.wait_for_timeout(800)
+    # Pela folha de REGISTRO, que era a pior das 12: um confirm() do sistema
+    # empilhado POR CIMA de uma folha do app ja aberta. Agora ela fecha e abre
+    # a de apagar — uma folha por vez, sem pilha e sem estado a restaurar.
+    pg.locator('[data-acao=editar-log]').first.click()
+    pg.wait_for_selector('.folha [data-fechar=apagar]', timeout=6000)
+    pg.locator('.folha [data-fechar=apagar]').click()
+    pg.wait_for_selector('[data-acao=confirmar-apagar]', timeout=6000)
+    ok(pg.locator('.folha-fundo').count() == 1,
+       'uma folha por vez: a de registro fechou antes de a de apagar abrir')
+    txt = pg.inner_text('.folha')
+    ok('Apagar' in txt, 'apagar leitura abre folha do app, nao dialogo do sistema')
+    ok(not dialogos, 'e nenhum dialogo do navegador foi disparado')
+    # sem conta e sem `remoto`, a folha NAO pode falar de servidor
+    ok('servidor' not in txt, 'sem conta, a folha nao promete apagar do servidor')
+    ok('endereço' not in txt, 'nem promete que um endereco para de abrir')
+    pg.locator('.folha [data-fechar=ok]').click()
+    pg.wait_for_timeout(400)
+    ok(pg.evaluate("() => Dados.estado().logs.length") == antes,
+       'cancelar nao apaga nada')
+
+    # --- criar lista pela folha de uma pergunta ----------------------------
+    pg.goto(BASE + '#/listas', wait_until='networkidle')
+    pg.wait_for_timeout(600)
+    quantasAntes = pg.evaluate("() => Dados.estado().listas.length")
+    pg.locator('[data-acao=nova-lista]').first.click()
+    pg.wait_for_selector('#campo-pergunta', timeout=6000)
+    ok(pg.locator('.folha-fundo.com-campo').count() == 1,
+       'a folha com campo ancora no topo, por causa do teclado virtual')
+    # o botao nasce travado enquanto o campo estiver vazio
+    ok(pg.locator('[data-acao=confirmar-pergunta]').is_disabled(),
+       'sem nome, o botao de criar esta travado')
+    ok(pg.inner_text('#aviso-pergunta').strip() != '',
+       'e a razao do travamento esta escrita na tela')
+    pg.fill('#campo-pergunta', 'Para reler')
+    pg.wait_for_timeout(200)
+    ok(not pg.locator('[data-acao=confirmar-pergunta]').is_disabled(),
+       'com nome, destrava')
+    pg.locator('[data-acao=confirmar-pergunta]').click()
+    pg.wait_for_timeout(800)
+    ok(pg.evaluate("() => Dados.estado().listas.length") == quantasAntes + 1,
+       'a lista foi criada')
+
+    # --- a assimetria: nome vazio invalido, descricao vazia VALIDA ---------
+    idLista = pg.evaluate("() => Dados.estado().listas[Dados.estado().listas.length-1].id")
+    pg.evaluate("(id) => Dados.editarLista(id, {descricao: 'tinha descricao'})", idLista)
+    pg.goto(BASE + '#/lista/' + idLista, wait_until='networkidle')
+    pg.wait_for_timeout(700)
+    pg.locator('[data-acao=descrever]').first.click()
+    pg.wait_for_selector('#campo-pergunta', timeout=6000)
+    pg.fill('#campo-pergunta', '')
+    pg.wait_for_timeout(200)
+    ok(not pg.locator('[data-acao=confirmar-pergunta]').is_disabled(),
+       'descricao VAZIA e valida: e como se tira uma descricao')
+    pg.locator('[data-acao=confirmar-pergunta]').click()
+    pg.wait_for_timeout(700)
+    ok(pg.evaluate("(id) => !Dados.lista(id).descricao", idLista),
+       'e a descricao foi removida de verdade')
+    pg.goto(BASE + '#/lista/' + idLista, wait_until='networkidle')
+    pg.wait_for_timeout(600)
+    pg.locator('[data-acao=renomear]').first.click()
+    pg.wait_for_selector('#campo-pergunta', timeout=6000)
+    pg.fill('#campo-pergunta', '   ')
+    pg.wait_for_timeout(200)
+    ok(pg.locator('[data-acao=confirmar-pergunta]').is_disabled(),
+       'mas nome vazio continua INVALIDO — a assimetria sobreviveu')
+    pg.keyboard.press('Escape')
+    pg.wait_for_timeout(300)
+    ok(pg.locator('.folha').count() == 0, 'Escape fecha a folha de uma pergunta')
+
+    # --- o defeito da bio apagada -----------------------------------------
+    pg.evaluate("""() => {
+      var e = Dados.estado();
+      e.perfil.nome = 'Marcela'; e.perfil.bio = 'lendo devagar';
+      Dados.salvar();
+    }""")
+    pg.goto(BASE + '#/perfil/editar', wait_until='networkidle')
+    pg.wait_for_selector('#forma-perfil-local', timeout=6000)
+    pg.fill('#forma-perfil-local input[name=nome]', 'Outro nome')
+    pg.locator('#forma-perfil-local a.botao').click()   # Cancelar
+    pg.wait_for_timeout(700)
+    perfil = pg.evaluate("() => Dados.estado().perfil")
+    # ESTE e o defeito: antes, cancelar o segundo prompt gravava o nome E
+    # apagava a bio, porque prompt cancelado devolve null e (null||'').trim()
+    # e string vazia.
+    ok(perfil['bio'] == 'lendo devagar', 'cancelar NAO apaga a bio')
+    ok(perfil['nome'] == 'Marcela', 'e nao grava o nome pela metade')
+
+    # --- meta: letra nunca aparece, e o app diz o que quer ------------------
+    pg.goto(BASE + '#/perfil', wait_until='networkidle')
+    pg.wait_for_timeout(600)
+    pg.locator('[data-acao=editar-meta]').first.click()
+    pg.wait_for_selector('#campo-pergunta', timeout=6000)
+    pg.fill('#campo-pergunta', 'abc')
+    pg.wait_for_timeout(200)
+    ok(pg.input_value('#campo-pergunta') == '',
+       'letra nao chega a entrar no campo da meta')
+    ok(pg.inner_text('#aviso-pergunta').strip() != '',
+       'e o app DIZ o que quer, em vez de nao fazer nada calado')
+    pg.fill('#campo-pergunta', '24')
+    pg.wait_for_timeout(200)
+    pg.locator('[data-acao=confirmar-pergunta]').click()
+    pg.wait_for_timeout(700)
+    ok(pg.evaluate("() => Dados.estado().perfil.meta.total") == 24, 'a meta gravou 24')
+
+    # --- apagar tudo: inventario, e a fila que sobrevivia -------------------
+    pg.evaluate("""() => localStorage.setItem('letterbooks:fila',
+      JSON.stringify([{tipo:'leitura', dado:{cliente_id:'x'}, tentativas:0, em:1}]))""")
+    pg.goto(BASE + '#/perfil', wait_until='networkidle')
+    pg.wait_for_timeout(600)
+    pg.locator('[data-acao=limpar]').first.click()
+    pg.wait_for_selector('.folha', timeout=6000)
+    f = pg.inner_text('.folha')
+    ok('Leituras' in f and 'Listas' in f, 'a folha mostra o inventario do que some')
+    ok('cópia' in f or 'conta não é apagada' in f,
+       'e diz se ha copia em algum lugar')
+    ok(pg.locator('[data-acao=exportar-antes]').count() == 1, 'oferece exportar antes')
+    pg.locator('[data-acao=confirmar-apagar-tudo]').click()
+    pg.wait_for_timeout(1000)
+    ok(pg.evaluate("() => Dados.estado().logs.length") == 0, 'o diario foi apagado')
+    ok(not pg.evaluate("() => localStorage.getItem('letterbooks:fila')")
+       or pg.evaluate("() => JSON.parse(localStorage.getItem('letterbooks:fila')||'[]').length") == 0,
+       'e a FILA foi junto: o aparelho para de publicar o que foi apagado')
+
+    ok(not dialogos, 'nenhum dialogo do navegador em todo o bloco 12')
+    pg.set_viewport_size({'width': 390, 'height': 844})
+
     nav.close()
 
 print('\n=== console ===')

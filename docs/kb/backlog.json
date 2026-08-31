@@ -104,10 +104,11 @@
       "ordem": 11,
       "titulo": "Tirar o prompt() do navegador de todas as portas",
       "tipo": "fidelidade",
-      "resumo": "Maior do que foi relatado: prompt() está em telaListas (js/app.js:1101), telaLista (:1139, :1143) E na edição do perfil — nome, bio e meta do ano (:1319, :1321, :1328). Substituir todos por folhas próprias, no padrão de abrirFolhaListas (js/app.js:1904), com nome e descrição no mesmo passo e cancelar de verdade. Aproveitar para trocar os confirm() de apagar (:781, :922, :991, :1147, :1335, :2309) por confirmação do app.",
+      "resumo": "ENTREGUE. Eram DOZE portas, não seis: 6 prompt(), 5 confirm() e um alert() que não estava listado em lugar nenhum. Esforço real M, não P. Quatro confirm() idênticos viraram uma folha que monta o texto do dado (remoto → \"e do servidor\"); os prompts de lista e meta viraram a folha de uma pergunta, ancorada no topo por causa do teclado virtual; a edição do perfil virou a rota #/perfil/editar. O alert() de importar virou bloco na tela, porque é resposta e não pergunta.",
       "valor": "Para quem instalou o PWA na tela do iPhone. O prompt do sistema quebra a ilusão de app na hora — cinza, fora da paleta, às vezes em inglês. Num projeto cujo pedido é identidade total com o original, essas são as últimas portas que ainda são do navegador, e são seis, não três.",
-      "esforco": "P",
-      "depende": "nada"
+      "esforco": "M",
+      "depende": "nada",
+      "entregue": "V10 — as 12 portas do navegador viraram folhas do app, e os cinco defeitos que elas escondiam"
     },
     {
       "ordem": 12,

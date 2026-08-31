@@ -92,7 +92,7 @@
       "nome": "Página de resenha com endereço próprio",
       "area": "Livros",
       "noOriginal": "Imagem de fundo, autoria, nota, data, texto, curtidas, comentários e etiquetas.",
-      "noLetterbooks": "telaResenha resolve o id em três passos: log local com .remoto redireciona (location.replace) para o endereço público, log sem .remoto pinta do localStorage, e id desconhecido vai para a nuvem. #/leitura foi absorvida. Com folha de compartilhar (link primeiro, imagem por último) e folha de apagar no lugar do confirm() do navegador.",
+      "noLetterbooks": "telaResenha resolve o id em três passos: log local com .remoto redireciona (location.replace) para o endereço público, log sem .remoto pinta do localStorage, e id desconhecido vai para a nuvem. #/leitura foi absorvida. Com folha de compartilhar (link primeiro, imagem por último) e folha de apagar no lugar do folha do app que nomeia o que some.",
       "estado": "completo",
       "evidencia": "js/app.js telaResenha / desenhaResenha; docs/jornada_e2e.py passo 10"
     },
@@ -332,9 +332,9 @@
       "nome": "Criar e editar lista (nome, descrição, itens, ordem)",
       "area": "Perfil",
       "noOriginal": "Folha própria com nome, descrição e a coleção de itens, com ordem editável.",
-      "noLetterbooks": "Existe o modelo completo em Dados (criarLista/editarLista/alternarNaLista) e a lista numerada (htmlGrade com numerar, js/app.js:201), mas a interface é prompt()/confirm() nativos: telaListas 'nova-lista' (app.js:1101) e telaLista renomear/descrever (app.js:1135-1143). Não há reordenar itens.",
+      "noLetterbooks": "Criar, renomear, editar a descrição e apagar, todos por folha do app — os prompt() do navegador saíram nesta entrega. Nome vazio é recusado com a razão escrita na tela; descrição vazia é aceita, porque é assim que se tira uma descrição. PARCIAL pelo que continua faltando e não pelo diálogo: não há reordenar os livros dentro da lista (o campo `ordem` existe no banco e nada na tela o move), nem capa de lista.",
       "estado": "parcial",
-      "evidencia": "js/app.js:1101 telaListas; js/app.js:1135 telaLista"
+      "evidencia": "js/app.js abrirFolhaPergunta; docs/testar.py bloco 12"
     },
     {
       "nome": "Estado vazio com a voz do app",

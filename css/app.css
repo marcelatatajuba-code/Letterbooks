@@ -1565,3 +1565,30 @@ a.feed-resenha:hover { background: var(--superficie-2); color: var(--texto); }
    DENTRO da folha e fora do rodapé — hoje isso é o "Exportar o diário antes"
    da folha de apagar a conta, em 34px. */
 .folha .botao { min-height: 44px; }
+
+/* ============================================ folha de uma pergunta (t102+) */
+
+/* ANCORA NO TOPO quando há campo, e isto é medida, não gosto. `.folha-fundo` é
+   `align-items: center`, e o teclado virtual NÃO encolhe o viewport de layout
+   — `position: fixed; inset: 0` continua medindo os 844px inteiros. Resultado
+   de uma folha centrada com o teclado aberto: o campo pela metade e os DOIS
+   botões embaixo do teclado. Ancorar embaixo, que era a minha hipótese, é pior
+   ainda: some tudo. */
+.folha-fundo.com-campo { align-items: flex-start; padding-top: calc(12px + env(safe-area-inset-top)); }
+
+/* Teto de 290px, abaixo dos ~293 que sobram acima do teclado num iPhone SE. É
+   ele que obriga esta folha a ter UMA pergunta e um subtítulo de uma linha. */
+.folha-fundo.com-campo .folha { max-height: 290px; overflow-y: auto; }
+
+/* A linha de aviso tem altura reservada: sem isso a folha inteira salta 24px
+   na primeira tecla inválida, e o botão foge de debaixo do dedo. */
+.aviso-campo { min-height: 24px; margin: 6px 0 0; font-size: 12px; color: var(--perigo); }
+
+/* As sentinelas da armadilha de foco não podem ocupar espaço nem aparecer. */
+[data-sentinela] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+
+/* DUAS DÍVIDAS DE TOQUE que o design prescreveu na 6ª entrada e que nunca
+   entraram no CSS — conferido por grep antes de escrever. Este item põe campo
+   em quatro lugares novos, então elas param de ser teoria. */
+.campo input { min-height: 44px; }
+.marcador { min-height: 44px; }

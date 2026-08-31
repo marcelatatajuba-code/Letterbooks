@@ -835,10 +835,12 @@
         var log = Dados.log(a.getAttribute('data-id'));
         if (log) abrirFolhaRegistro(livroDe(log.chave), log.id);
       },
+      /* rotear(), e nao desenhaLivro(livro): a folha e assincrona, e entre o
+         toque e a confirmacao a pessoa pode ter trocado de aba. Repintar uma
+         tela NOMEADA por cima do hash atual deixa a URL dizendo #/diario com o
+         livro na tela — sem erro nenhum, o que e o que torna isso ruim. */
       'apagar-log': function (a) {
-        if (!confirm('Apagar este registro de leitura?')) return;
-        Dados.apagarLog(a.getAttribute('data-id'));
-        desenhaLivro(livro);
+        abrirFolhaApagarLeitura(a.getAttribute('data-id'), rotear);
       },
       'ver-spoiler': revelarSpoiler
     });
@@ -1254,9 +1256,7 @@
         if (log) abrirFolhaRegistro(livroDe(log.chave), log.id);
       },
       'apagar-log': function (a) {
-        if (!confirm('Apagar este registro de leitura?')) return;
-        Dados.apagarLog(a.getAttribute('data-id'));
-        rotear();
+        abrirFolhaApagarLeitura(a.getAttribute('data-id'), rotear);
       },
       'ver-spoiler': revelarSpoiler
     });
@@ -1730,6 +1730,317 @@
      referencia leituras com `on delete cascade` (servidor/esquema.sql), então
      os comentários de outras pessoas somem junto. A frase abaixo é literal,
      não retórica. */
+  /* UMA folha, quatro portas. Elas chamam a MESMA função com a MESMA
+     consequência — o critério não é "quantas telas", é "quantas ações".
+
+     Mas o texto NÃO é genérico, e essa é a parte que importa: um texto único
+     seria uma regressão medida contra o que já está no ar. A folha de apagar
+     resenha (logo abaixo) já nomeia o servidor, os comentários de terceiros e
+     o endereço que para de abrir; trocar as quatro portas por "Apagar este
+     registro?" seria pôr um rótulo mais pobre ao lado de um mais rico.
+
+     Então a frase se monta do que já está em mãos, SEM ida à rede: `.remoto`
+     dá "e do servidor" e "o endereço para de abrir"; `.resenha` decide entre
+     "este registro" e "esta resenha". A contagem de comentários fica de fora
+     de propósito — exigiria rede numa porta destrutiva, e o D68 foi
+     exatamente "a tela sumiu debaixo de quem tinha acabado de tocar".
+
+     `aoApagar` absorve as quatro continuações diferentes. */
+  /* ======================================= FOLHA DE UMA PERGUNTA ====== */
+  /* O arranjo que faltava: a folha cujo conteúdo INTEIRO é um campo. O app já
+     tinha campo dentro de folha em quatro lugares, mas sempre como acessório
+     ao lado de outra coisa.
+
+     Ela ancora no TOPO, e isso é medida, não gosto. `.folha-fundo` é
+     `align-items: center`; o teclado virtual não encolhe o viewport de
+     layout, então uma folha centrada em 844px fica com o campo pela metade e
+     com os DOIS botões debaixo do teclado. A faixa que sobra acima do teclado
+     é ~398px no iPhone 14 e ~293px no SE — daí o teto de 290px, que é também
+     o que obriga esta folha a ter UMA pergunta e um subtítulo de uma linha.
+     Sem JS de visualViewport: um número no CSS ganha de um ouvinte que precisa
+     estar certo em três navegadores.
+
+     `valida` devolve string de erro ou vazio. `limpa` filtra o que entra no
+     campo (a variante numérica usa para as letras nunca aparecerem — não é
+     erro se nunca chegou a acontecer). */
+  /* ROTA, e não folha, e a razão é medida: três campos numa folha dão 414px,
+     contra a faixa de ~398px que sobra acima do teclado no iPhone 14 e ~293px
+     no SE. O teclado decide antes do gosto.
+
+     E ela conserta a PERDA DE DADO que estava aqui. O código antigo era dois
+     `prompt()` em sequência com um `if (nome === null) return;` protegendo só
+     o primeiro. Cancelar o SEGUNDO caía direto no
+     `d.perfil.bio = (bio || '').trim()` — e `prompt` cancelado devolve `null`,
+     então `(null || '').trim()` é string vazia. Quem tinha bio escrita, trocava
+     o nome e tocava Cancelar esperando desfazer tudo, saía com o nome trocado e
+     A BIO APAGADA. O gesto que a pessoa faz para não perder nada era o que
+     perdia. Aqui Cancelar não grava coisa nenhuma.
+
+     Com conta esta tela não existe: `#/conta` já salva nome e bio no servidor,
+     e `enfeitarPerfilComANuvem` sobrescreve o que for gravado aqui meio segundo
+     depois — era um controle fantasma em cima da linha que leva ao editor real. */
+  function telaEditarPerfil() {
+    marcarAba('perfil');
+    if (Nuvem.ligada() && Nuvem.entrou()) return ir('#/conta');
+    var d = Dados.estado();
+
+    pintar(
+      '<div class="conta">' +
+        '<h1>Seu perfil</h1>' +
+        '<p class="conta-texto">Fica só neste aparelho.</p>' +
+        '<form id="forma-perfil-local" novalidate>' +
+          '<label class="campo"><span>Como você quer ser chamada</span>' +
+            '<input name="nome" maxlength="40" value="' + esc(d.perfil.nome || '') + '"></label>' +
+          '<label class="campo"><span>Uma linha sobre você</span>' +
+            '<input name="bio" maxlength="140" placeholder="Opcional" value="' +
+            esc(d.perfil.bio || '') + '"></label>' +
+          '<p class="conta-erro" id="perfil-local-erro" role="alert" hidden></p>' +
+          '<div class="linha-botoes">' +
+            '<button class="botao destaque" type="submit">Salvar</button>' +
+            '<a class="botao" href="#/perfil">Cancelar</a>' +
+          '</div>' +
+        '</form>' +
+      '</div>'
+    );
+
+    var forma = document.getElementById('forma-perfil-local');
+    var caixa = document.getElementById('perfil-local-erro');
+    forma.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var nome = forma.nome.value.trim();
+      if (!nome) {
+        caixa.textContent = 'Dê um nome — é ele que aparece no topo do seu perfil.';
+        caixa.hidden = false;
+        return;
+      }
+      /* Reler: `Dados.importar` substitui o objeto de estado inteiro. */
+      var e = Dados.estado();
+      e.perfil.nome = nome;
+      e.perfil.bio = forma.bio.value.trim();
+      Dados.salvar();
+      aviso('Perfil salvo.');
+      ir('#/perfil');
+    });
+    forma.nome.focus();
+  }
+
+  /* O inventário vem de `Dados.estatisticas()`, que é síncrono e local: ao
+     contrário da folha de apagar a conta, esta nasce COM os números, sem "…" e
+     sem espera.
+
+     A frase que muda com a situação é a maior melhora de honestidade deste
+     item. `Dados.limpar()` grava o estado vazio SEM chamar `anunciar()`, então
+     nada disso vai para o servidor — e `Sinc.descer()` roda ao abrir o app e ao
+     entrar na conta. Para quem está com conta, TUDO VOLTA. O texto antigo
+     ("...deste aparelho. Não dá para desfazer") era literalmente verdade e
+     mesmo assim enganava, porque a parte que importa é a que ele não dizia.
+
+     Sem confirmação digitada, e a diferença para a folha de apagar a conta é
+     essa: lá o gesto é irreversível e remoto, aqui o desfazer está a um toque
+     para quem tem conta. Exigir digitação num gesto reversível ensina que
+     digitar é cerimônia — e cerimônia repetida deixa de ser lida, o que
+     enfraquece a folha onde a digitação precisa significar alguma coisa. */
+  function abrirFolhaApagarTudo() {
+    var d = Dados.estado();
+    /* Contado aqui e não de `Dados.estatisticas()`: ela não expõe a contagem de
+       resenhas, e `e.comResenha` teria vindo `undefined` → "Resenhas 0" num
+       inventário cujo trabalho inteiro é não mentir sobre o tamanho. */
+    var resenhas = d.logs.filter(function (l) { return l.resenha; }).length;
+    var comConta = Nuvem.ligada() && Nuvem.entrou();
+    var marcacoes = d.querLer.length + d.curtidas.length + d.favoritos.length;
+
+    camada.innerHTML =
+      '<div class="folha-fundo" data-fechar="fundo"><div class="folha" role="dialog" ' +
+        'aria-modal="true" aria-label="Apagar tudo deste aparelho">' +
+        '<h2>Apagar tudo deste aparelho?</h2>' +
+        '<span class="rotulo">O que some daqui</span>' +
+        '<div class="linhas">' +
+          linhaAjuste('span', 'class="sem-link"', 'Leituras', String(d.logs.length)) +
+          linhaAjuste('span', 'class="sem-link"', 'Resenhas', String(resenhas)) +
+          linhaAjuste('span', 'class="sem-link"', 'Listas', String(d.listas.length)) +
+          linhaAjuste('span', 'class="sem-link"', 'Quero ler, curtidas e favoritos',
+                      String(marcacoes)) +
+        '</div>' +
+        '<p class="folha-sub" style="margin-top:14px">' +
+          (comConta
+            ? 'A sua conta não é apagada. O que já subiu continua no servidor e ' +
+              'volta sozinho quando o app abrir de novo.'
+            : 'Não há cópia em lugar nenhum. Depois disto, não dá para desfazer.') +
+        '</p>' +
+        '<div class="linha-botoes">' +
+          '<button class="botao" data-acao="exportar-antes">Exportar o diário antes</button>' +
+        '</div>' +
+        '<div class="folha-rodape">' +
+          '<button class="botao" data-fechar="ok">Cancelar</button>' +
+          '<span class="espaco"></span>' +
+          '<button class="botao perigo" data-acao="confirmar-apagar-tudo">Apagar tudo</button>' +
+        '</div>' +
+      '</div></div>';
+
+    var painel = camada.firstElementChild;
+    painel.addEventListener('click', function (ev) {
+      if (ev.target.closest('[data-acao=exportar-antes]')) return exportarArquivo();
+      if (ev.target.closest('[data-acao=confirmar-apagar-tudo]')) {
+        camada.innerHTML = '';
+        /* A fila ANTES do diário, e ela não é arrumação: `Dados.limpar()` mexe
+           só em `letterbooks:v1`, e a fila vive noutra chave. Sem isto o
+           aparelho continuava publicando no servidor o que a pessoa acabou de
+           apagar — e `enviarLista` cai no retrato guardado, então enviava mesmo
+           com o diário já vazio. A folha estaria dizendo uma verdade que o
+           código desmente, que é o vício que este item veio curar. */
+        if (window.Sinc && Sinc.esquecer) Sinc.esquecer();
+        Dados.limpar();
+        aviso('Tudo apagado.');
+        return ir('#/inicio');
+      }
+      var alvo = ev.target.closest('[data-fechar]');
+      if (!alvo) return;
+      if (alvo.getAttribute('data-fechar') === 'fundo' && ev.target !== alvo) return;
+      camada.innerHTML = '';
+    });
+    ligarEscape();
+  }
+
+  function abrirFolhaPergunta(o) {
+    var focoAnterior = document.activeElement;
+
+    camada.innerHTML =
+      '<div class="folha-fundo com-campo" data-fechar="fundo">' +
+        '<div class="folha" role="dialog" aria-modal="true" aria-label="' +
+          esc(o.titulo) + '">' +
+          '<span tabindex="0" data-sentinela="antes"></span>' +
+          '<h2>' + esc(o.titulo) + '</h2>' +
+          (o.sub ? '<p class="folha-sub">' + esc(o.sub) + '</p>' : '') +
+          '<label class="campo"><span>' + esc(o.rotulo) + '</span>' +
+            '<input id="campo-pergunta" value="' + esc(o.valor || '') + '" ' +
+            (o.placeholder ? 'placeholder="' + esc(o.placeholder) + '" ' : '') +
+            (o.numerico ? 'inputmode="numeric" pattern="[0-9]*" maxlength="3" ' : '') +
+            'autocapitalize="' + (o.numerico ? 'none' : 'sentences') + '" ' +
+            'autocorrect="off" spellcheck="false"></label>' +
+          '<p class="aviso-campo" id="aviso-pergunta" role="alert"></p>' +
+          '<div class="folha-rodape">' +
+            '<button class="botao" data-fechar="ok">Cancelar</button>' +
+            '<span class="espaco"></span>' +
+            '<button class="botao destaque" data-acao="confirmar-pergunta">' +
+              esc(o.confirmar || 'Salvar') + '</button>' +
+          '</div>' +
+          '<span tabindex="0" data-sentinela="depois"></span>' +
+        '</div>' +
+      '</div>';
+
+    var painel = camada.firstElementChild;
+    var campo  = document.getElementById('campo-pergunta');
+    var caixa  = document.getElementById('aviso-pergunta');
+    var botao  = painel.querySelector('[data-acao=confirmar-pergunta]');
+
+    function fecharFolha() {
+      camada.innerHTML = '';
+      /* Devolver o foco. NENHUMA das nove folhas do app fazia isso — todas
+         cospem o foco no <body>, e quem navega por teclado recomeça do topo. */
+      if (focoAnterior && document.body.contains(focoAnterior)) focoAnterior.focus();
+    }
+
+    function conferir() {
+      var erro = o.valida ? o.valida(campo.value) : '';
+      caixa.textContent = erro;
+      botao.disabled = !!erro;
+      return !erro;
+    }
+
+    campo.addEventListener('input', function () {
+      if (o.limpa) {
+        var limpo = o.limpa(campo.value);
+        if (limpo !== campo.value) campo.value = limpo;
+      }
+      conferir();
+    });
+
+    campo.addEventListener('keydown', function (ev) {
+      /* Enter confirma. Com o teclado aberto os botões ficam no alto e o
+         polegar está no teclado: a tecla de ação é o alvo que já está sob o
+         dedo. O prompt() do navegador fazia isso de graça e a folha não faz. */
+      if (ev.key === 'Enter') { ev.preventDefault(); if (conferir()) concluir(); }
+    });
+
+    /* Armadilha de foco por DUAS sentinelas, e não varrendo os focáveis: seis
+       linhas que não envelhecem quando alguém acrescentar um controle. */
+    painel.addEventListener('focusin', function (ev) {
+      var s = ev.target.getAttribute && ev.target.getAttribute('data-sentinela');
+      if (s === 'antes')  botao.focus();
+      if (s === 'depois') campo.focus();
+    });
+
+    function concluir() {
+      var valor = campo.value;
+      fecharFolha();
+      o.aoConfirmar(valor);
+    }
+
+    painel.addEventListener('click', function (ev) {
+      if (ev.target.closest('[data-acao=confirmar-pergunta]')) {
+        if (conferir()) concluir();
+        return;
+      }
+      var alvo = ev.target.closest('[data-fechar]');
+      if (!alvo) return;
+      if (alvo.getAttribute('data-fechar') === 'fundo' && ev.target !== alvo) return;
+      fecharFolha();
+    });
+
+    ligarEscape();
+    conferir();
+    /* focus() e select() SÍNCRONOS dentro do handler do toque, senão o iOS não
+       abre o teclado. */
+    campo.focus();
+    campo.select();
+  }
+
+  function abrirFolhaApagarLeitura(idLog, aoApagar) {
+    var log = Dados.log(idLog);
+    if (!log) return;
+    var noAr = !!log.remoto;
+    var temResenha = !!log.resenha;
+    var livro = Dados.livro(log.chave);
+    /* `livroDe` devolve o título 'Livro' quando a ficha não está em cache, e
+       «Livro» é rótulo que mente. Sem título é melhor que com título falso. */
+    var titulo = (livro && livro.titulo) || '';
+
+    camada.innerHTML =
+      '<div class="folha-fundo" data-fechar="fundo"><div class="folha" role="dialog" ' +
+        'aria-modal="true" aria-label="Apagar esta leitura">' +
+        '<h2>Apagar ' + (temResenha ? 'esta resenha' : 'esta leitura') + '?</h2>' +
+        '<p class="folha-sub">' +
+          (titulo ? '«' + esc(titulo) + '» · ' : '') +
+          'Lido em ' + esc(dataCurta(log.lidoEm || log.criadoEm)) + '.</p>' +
+        '<p class="folha-sub">A nota, a data' + (temResenha ? ' e a resenha' : '') +
+          ' somem daqui' + (noAr ? ' e do servidor' : '') + '.' +
+          (noAr && temResenha
+            ? ' O endereço para de abrir, e os comentários que escreveram nela' +
+              ' somem junto.'
+            : '') + '</p>' +
+        '<div class="folha-rodape">' +
+          '<button class="botao" data-fechar="ok">Cancelar</button>' +
+          '<span class="espaco"></span>' +
+          '<button class="botao perigo" data-acao="confirmar-apagar">Apagar</button>' +
+        '</div>' +
+      '</div></div>';
+
+    var painel = camada.firstElementChild;
+    painel.addEventListener('click', function (ev) {
+      if (ev.target.closest('[data-acao=confirmar-apagar]')) {
+        camada.innerHTML = '';
+        Dados.apagarLog(idLog);
+        aviso(temResenha ? 'Resenha apagada.' : 'Leitura apagada.');
+        return aoApagar();
+      }
+      var alvo = ev.target.closest('[data-fechar]');
+      if (!alvo) return;
+      if (alvo.getAttribute('data-fechar') === 'fundo' && ev.target !== alvo) return;
+      camada.innerHTML = '';
+    });
+    ligarEscape();
+  }
+
   function abrirFolhaApagarResenha(v) {
     var quantos = v.comentarios ? v.comentarios.length : 0;
     camada.innerHTML =
@@ -1945,8 +2256,21 @@
     pintar(html);
     acoes({
       'nova-lista': function () {
-        var nome = prompt('Nome da lista:');
-        if (nome && nome.trim()) { Dados.criarLista(nome.trim()); telaListas(); }
+        abrirFolhaPergunta({
+          titulo: 'Criar uma lista',
+          sub: 'Um jeito seu de agrupar livros.',
+          rotulo: 'Nome',
+          placeholder: 'Ex.: Para reler em 2027',
+          confirmar: 'Criar lista',
+          valida: function (v) {
+            return v.trim() ? '' : 'Dê um nome à lista — é por ele que você vai achá-la.';
+          },
+          aoConfirmar: function (v) {
+            Dados.criarLista(v.trim());
+            aviso('Lista criada.');
+            rotear();
+          }
+        });
       }
     });
   }
@@ -2031,7 +2355,12 @@
       botoes.push('<button class="botao perigo" data-acao="apagar-lista">Apagar lista</button>');
     }
 
-    var aviso = (v.minha && !v.noAr && Nuvem.ligada())
+    /* `avisoDeFila`, e NÃO `aviso`: uma `var aviso` aqui sombreia a função
+       global `aviso()` em toda esta função, inclusive dentro dos handlers de
+       `acoes` lá embaixo — onde este item acabou de escrever código. Chamar
+       aviso('Lista salva.') ali estouraria `aviso is not a function`, e
+       nenhuma suíte exercita renomear/descrever pela interface. */
+    var avisoDeFila = (v.minha && !v.noAr && Nuvem.ligada())
       ? '<p class="fila-aviso">' + (Nuvem.entrou()
           ? 'Esta lista ainda não subiu. Quando subir, ganha um endereço para mandar a alguém.'
           : 'Esta lista fica só neste aparelho. <a href="#/conta">Crie uma conta</a> ' +
@@ -2046,7 +2375,7 @@
         (v.descricao ? '<p class="lista-descricao">' + esc(v.descricao) + '</p>' : '') +
         '<p class="sub-pagina" style="margin:0">' +
           plural(v.chaves.length, 'livro', 'livros') + '</p>' +
-        aviso +
+        avisoDeFila +
       '</div>' +
       (v.chaves.length
         ? htmlGrade(livros, '', true)
@@ -2064,12 +2393,35 @@
     acoes({
       'compartilhar-lista': function () { abrirFolhaCompartilharLista(v); },
       renomear: function () {
-        var nome = prompt('Novo nome:', v.nome);
-        if (nome && nome.trim()) { Dados.editarLista(v.idLocal, { nome: nome.trim() }); rotear(); }
+        abrirFolhaPergunta({
+          titulo: 'Renomear a lista',
+          rotulo: 'Nome',
+          valor: v.nome,
+          valida: function (t) {
+            return t.trim() ? '' : 'Dê um nome à lista — é por ele que você vai achá-la.';
+          },
+          aoConfirmar: function (t) {
+            Dados.editarLista(v.idLocal, { nome: t.trim() });
+            rotear();
+          }
+        });
       },
+      /* Sem `valida`: descrição vazia é VÁLIDA, e é como se remove uma
+         descrição. O nome logo acima recusa vazio. Essa assimetria existe hoje
+         (`nome && nome.trim()` contra `d !== null`) e uma folha genérica de
+         "um campo de texto" a apagaria sem ninguém ver. */
       descrever: function () {
-        var d = prompt('Descrição:', v.descricao || '');
-        if (d !== null) { Dados.editarLista(v.idLocal, { descricao: d.trim() }); rotear(); }
+        abrirFolhaPergunta({
+          titulo: 'Descrição da lista',
+          sub: 'Deixe em branco para tirar a descrição.',
+          rotulo: 'Descrição',
+          valor: v.descricao || '',
+          placeholder: 'Do que é esta lista?',
+          aoConfirmar: function (t) {
+            Dados.editarLista(v.idLocal, { descricao: t.trim() });
+            rotear();
+          }
+        });
       },
       'apagar-lista': function () { abrirFolhaApagarLista(v); }
     });
@@ -2295,51 +2647,69 @@
           ? linhaAjuste('a', 'href="#/conta"', 'Conta',
                         Nuvem.entrou() ? 'entrou' : 'criar conta')
           : '') +
-        linhaAjuste('button', 'data-acao="editar-perfil"', 'Editar perfil', esc(d.perfil.nome)) +
+        /* Com conta, esta linha leva ao editor de VERDADE. O de baixo gravava
+           nome e bio no aparelho, e `enfeitarPerfilComANuvem` sobrescrevia os
+           dois pelo que vem do servidor logo depois de a tela pintar: era um
+           controle fantasma bem em cima da linha `Conta ›`, que já ia ao lugar
+           certo. */
+        (Nuvem.ligada() && Nuvem.entrou()
+          ? linhaAjuste('a', 'href="#/conta"', 'Editar perfil', esc(d.perfil.nome))
+          : linhaAjuste('button', 'data-acao="editar-perfil"', 'Editar perfil',
+                        esc(d.perfil.nome))) +
         linhaAjuste('button', 'data-acao="editar-meta"', 'Meta do ano',
                     d.perfil.meta.total + ' livros') +
         linhaAjuste('button', 'data-acao="exportar"', 'Exportar diário', '') +
         linhaAjuste('button', 'data-acao="importar"', 'Importar diário', '') +
-        linhaAjuste('button', 'data-acao="limpar" class="perigo"', 'Apagar tudo', '') +
+        /* "Apagar tudo" era a mentira mais curta do app: em quatro caracteres
+           prometia apagar a conta e apagava um navegador. */
+        linhaAjuste('button', 'data-acao="limpar" class="perigo"',
+                    'Apagar tudo deste aparelho', '') +
       '</div>' +
+      '<p class="erro" id="erro-importar" role="alert" hidden></p>' +
       '<input type="file" id="arquivo-importar" accept="application/json,.json" hidden>' +
       '</section>';
 
     pintar(html);
 
     acoes({
-      'editar-perfil': function () {
-        var nome = prompt('Como você quer ser chamada?', d.perfil.nome);
-        if (nome === null) return;
-        var bio = prompt('Uma linha sobre você (opcional):', d.perfil.bio || '');
-        d.perfil.nome = nome.trim() || d.perfil.nome;
-        d.perfil.bio = (bio || '').trim();
-        Dados.salvar();
-        telaPerfil();
-      },
+      'editar-perfil': function () { ir('#/perfil/editar'); },
       'editar-meta': function () {
-        var n = parseInt(prompt('Quantos livros você quer ler em ' + d.perfil.meta.ano + '?',
-                                d.perfil.meta.total), 10);
-        if (n > 0) { d.perfil.meta.total = n; Dados.salvar(); telaPerfil(); }
+        abrirFolhaPergunta({
+          titulo: 'Meta de ' + Dados.estado().perfil.meta.ano,
+          rotulo: 'Quantos livros',
+          valor: String(Dados.estado().perfil.meta.total),
+          numerico: true,
+          /* As letras nunca chegam a aparecer. Não é erro se não aconteceu —
+             hoje `parseInt('abc')` é NaN, o `if (n > 0)` é falso, e o app não
+             faz nada E NÃO DIZ NADA: a pessoa não sabe se salvou. */
+          limpa: function (t) { return t.replace(/\D/g, ''); },
+          valida: function (t) {
+            var n = parseInt(t, 10);
+            if (!(n > 0)) return 'A meta é um número de 1 a 999.';
+            if (n > 999) return 'A meta é um número de 1 a 999.';
+            return '';
+          },
+          aoConfirmar: function (t) {
+            /* Reler o estado: `d` foi capturado no topo de telaPerfil, e
+               Dados.importar SUBSTITUI o objeto. Depois de um vão assíncrono,
+               mutar o `d` velho grava num órfão e a edição some sem erro. */
+            var e = Dados.estado();
+            e.perfil.meta.total = parseInt(t, 10);
+            Dados.salvar();
+            aviso('Meta salva.');
+            rotear();
+          }
+        });
       },
       exportar: exportarArquivo,
       importar: function () { document.getElementById('arquivo-importar').click(); },
-      limpar: function () {
-        if (!confirm('Isso apaga leituras, resenhas, listas e favoritos deste aparelho. ' +
-                     'Não dá para desfazer. Continuar?')) return;
-        Dados.limpar();
-        aviso('Tudo apagado.');
-        ir('#/inicio');
-        rotear();
-      },
+      limpar: abrirFolhaApagarTudo,
       'editar-log': function (a) {
         var log = Dados.log(a.getAttribute('data-id'));
         if (log) abrirFolhaRegistro(livroDe(log.chave), log.id);
       },
       'apagar-log': function (a) {
-        if (!confirm('Apagar este registro de leitura?')) return;
-        Dados.apagarLog(a.getAttribute('data-id'));
-        telaPerfil();
+        abrirFolhaApagarLeitura(a.getAttribute('data-id'), rotear);
       },
       'ver-spoiler': revelarSpoiler
     });
@@ -2347,17 +2717,59 @@
     if (Nuvem.entrou()) enfeitarPerfilComANuvem();
 
     document.getElementById('arquivo-importar').addEventListener('change', function () {
-      var f = this.files[0];
+      var entrada = this;
+      var f = entrada.files[0];
       if (!f) return;
+      var caixa = document.getElementById('erro-importar');
+
+      function falhou(msg) {
+        /* Bloco NA TELA, não folha e não aviso flutuante. As outras onze
+           portas eram o app PERGUNTANDO; esta é o app RESPONDENDO a uma coisa
+           que já falhou — não sobrou decisão nenhuma para interromper. E o
+           aviso flutuante some em 2,6s, enquanto esta mensagem carrega uma
+           razão sobre a qual a pessoa precisa agir.
+           A regra que sai daqui e vale para o app: sucesso é aviso flutuante,
+           erro é bloco na tela. */
+        if (!caixa) return;
+        caixa.textContent = msg;
+        caixa.hidden = false;
+      }
+
+      /* Escolher o MESMO arquivo de novo não dispara `change` se o valor não
+         for limpo. Hoje o alert() modal disfarçava isso; com a mensagem na
+         tela, a pessoa leria o erro, tentaria de novo e o app ficaria mudo. */
+      function limparEntrada() { try { entrada.value = ''; } catch (e) {} }
+
+      if (caixa) caixa.hidden = true;
+
       var leitor = new FileReader();
+      /* Não existia. Arquivo que falha na LEITURA não produzia mensagem
+         nenhuma — nem alert, nem nada: a tela só não mudava. */
+      leitor.onerror = function () {
+        limparEntrada();
+        falhou('Não consegui abrir este arquivo. Tente escolher de novo.');
+      };
       leitor.onload = function () {
+        limparEntrada();
         try {
           Dados.importar(String(leitor.result));
-          aviso('Diário importado.');
-          telaPerfil();
         } catch (err) {
-          alert('Não consegui ler este arquivo: ' + err.message);
+          /* A mensagem do motor vai para o console, não para a tela: `err`
+             aqui é quase sempre do JSON.parse, ou seja, texto do NAVEGADOR em
+             inglês ("Unexpected token < in JSON at position 0"). Esta porta é
+             a única em que o conteúdo também era do navegador, e o item nasceu
+             da queixa "às vezes em inglês". */
+          if (window.console) console.warn('importar:', err && err.message);
+          return falhou('Este arquivo não é um diário do Letterbooks. Use o ' +
+                        'arquivo que o app exporta — o nome começa com “letterbooks-”.');
         }
+        /* FORA do try, e isto vale mais que a mensagem: `Dados.importar` já fez
+           `estado = d` E `salvar()` antes de retornar. Com a repintura aqui
+           dentro, um erro dela fazia a tela dizer "não consegui ler este
+           arquivo" com o diário JÁ SUBSTITUÍDO E GRAVADO — rótulo que mente
+           com perda de dado atrás. */
+        aviso('Diário importado.');
+        rotear();
       };
       leitor.readAsText(f);
     });
@@ -2473,10 +2885,17 @@
         aviso(idLog ? 'Registro atualizado.' : 'Leitura registrada.');
       }
 
+      /* NÃO empilhar folha sobre folha. `camada` é UMA só e toda folha faz
+         `camada.innerHTML = ...`: abrir a segunda destruiria o painel desta e
+         o closure `fechar()` apagaria a folha de confirmação. Cancelar ainda
+         teria que restaurar nota, data, resenha e os dois marcadores de um DOM
+         que já não existe.
+         Fecha esta e abre aquela: uma folha por vez, sem pilha e sem estado a
+         restaurar. Era a única das 12 portas em que o desenho do sistema
+         aparecia EMPILHADO sobre o desenho próprio. */
       if (qual === 'apagar') {
-        if (!confirm('Apagar este registro de leitura?')) return;
-        Dados.apagarLog(idLog);
-        aviso('Registro apagado.');
+        fechar();
+        return abrirFolhaApagarLeitura(idLog, rotear);
       }
 
       fechar();
@@ -4494,7 +4913,7 @@
     if (rota === 'estante') return telaEstante();
     if (rota === 'listas')  return telaListas();
     if (rota === 'lista')   return telaLista(partes[1]);
-    if (rota === 'perfil')  return telaPerfil();
+    if (rota === 'perfil')  return partes[1] === 'editar' ? telaEditarPerfil() : telaPerfil();
     if (rota === 'conta')   return telaConta();
     if (rota === 'privacidade') return telaPrivacidade();
     if (rota === 'atividade') return telaAtividade(partes[1]);

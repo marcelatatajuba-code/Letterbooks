@@ -321,6 +321,19 @@ var Sinc = (function () {
     if (Nuvem.entrou()) descer().then(empurrar);
   }
 
+  /* Joga fora a fila inteira. Existe por causa de "Apagar tudo deste
+     aparelho": `Dados.limpar()` zera `letterbooks:v1` e a fila mora noutra
+     chave, então ela sobrevivia — e continuava empurrando para o servidor o
+     que a pessoa tinha acabado de apagar. Pior, `enviarLista` usa
+     `Dados.lista(reg.id) || reg` e cai no retrato guardado, ou seja, envia
+     mesmo com o diário já vazio. A pessoa apagava tudo e o aparelho continuava
+     publicando. */
+  function esquecer() {
+    fila = [];
+    gravar();
+    return true;
+  }
+
   return {
     ligar:      ligar,
     descer:     descer,
@@ -328,6 +341,7 @@ var Sinc = (function () {
     pendentes:  pendentes,
     esperandoLeitura: esperandoLeitura,
     aoMudar:    aoMudar,
-    enfileirar: enfileirar
+    enfileirar: enfileirar,
+    esquecer:   esquecer
   };
 })();

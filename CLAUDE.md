@@ -188,6 +188,22 @@ de zero, e ninguém lia o status. Não foi o psql que ficou calado; fomos nós q
 não escutamos. Todo critério tem que RODAR o que ele afirma medir, e "não deu
 para medir" nunca conta como passou.
 
+**A ferramenta de teste também é código, e ela também mente.** O rastreador
+aceitava todo diálogo do navegador (`d.accept()`), e aceitar um `prompt` sem
+texto devolve **string vazia**: a cada rodada, por nove entregas, ele vinha
+clicando "Apagar tudo", apagando registros e zerando a bio do perfil. Nada
+afirmava nada sobre isso depois, então nunca apareceu. Quando uma ferramenta
+"anda pelos caminhos destrutivos" de propósito, alguém tem que conferir o que
+ela deixa para trás — e o conserto certo foi inverter: diálogo agora é achado
+de gravidade alta, e é a única coisa no repositório que pega um `prompt()`
+reintroduzido daqui a seis entregas.
+
+**Conte as portas antes de estimar.** O item entrou como "P, seis portas". Eram
+doze, em quatro naturezas diferentes, e quatro delas eram interface morta que
+sobrevivia porque nenhuma suíte passava por lá. Os dois especialistas chegaram
+a "é M" por caminhos independentes. Um item cujo enunciado nunca foi conferido
+contra o código não tem estimativa — tem chute.
+
 **"O caro já foi feito no servidor" merece ser medido, não acreditado.** O
 item de denunciar foi para o backlog como esforço P, com a tabela, a política
 e a função da nuvem dadas como prontas. Nenhuma das três estava: a política
