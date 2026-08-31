@@ -284,9 +284,9 @@
       "nome": "Perfil de outra pessoa",
       "area": "Atividade",
       "noOriginal": "O perfil alheio mostra favoritos, diário, listas, watchlist, resenhas e estatísticas.",
-      "noLetterbooks": "telaLeitor/desenhaLeitor mostram avatar-inicial, @, bio, botão seguir, contagens sociais, até 10 resenhas, um trilho de 16 leituras recentes, as LISTAS da pessoa e — desde a V11 — os FAVORITOS em vitrine e as prateleiras Quero ler e Curtidos, numa consulta só a `marcadores`. Os cartões destas seções são `htmlCartaoNu`: sem os selos e sem a nota do SEU aparelho, que estavam sendo carimbados em conteúdo alheio. PARCIAL pelos DOIS que continuam ausentes: diário completo (não há rota para o diário alheio) e histograma de avaliações (exigiria count=exact ou agregação — a distribuição não pode sair da janela de 40 linhas). É o item 14.",
-      "estado": "parcial",
-      "evidencia": "js/app.js enfeitarComAEstante; js/nuvem.js marcadoresDe; docs/testar_social.py bloco da estante"
+      "noLetterbooks": "telaLeitor/desenhaLeitor mostram avatar-inicial, @, bio, botão seguir, contagens sociais, resenhas, um trilho de 16 leituras recentes, as LISTAS, os FAVORITOS em vitrine e as prateleiras Quero ler e Curtidos (V11), e — desde a V12 — o HISTOGRAMA \"Como @fulano avalia\" e o DIÁRIO COMPLETO em #/leitor/<@>/diario, paginado de 50 em 50. A distribuição vem da view de agregação distribuicao_de_notas e não da janela de 40 linhas de leiturasDe: seria um rótulo vitalício sobre amostra recente. Piso de 5 avaliações — abaixo disso htmlHistograma normaliza pela única coluna cheia e UMA nota 4 sai idêntica a quatrocentas. A tabela do diário alheio não emite as ações de editar/apagar nem o coração de Dados.curtido (que é o MEU aparelho). COMPLETO.",
+      "estado": "completo",
+      "evidencia": "js/app.js enfeitarComAsNotas e telaDiarioDe; js/nuvem.js distribuicaoDe; servidor/esquema.sql view distribuicao_de_notas; servidor/provar-v7.sql (com controle negativo); docs/testar_social.py blocos do histograma e do diário alheio"
     },
     {
       "nome": "Notificações",

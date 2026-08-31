@@ -88,6 +88,23 @@ begin
          then 'ok' else 'FALTA — rode o esquema.sql de novo' end,
     'o botão de apagar a conta dá erro e a conta continua de pé');
 
+  -- A view do histograma do perfil alheio. Sem ela a tela CONTINUA
+  -- FUNCIONANDO e o gráfico simplesmente nunca aparece, sem erro e sem log —
+  -- que é o modo de falha mais silencioso do projeto e a razão de este arquivo
+  -- existir. E não basta a view existir: sem `security_invoker` ela devolve a
+  -- distribuição de todo diário fechado, então as duas coisas são conferidas.
+  insert into conferencia values (11, 'view distribuicao_de_notas',
+    case when not exists (select 1 from information_schema.views
+                           where table_name='distribuicao_de_notas')
+         then 'FALTA — rode o esquema.sql de novo'
+         when not exists (select 1 from pg_class c
+                           where c.relname='distribuicao_de_notas'
+                             and c.reloptions::text like '%security_invoker=on%')
+         then 'PERIGO — a view existe SEM security_invoker: ela entrega a '
+              'distribuição de notas de quem fechou o diário'
+         else 'ok' end,
+    'o histograma "Como @fulano avalia" nunca aparece, calado');
+
   -- ---- as duas coisas que não são "falta atualizar", são perigo ------------
   select count(*) into n
     from pg_tables t

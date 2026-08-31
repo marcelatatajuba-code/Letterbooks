@@ -267,6 +267,38 @@
     return f;
   }
 
+  /* O irmao de faixasDe para quando as contagens JA vem somadas do servidor,
+     que e o caso do perfil alheio: a view `distribuicao_de_notas` devolve
+     {nota, qtd} por meia-estrela, sobre a vida inteira do diario.
+
+     Nao da para reusar faixasDe aqui, e a diferenca nao e de estilo: faixasDe
+     recebe a LISTA das notas e conta; se a tela tivesse a lista, ela teria as
+     40 linhas da janela, que e exatamente o que este item existe para nao
+     usar. Receber contagem em vez de lista e o que torna a distribuicao
+     vitalicia.
+
+     A linha de `nota` nula e ignorada nas barras de proposito — leitura sem
+     nota nao e avaliacao — mas ela conta no total, que sai por `totalDe`. */
+  function faixasDeContagem(linhas) {
+    var por = {};
+    (linhas || []).forEach(function (l) {
+      if (l.nota === null || l.nota === undefined) return;
+      por[Number(l.nota)] = (por[Number(l.nota)] || 0) + Number(l.qtd || 0);
+    });
+    var f = [];
+    for (var i = 1; i <= 10; i++) {
+      var v = i / 2;
+      f.push({ nota: v, qtd: por[v] || 0 });
+    }
+    return f;
+  }
+
+  /* O total de leituras da pessoa, contando as que nao levaram nota. E o
+     numero que a linha "Leituras" do perfil alheio passa a mostrar. */
+  function totalDeLeituras(linhas) {
+    return (linhas || []).reduce(function (s, l) { return s + Number(l.qtd || 0); }, 0);
+  }
+
   function livroDe(chave) {
     return Dados.livro(chave) || { chave: chave, titulo: 'Livro', autores: [], capa: null };
   }
@@ -284,7 +316,7 @@
      Os dez <div> vazios com title não diziam nada a um leitor de tela: o
      gráfico inteiro passa a ser uma imagem com legenda, e o eixo de estrelas
      (que sairia como "estrela preta" cinco vezes) fica calado. */
-  function htmlHistograma(faixas, substantivo, minhaNota) {
+  function htmlHistograma(faixas, substantivo, minhaNota, dono) {
     var uni = substantivo || 'livro';
     var plu = uni === 'avaliação' ? 'avaliações' : uni + 's';
     var maior = Math.max.apply(null, faixas.map(function (f) { return f.qtd; }).concat([1]));
@@ -292,7 +324,16 @@
     var soma  = faixas.reduce(function (s, f) { return s + f.nota * f.qtd; }, 0);
     var pico  = faixas.reduce(function (a, f) { return f.qtd > a.qtd ? f : a; },
                              { nota: 0, qtd: 0 });
-    var legenda = 'Distribuição de ' + plural(total, uni, plu) +
+    /* De QUEM e esta distribuicao. A legenda dizia so "Distribuição de 42
+       avaliações" e nunca disse de quem — e com o perfil alheio virando o
+       TERCEIRO contexto da mesma funcao (comunidade neste livro / as suas
+       notas / as notas de outra pessoa), tres graficos identicos passariam a
+       se anunciar com a mesma frase para tres donos diferentes. Quem le a
+       tela com os olhos tem o rotulo acima do grafico para se orientar; quem
+       ouve nao tinha nada. Consertado nos tres de uma vez, e nao so no novo:
+       acrescentar o dono apenas aqui produziria tres rotulos incoerentes. */
+    var deQuem = dono ? 'Distribuição das notas ' + dono : 'Distribuição';
+    var legenda = deQuem + ' — ' + plural(total, uni, plu) +
       (total ? ': média ' + mediaTexto(soma / total) + ' de 5. Nota mais dada: ' +
                nota1(pico.nota) + ', ' + plural(pico.qtd, uni, plu) + '.' : '.');
     return '<div class="histograma" role="img" aria-label="' + esc(legenda) + '">' +
@@ -981,7 +1022,8 @@
       var media = notas.reduce(function (a, b) { return a + b; }, 0) / notas.length;
       html += '<div class="avaliacoes-linha">' +
           '<div class="avaliacoes-grafico">' +
-            htmlHistograma(faixasDe(notas), 'avaliação', minha) + '</div>' +
+            htmlHistograma(faixasDe(notas), 'avaliação', minha,
+                           'da comunidade neste livro') + '</div>' +
           '<div class="avaliacoes-media">' + mediaTexto(media) + '</div>' +
         '</div>' +
         (rede.leituras.length >= TETO_LEITURAS
@@ -1162,7 +1204,28 @@
   /* comMes = true monta a tabela cheia do diario, com a celula do mes
      atravessando as linhas daquele mes. false monta a versao curta que aparece
      dentro da ficha do livro. */
-  function tabelaDiario(logs, comMes) {
+  /* `alheio` faz a mesma tabela servir ao diario de outra pessoa. Terceiro
+     argumento em vez de uma segunda funcao porque duplicar tabelaDiario
+     duplicaria o agrupamento por mes e a aritmetica do rowspan, que e o
+     codigo mais delicado deste arquivo — e duas copias divergem (foi o D94,
+     as duas copias do mapa snake->camel).
+
+     Ele muda DUAS coisas, e as duas sao correcao e nao estilo:
+
+     1. A celula de acoes nao e EMITIDA. Esconder por CSS nao bastaria: o
+        @media(max-width:720px) ja esconde .cel-acoes, mas a partir de 721px
+        os dois <button> aparecem, e em qualquer largura eles continuam na
+        ordem de tabulacao e na arvore do leitor de tela, ligados a
+        abrirFolhaApagarLeitura sobre um id que nao e meu.
+
+     2. O coracao nao renderiza. glifosDaLinha le Dados.curtido(log.chave) —
+        o MEU aparelho — e pinta em laranja, que neste app significa "o que
+        VOCE gostou". Numa linha do diario da @bia isso afirma que ela curtiu
+        um livro que EU curti. E o mesmo defeito que fez htmlCartaoNu existir
+        uma funcao ao lado, renascendo pela porta da tabela. Nao da para
+        consertar com dado: CAMPOS_FEED nao tem coluna de "o autor curtiu".
+        Entao ausencia, nunca uma afirmacao errada. */
+  function tabelaDiario(logs, comMes, alheio) {
     if (!logs.length) return '';
 
     /* Agrupa por mes preservando a ordem ja vinda de Dados.logs(). */
@@ -1177,7 +1240,7 @@
       (comMes ? '<th>Mês</th><th>Dia</th><th></th>' : '<th>Dia</th>') +
       '<th>Livro</th>' +
       (comMes ? '<th>Publicado</th>' : '') +
-      '<th>Nota</th><th></th><th></th></tr></thead>';
+      '<th>Nota</th><th></th>' + (alheio ? '' : '<th></th>') + '</tr></thead>';
 
     var corpo = grupos.map(function (g) {
       /* O rowspan precisa contar tambem as linhas extras de resenha. */
@@ -1190,7 +1253,8 @@
          No celular vira uma faixa de largura inteira, como no original — as
          duas estao no HTML e o CSS escolhe qual aparece. */
       var faixa = comMes
-        ? '<tr class="faixa-mes"><td colspan="8">' + esc(nomeMes) + '</td></tr>'
+        ? '<tr class="faixa-mes"><td colspan="' + (alheio ? 7 : 8) + '">' +
+          esc(nomeMes) + '</td></tr>'
         : '';
 
       return faixa + g.itens.map(function (l) {
@@ -1206,7 +1270,7 @@
            mes, que ja vem de um rowspan da primeira linha do grupo.
            Com mes: dia, capa, livro, ano, nota, coracao, acoes = 7.
            Sem mes: dia, livro, nota, coracao, acoes = 5. */
-        var colunas = (comMes ? 7 : 5);
+        var colunas = (comMes ? 7 : 5) - (alheio ? 1 : 0);
 
         var linha = '<tr>' + celMes +
           '<td class="cel-dia">' + (l.lidoEm ? Number(l.lidoEm.slice(8, 10)) : '—') + '</td>' +
@@ -1217,11 +1281,12 @@
             (l.relido ? ' <span class="rotulo" style="font-size:9px">releitura</span>' : '') + '</td>' +
           (comMes ? '<td class="cel-ano">' + (livro.ano || '') + '</td>' : '') +
           '<td class="cel-nota"><span class="estrelas">' + estrelasTexto(l.nota) + '</span></td>' +
-          '<td class="cel-marca">' + glifosDaLinha(l) + '</td>' +
-          '<td class="cel-acoes">' +
-            '<button data-acao="editar-log" data-id="' + l.id + '">editar</button>' +
-            '<button data-acao="apagar-log" data-id="' + l.id + '">apagar</button>' +
-          '</td></tr>';
+          '<td class="cel-marca">' + glifosDaLinha(l, false, alheio) + '</td>' +
+          (alheio ? '' :
+            '<td class="cel-acoes">' +
+              '<button data-acao="editar-log" data-id="' + l.id + '">editar</button>' +
+              '<button data-acao="apagar-log" data-id="' + l.id + '">apagar</button>' +
+            '</td>') + '</tr>';
 
         if (l.resenha) {
           linha += '<tr class="linha-resenha"><td colspan="' + colunas + '">' +
@@ -1245,9 +1310,13 @@
      Com semLink, o ≡ sai como texto e nao como link: dentro de um cartao ele
      seria uma ancora dentro de outra, o que o navegador nao aceita — fecha a
      de fora e joga o glifo para fora do cartao. */
-  function glifosDaLinha(log, semLink) {
+  function glifosDaLinha(log, semLink, semCurtida) {
     var g = '';
-    if (Dados.curtido(log.chave)) g += '<i class="on" title="Curtido">♥</i>';
+    /* semCurtida: ver o comentario de tabelaDiario. Dados.curtido() e o MEU
+       aparelho, e o coracao sai em laranja, que aqui significa "o que VOCE
+       gostou" — numa linha alheia ele afirma o gosto da outra pessoa a partir
+       do meu. */
+    if (!semCurtida && Dados.curtido(log.chave)) g += '<i class="on" title="Curtido">♥</i>';
     if (log.relido)               g += '<i title="Releitura">↺</i>';
     if (log.resenha) {
       g += semLink
@@ -1283,6 +1352,180 @@
       },
       'ver-spoiler': revelarSpoiler
     });
+  }
+
+  /* ========================================== TELA: o diario de outra pessoa
+
+     O par do item 13: a V11 deu ao perfil alheio os favoritos e a estante, e
+     sobrou o diario completo — o trilho mostra 16 capas e nao havia porta
+     nenhuma para o resto.
+
+     A REGRA QUE ESTA ROTA ESCREVE, e que e a resposta ao D101 (uma rota com
+     quatro estados e nenhuma saida): a tira .perfil-atalhos e pintada no
+     MESMO pintar() de todos os seis estados — carregando, erro, offline,
+     vazio, fechado e cheio. Ela nao e resultado da rede; e a moldura desenhada
+     ANTES da requisicao. Nenhum estado desta tela pode existir sem saida. O
+     D101 aconteceu porque quatro estados pintavam sem o heroi, e o heroi era o
+     dono do .voltar.
+
+     Por isso o helper carregando() NAO e usado aqui: ele chama pintar() com a
+     pagina inteira e destruiria a tira, recriando o D101 pela duracao da
+     requisicao. */
+
+  var PAGINA_DIARIO = 50;
+
+  function molduraDiarioAlheio(usuario, miolo) {
+    return '<nav class="perfil-atalhos" aria-label="Coleções de @' + esc(usuario) + '">' +
+        '<a href="#/leitor/' + encodeURIComponent(usuario) + '">@' + esc(usuario) + '</a>' +
+        '<a class="ativa" href="#/leitor/' + encodeURIComponent(usuario) + '/diario">Diário</a>' +
+      '</nav>' + miolo;
+  }
+
+  function telaDiarioDe(usuario) {
+    marcarAba('');
+    if (!usuario) return ir('#/inicio');
+    if (!Nuvem.ligada()) return pintar('<p class="erro">A nuvem não está ligada.</p>');
+
+    /* Se sou eu, vou para o diario de verdade — o que tem editar e apagar.
+       `replace` e nao `assign`, pelo mesmo motivo de telaResenha: o apelido
+       nao pode ficar no historico, senao o voltar do navegador pinga entre os
+       dois enderecos. */
+    var eu = Nuvem.entrou() ? Nuvem.quemSou() : null;
+
+    pintar(molduraDiarioAlheio(usuario,
+      '<p class="carregando">Abrindo o diário de @' + esc(usuario) + '…</p>'));
+
+    Promise.all([
+      Nuvem.perfilDe(usuario),
+      Nuvem.leiturasDe(usuario, PAGINA_DIARIO)
+    ]).then(function (r) {
+      var p = r[0], linhas = r[1] || [];
+
+      if (!p) {
+        return pintar(molduraDiarioAlheio(usuario,
+          htmlVazio('Não achei esse leitor',
+            'O endereço pode estar errado, ou a pessoa mudou de @.')));
+      }
+      if (eu && eu.id === p.id) { location.replace('#/diario'); return; }
+
+      desenhaDiarioAlheio(p, linhas);
+    }, function (err) {
+      /* Nunca err.message cru: a mensagem do fetch sozinha numa tela e o que
+         #/leitor ainda faz e que esta rota nao vai repetir. E offline nao
+         ganha [Tentar de novo] — um botao que nao pode dar certo e pior que
+         botao nenhum. */
+      var offline = (typeof navigator !== 'undefined' && navigator.onLine === false);
+      pintar(molduraDiarioAlheio(usuario,
+        '<p class="erro">' + (offline
+          ? 'Você está sem conexão. O diário de @' + esc(usuario) +
+            ' volta quando a rede voltar.'
+          : 'Não consegui abrir o diário de @' + esc(usuario) + ' agora.') + '</p>' +
+        (offline ? '' :
+          '<div class="linha-botoes"><button class="botao" data-acao="de-novo">' +
+          'Tentar de novo</button></div>')));
+      acoes({ 'de-novo': function () { telaDiarioDe(usuario); } });
+    });
+  }
+
+  /* A linha do `feed` na forma do log local, que e a forma que tabelaDiario
+     desenha. E o padrao ja escrito em daLeituraLocal/daLeituraRemota: duas
+     fontes, uma forma, um renderizador so.
+
+     O `id` e o uuid do servidor de proposito — e ele que faz o glifo da
+     resenha apontar para #/resenha/<uuid>, o endereco publico que abre para
+     qualquer pessoa. O id local nao existe no aparelho de quem esta olhando. */
+  function daLinhaDoDiario(l) {
+    return {
+      id: l.id, chave: l.livro,
+      nota: typeof l.nota === 'number' ? l.nota : null,
+      resenha: l.resenha || '', spoiler: !!l.spoiler, relido: !!l.relido,
+      lidoEm: l.lido_em
+    };
+  }
+
+  function desenhaDiarioAlheio(p, linhas) {
+    if (p.privado) {
+      /* As MESMAS duas frases do perfil, palavra por palavra, para quem chega
+         de la ver a mesma sentenca duas vezes e aprender que e um estado e nao
+         um erro. E "fechado" se le de p.privado, NUNCA de resposta vazia —
+         resposta vazia e tambem o que a rede caindo produz. */
+      return pintar(molduraDiarioAlheio(p.usuario,
+        '<h1 class="titulo-pagina">Diário de @' + esc(p.usuario) + '</h1>' +
+        htmlVazio('O diário de @' + p.usuario + ' está fechado',
+                  'Essa pessoa escolheu não mostrar o que lê.')));
+    }
+
+    if (!linhas.length) {
+      /* Terceira pessoa, e sem o botao "Encontrar um livro" que o diario
+         proprio oferece: ali ele convida a pessoa a registrar a propria
+         leitura; aqui mandaria o visitante arrumar a casa dos outros. */
+      return pintar(molduraDiarioAlheio(p.usuario,
+        '<h1 class="titulo-pagina">Diário de @' + esc(p.usuario) + '</h1>' +
+        htmlVazio('@' + p.usuario + ' ainda não registrou nenhuma leitura',
+                  'Quando registrar a primeira, ela aparece aqui.')));
+    }
+
+    var todas = linhas.slice();
+    var acabou = linhas.length < PAGINA_DIARIO;
+
+    /* As capas e os titulos saem das proprias linhas do servidor, e nao de
+       livroDe() — que devolve `titulo: 'Livro'` para o que nao esta no acervo
+       DESTE aparelho. Foi o D105 nos cartoes da estante; numa tabela de 50
+       linhas seriam cinquenta "Livro". */
+    function guardarLivros(ls) {
+      ls.forEach(function (l) {
+        Dados.guardarLivroDaLinha({
+          chave: l.livro, titulo: l.titulo, autores: l.autores || [],
+          ano: l.ano, capa: l.capa
+        });
+      });
+    }
+    guardarLivros(linhas);
+
+    function desenha() {
+      pintar(molduraDiarioAlheio(p.usuario,
+        '<h1 class="titulo-pagina">Diário de @' + esc(p.usuario) + '</h1>' +
+        /* O subtitulo nao pode mentir: N aqui e so o que foi CARREGADO. Ate a
+           ultima pagina voltar curta, ele diz "as N mais recentes"; quando
+           acaba, vira a forma exata. Duas faces, as duas verdadeiras. */
+        '<p class="sub-pagina">' + (acabou
+          ? plural(todas.length, 'leitura registrada', 'leituras registradas') + '.'
+          : 'As ' + todas.length + ' leituras mais recentes.') + '</p>' +
+        tabelaDiario(todas.map(daLinhaDoDiario), true, true) +
+        (acabou ? '' :
+          '<div class="linha-botoes"><button class="botao" data-acao="mais">' +
+          'Ver mais</button></div>')));
+
+      acoes({
+        'ver-spoiler': revelarSpoiler,
+        mais: function (b) {
+          b.disabled = true;
+          b.textContent = 'Carregando…';
+          Nuvem.leiturasDe(p.usuario, PAGINA_DIARIO, todas.length).then(function (mais) {
+            mais = mais || [];
+            guardarLivros(mais);
+            todas = todas.concat(mais);
+            if (mais.length < PAGINA_DIARIO) acabou = true;
+            desenha();
+          }, function () {
+            /* A pagina que ja esta desenhada fica: alarme de pagina inteira
+               por um pedaco secundario e desproporcional. O erro aparece so no
+               lugar do botao. */
+            b.disabled = false;
+            b.textContent = 'Ver mais';
+            var caixa = b.parentNode;
+            if (caixa && !caixa.querySelector('.erro')) {
+              var aviso = document.createElement('p');
+              aviso.className = 'erro';
+              aviso.textContent = 'Não consegui trazer mais agora.';
+              caixa.appendChild(aviso);
+            }
+          });
+        }
+      });
+    }
+
+    desenha();
   }
 
   /* =============================================================== TELA: resenha */
@@ -2657,7 +2900,8 @@
     if (e.media !== null) {
       html += '<section class="avaliacoes"><span class="rotulo">Como você avalia</span>' +
         '<div class="avaliacoes-linha">' +
-          '<div class="avaliacoes-grafico">' + htmlHistograma(e.faixas) + '</div>' +
+          '<div class="avaliacoes-grafico">' +
+            htmlHistograma(e.faixas, 'livro', null, 'que você deu') + '</div>' +
           '<div class="avaliacoes-media">' + mediaTexto(e.media) + '</div>' +
         '</div></section>';
     }
@@ -3630,6 +3874,7 @@
       desenhaLeitor(p, leituras);
       enfeitarComAsListas(p);
       enfeitarComAEstante(p);
+      enfeitarComAsNotas(p);
       /* Contagens e o estado do "seguir" chegam depois: a pagina ja e util
          sem eles, e sao duas idas a mais na rede. */
       Nuvem.contagemSocial(p.id).then(function (c) {
@@ -3638,8 +3883,16 @@
           /* A linha "Leituras" some no diário fechado: o número é conteúdo do
              diário e vazaria o TAMANHO do que está fechado. Seguidores e
              seguindo ficam — seguir não é conteúdo, e a tabela é pública. */
+          /* `leituras.length` aqui e o tamanho da JANELA de 40, nao o total —
+             e o valor certo chega depois, por enfeitarComAsNotas, que troca
+             esta linha por um link com o numero exato da view (D109). Ate la
+             a linha nasce muda: melhor um numero que vai ser corrigido em
+             seguida do que um chevron prometendo uma tela antes de a rota
+             existir. O data-linha e a alca para a troca. */
+          var exato = totalExatoNaTela();
           s.innerHTML = (p.privado ? ''
-            : linhaAjuste('span', 'class="sem-link"', 'Leituras', String(leituras.length))) +
+            : htmlLinhaLeituras(p, exato === null ? leituras.length : exato,
+                                exato !== null)) +
             linhaAjuste('a', 'href="#/seguidores/' + encodeURIComponent(p.id) + '"',
                         'Seguidores', String(c.seguidores)) +
             linhaAjuste('a', 'href="#/seguindo/' + encodeURIComponent(p.id) + '"',
@@ -3677,6 +3930,22 @@
 
       '<div class="linhas linhas-conta" id="leitor-numeros"></div>' +
 
+      /* O histograma entra COLADO nas contagens, e o slot e definido por
+         adjacencia e nao por indice: a linha "Leituras N" diz o numero, e o
+         grafico diz a forma daquele numero. Um bloco entre os dois separaria
+         um numero do seu desenho. Se um dia a ordem da pagina for corrigida
+         (as resenhas ilimitadas no meio ainda sao divida), o histograma anda
+         junto com as contagens e o slot continua certo.
+
+         Medido: com bio de uma linha, [Seguir] e quatro favoritos, as 46px de
+         barras terminam aos 719,85 contra uma dobra de 735 — inteiras acima
+         dela. O que cruza sao 5,85px do eixo, que sao dois estrelas marcadas
+         aria-hidden. Em NENHUMA configuracao o rotulo cai abaixo da dobra,
+         que e o teste que importa: a pessoa ve que a secao existe e ve a
+         forma. E o oposto do D104, onde nao havia configuracao em que a
+         secao aparecesse sem rolar. O unico bloco que ele empurra e Listas. */
+      '<section class="avaliacoes" id="notas-do-leitor" hidden></section>' +
+
       '<section class="secao" id="listas-do-leitor" hidden></section>' +
 
       /* A estante vem ANTES de "Resenhas", e isto foi medido, não sentido:
@@ -3696,7 +3965,14 @@
         : '') +
 
       (leituras.length
-        ? '<section class="secao"><h2>Leu recentemente</h2>' +
+        /* A seta do h2 e o componente de "tem mais, e o caminho e por aqui".
+           A V11 registrou que nao pode usa-la aqui porque nao havia destino;
+           agora ha. Segunda porta para o diario alheio, ao lado da linha
+           "Leituras". */
+        ? '<section class="secao"><h2>Leu recentemente' +
+          '<a class="seta" href="#/leitor/' + encodeURIComponent(p.usuario) +
+            '/diario" aria-label="Ver o diário completo de @' + esc(p.usuario) +
+            '">›</a></h2>' +
           '<div class="trilho">' +
             leituras.slice(0, 16).map(function (l) {
               return htmlCartaoNu({ chave: l.livro, titulo: l.titulo,
@@ -3737,6 +4013,112 @@
      resolver.
 
      Uma consulta para as três prateleiras, separadas aqui pelo `tipo`. */
+  /* O terceiro enriquecedor do perfil alheio, ao lado das listas e da estante,
+     e pelo mesmo motivo dos outros dois: NAO entra no Promise.all de
+     telaLeitor. Aquele Promise.all e portao — qualquer rejeicao pinta
+     <p class="erro"> no lugar do perfil INTEIRO. E o modo de falha mais
+     provavel aqui nem e a rede: e o cache de esquema do PostgREST, que
+     devolve 404 PGRST205 ate recarregar depois de uma view nova, e o banco da
+     usuaria, que so ganha a view quando ela colar o esquema.sql novo. Nos dois
+     casos o perfil tem que continuar de pe sem o grafico.
+
+     Enriquecimento que falhou nao pinta caixa de erro: nao foi acao de
+     ninguem que falhou. Seçao escondida e pronto. */
+  /* A linha "Leituras" tem DOIS donos assincronos: contagemSocial desenha o
+     bloco de numeros, e distribuicaoDe traz o total exato. Qualquer um dos
+     dois pode chegar primeiro, e quem chega depois tem que vencer com o
+     numero certo — senao o valor exato aparece e e sobrescrito pela janela de
+     40 no quadro seguinte, que e pior que nunca te-lo mostrado.
+
+     O total exato fica guardado no proprio DOM (`data-total` da secao do
+     histograma) em vez de numa variavel de modulo: assim ele morre junto com
+     a tela, e nao vaza de um perfil para o proximo quando a pessoa navega de
+     @bia para @caio. */
+  function htmlLinhaLeituras(p, quantas, exato) {
+    return exato
+      ? linhaAjuste('a', 'href="#/leitor/' + encodeURIComponent(p.usuario) + '/diario"' +
+                         ' data-linha="leituras"', 'Leituras', String(quantas))
+      : linhaAjuste('span', 'class="sem-link" data-linha="leituras"',
+                    'Leituras', String(quantas));
+  }
+
+  function totalExatoNaTela() {
+    var sec = document.getElementById('notas-do-leitor');
+    var v = sec && sec.getAttribute('data-total');
+    return v === null || v === undefined || v === '' ? null : Number(v);
+  }
+
+  function enfeitarComAsNotas(p) {
+    /* A mesma guarda das outras duas, e aqui ela vale dobrado: nada nesta
+       pagina pode sugerir a distribuicao de um diario fechado, nem por um
+       esqueleto reservado. Cliente e politica concordando — a view ja
+       devolveria zero grupos, mas se um dia alguem afrouxar a politica a tela
+       nao comeca a desenhar diario fechado em silencio. */
+    if (p.privado) return;
+
+    var caixa = document.getElementById('notas-do-leitor');
+    if (!caixa) return;
+
+    Nuvem.distribuicaoDe(p.id).then(function (linhas) {
+      if (!document.body.contains(caixa)) return;
+      var faixas = faixasDeContagem(linhas);
+      var avaliadas = faixas.reduce(function (s, f) { return s + f.qtd; }, 0);
+      var total = totalDeLeituras(linhas);
+
+      /* A LINHA "Leituras", consertada aqui e nao noutro lugar porque e aqui
+         que o numero exato chega. Ela mostrava `leituras.length` sobre o
+         resultado de leiturasDe(usuario, 40): quem tem mais de 40 leituras
+         registradas aparecia com exatamente "40", para sempre, sem nada na
+         tela dizendo que era um teto (D109). Com o histograma ao lado a
+         mentira ficaria gritante — "Leituras 40" ao lado de uma legenda
+         dizendo "312 livros" — mas ela ja estava no ar antes deste item.
+
+         Vira link para o diario inteiro no mesmo movimento: o numero deixa de
+         mentir e ganha destino no mesmo commit. */
+      caixa.setAttribute('data-total', String(total));
+      var numeros = document.getElementById('leitor-numeros');
+      var linhaLeituras = numeros && numeros.querySelector('[data-linha="leituras"]');
+      if (linhaLeituras) linhaLeituras.outerHTML = htmlLinhaLeituras(p, total, true);
+
+      /* PISO DE CINCO, e a razao e o desenho e nao o gosto: htmlHistograma
+         normaliza pela coluna mais cheia (`maior = Math.max(...)`), entao UMA
+         nota 4 sai pixel a pixel identica a QUATROCENTAS notas 4. Abaixo de
+         cinco o grafico deixa de distribuir e passa a apontar: com menos da
+         metade das dez colunas, toda coluna e zero ou o maximo, e a figura e
+         um conjunto de bandeiras. E a media, em 34px, seria o maior numero da
+         pagina afirmando o gosto de alguem a partir de tres livros.
+
+         Uma linha de ressalva nao consertaria: o rotulo aqui e "Como @bia
+         avalia", uma afirmacao sobre a pessoa, e nenhuma nota de rodape
+         conserta essa frase. Ou a secao diz a verdade, ou nao existe.
+
+         O que se perde ("a @bia avaliou 3 livros") esta a um toque de
+         distancia, na lista de livros — que e justamente o que este item
+         entrega. Na V11 esse destino nao existia; e o item 14 que torna o
+         piso barato. */
+      if (avaliadas < 5) return;
+
+      var media = faixas.reduce(function (a, f) { return a + f.nota * f.qtd; }, 0) / avaliadas;
+      /* @usuario e nao p.nome: e assim que o app ja trata a terceira pessoa
+         nesta exata posicao de frase ("O diário de @bia está fechado"), o @ e
+         unico onde o nome nao e, e ele cabe numa linha mesmo no @ mais longo
+         que o esquema permite (20 caracteres). */
+      caixa.innerHTML =
+        '<span class="rotulo">Como @' + esc(p.usuario) + ' avalia</span>' +
+        '<div class="avaliacoes-linha">' +
+          '<div class="avaliacoes-grafico">' +
+            /* Sem minhaNota, de proposito: a marca `.col.minha` significa "a
+               SUA nota deste LIVRO dentro da distribuicao da comunidade DESTE
+               livro". Num perfil alheio nao ha um livro, logo nao existe uma
+               "sua nota" para posicionar — desenha-la seria uma marca cujo
+               significado nao existe. */
+            htmlHistograma(faixas, 'livro', null, 'de @' + p.usuario) + '</div>' +
+          '<div class="avaliacoes-media">' + mediaTexto(media) + '</div>' +
+        '</div>';
+      caixa.hidden = false;
+    }).catch(function () {});
+  }
+
   function enfeitarComAEstante(p) {
     /* Guarda antes da rede. A política já devolveria zero linhas — ter cliente
        E política concordando é o padrão que a seção de resenhas segue. Se um
@@ -5072,7 +5454,20 @@
     if (rota === 'privacidade') return telaPrivacidade();
     if (rota === 'atividade') return telaAtividade(partes[1]);
     if (rota === 'avisos')  return telaAvisos();
-    if (rota === 'leitor')  return telaLeitor(decodeURIComponent(partes[1] || ''));
+    /* `#/leitor/<@>/diario` e nao `#/diario/<@>`, e a razao e o service
+       worker: ele e cache-first com skipWaiting, entao a PRIMEIRA abertura
+       depois de uma publicacao ainda roda o app.js velho. O rotear() velho faz
+       `if (rota === 'diario') return telaDiario()` IGNORANDO partes[1] — um
+       link `#/diario/bia` colado num chat mostraria a quem clicasse o PROPRIO
+       diario, calado, como se fosse o da Bia. Com o endereco aninhado, o app
+       velho cai em telaLeitor('bia'): a pagina errada, mas da pessoa certa.
+       O aninhamento tambem diz melhor o que a pagina e — o diario e uma
+       colecao DAQUELA pessoa, e a tira .perfil-atalhos ja desenha essa
+       relacao no perfil proprio. */
+    if (rota === 'leitor') {
+      var quem = decodeURIComponent(partes[1] || '');
+      return partes[2] === 'diario' ? telaDiarioDe(quem) : telaLeitor(quem);
+    }
     if (rota === 'seguidores' || rota === 'seguindo')
       return telaGente(rota, decodeURIComponent(partes[1] || ''));
     return telaInicio();

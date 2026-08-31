@@ -64,6 +64,25 @@ livro do acervo — sob o título "Avaliações". Ninguém viu, porque a tela es
 cheia e bonita. Quando o dado da tela não é o dado que o rótulo promete, o
 conserto vem antes de qualquer coisa que falte.
 
+**A ferramenta de verificação mente calada, e é o defeito mais longevo que
+esta casa tem.** Cinco dos defeitos mais duradouros do projeto não estavam no
+app: estavam em quem media. Um portão que só conferia se o arquivo de prova
+EXISTIA. Um `provar.sql` que morria na linha 133 e ninguém lia o status. Um
+rastreador que ACEITAVA os diálogos do navegador em vez de acusá-los. Um mock
+que ignorava `limit` e `offset` — então a janela de 40 linhas, o defeito que um
+item inteiro existia para evitar, era invisível para a suíte. E doze provas de
+privacidade escritas como `select count(*)` seguido de `\echo '   ^ 0'`, que
+imprimem "2" onde devia ser 0 e saem com status zero: **verde**.
+
+A regra que sai daí: **toda ferramenta nova nasce com o conserto desfeito
+pelo menos uma vez.** Implemente o defeito de propósito e veja a asserção ficar
+VERMELHA antes de acreditar que ela mede algo. Prova em SQL leva `do $$ ...
+raise exception` e um CONTROLE NEGATIVO — afrouxe a política de propósito, veja
+a prova estourar, e devolva. E prefira a asserção que compara com a FONTE (a
+contagem da tela contra a contagem que a API tem) à que compara a tela consigo
+mesma: "tem dez colunas" passa nas duas implementações; "40 na tela, 57 na API"
+só passa na certa.
+
 **Espera de teste tem que casar só com o destino.** Duas vezes uma
 `wait_for_selector` casou com a tela ANTERIOR (`.conta h1`, depois
 `.grade .cartao` — que a busca também desenha) e o teste virou moeda. O sinal

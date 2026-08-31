@@ -472,10 +472,34 @@ var Nuvem = (function () {
       '&chave=in.(' + lista + ')');
   }
 
-  function leiturasDe(usuario, limite) {
+  /* `deslocamento` (offset) e o que transforma o trilho de 16 capas do perfil
+     no diario inteiro da pessoa: a mesma consulta, paginada. Continua com
+     `limite` obrigatorio — uma consulta sem teto num diario de mil linhas
+     baixa mil linhas para desenhar as dezesseis de cima. */
+  function leiturasDe(usuario, limite, deslocamento) {
     return publico('feed', '?select=' + CAMPOS_FEED +
       '&usuario=eq.' + encodeURIComponent(usuario) +
-      '&order=lido_em.desc&limit=' + (limite || 40));
+      '&order=lido_em.desc&limit=' + (limite || 40) +
+      (deslocamento ? '&offset=' + deslocamento : ''));
+  }
+
+  /* A distribuicao de notas de UMA pessoa, para o histograma do perfil alheio.
+     Vem da view `distribuicao_de_notas`, e nao de somar as leituras que a tela
+     ja tem em maos: aquelas sao as 40 mais recentes, e um rotulo vitalicio
+     ("como a @bia avalia") calculado sobre amostra recente e o defeito que a
+     primeira regra do CLAUDE.md documenta.
+
+     Por `publico()` e nao `tabela()`: o perfil alheio abre SEM conta, de
+     proposito, e a view tem grant para anon. Com `tabela()` o histograma
+     sumiria em silencio para quem chega por um link compartilhado — que e
+     justamente o caso de uso.
+
+     A linha de `nota` nula vem junto e nao e lixo: `sum(qtd)` de todas as
+     linhas e o total EXATO de leituras da pessoa, e e dele que sai a linha
+     "Leituras" do perfil, que mostrava o tamanho da janela de 40 (D109). */
+  function distribuicaoDe(perfilId) {
+    return publico('distribuicao_de_notas',
+      '?select=nota,qtd&perfil=eq.' + encodeURIComponent(perfilId));
   }
 
   /* As leituras que a comunidade registrou DESTE livro. É a consulta de onde
@@ -924,6 +948,7 @@ var Nuvem = (function () {
     feed:           feed,
     feedGeral:      feedGeral,
     leiturasDe:     leiturasDe,
+    distribuicaoDe: distribuicaoDe,
     leiturasDoLivro: leiturasDoLivro,
     perfilDe:       perfilDe,
     procurarLeitores: procurarLeitores,

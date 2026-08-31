@@ -106,6 +106,33 @@ def servir(rota, estado):
         pf = next((x for x in BANCO.get('perfis', []) if x['id'] == perfil_id), None)
         return bool(pf and pf.get('privado'))
 
+    # ORDER, OFFSET e LIMIT. O laco generico PULAVA os tres ('select', 'order',
+    # 'limit', 'offset') e o ramo do `feed` devolvia a saida inteira. Ou seja:
+    # `leiturasDe(usuario, 40)` devolvia TUDO no mock, e a janela de 40 linhas
+    # — o defeito que o item 14 existe para evitar — era invisivel para a
+    # suite. Somar a distribuicao de notas a partir da janela passaria VERDE
+    # nas quatro suites e sairia truncada no aparelho da usuaria.
+    #
+    # E a oitava vez que este mock precisa aprender uma coisa antes de o teste
+    # medir alguma coisa, e a primeira em que o que ele nao sabia era o teto da
+    # propria consulta. As outras sete estao escritas neste mesmo arquivo.
+    def recortar(saida, q):
+        ordem = q.get('order', [''])[0]
+        if ordem:
+            # `lido_em.desc`, `criado_em.desc.nullslast`, `ordem.asc`
+            partes = ordem.split('.')
+            campo = partes[0]
+            desc = 'desc' in partes[1:]
+            # None nunca compara com str: vira '' para a ordenacao, como o
+            # PostgREST faz com nullslast no caminho descendente.
+            saida = sorted(saida, key=lambda x: (x.get(campo) is None,
+                                                 x.get(campo) or ''), reverse=desc)
+        if 'offset' in q:
+            saida = saida[int(q['offset'][0]):]
+        if 'limit' in q:
+            saida = saida[:int(q['limit'][0])]
+        return saida
+
     def visivel(linha, tab_nome):
         """As mesmas seis portas do esquema, na mesma ordem."""
         if tab_nome in ('leituras', 'marcadores', 'listas'):
@@ -154,7 +181,7 @@ def servir(rota, estado):
             if 'livro' in q and q['livro'][0].startswith('eq.'):
                 alvo = urllib.parse.unquote(q['livro'][0][3:])
                 saida = [x for x in saida if x['livro'] == alvo]
-            return j(saida)
+            return j(recortar(saida, q))
         saida = linhas
         for campo, v in q.items():
             if campo in ('select', 'order', 'limit', 'offset', 'or'): continue
@@ -236,6 +263,34 @@ def servir(rota, estado):
             lim = int(q.get('limit', ['50'])[0])
             return j(saida[:lim])
 
+        # A VIEW `distribuicao_de_notas` nao existe para o mock: o ramo
+        # generico faria BANCO.setdefault('distribuicao_de_notas', []) e
+        # devolveria lista vazia PARA SEMPRE. Toda assercao de "nao desenha
+        # histograma" passaria verde sem medir nada, e so a de "desenha"
+        # falharia — no lugar errado. E a nona vez que este mock precisa
+        # aprender uma coisa antes de o teste valer alguma coisa.
+        #
+        # Ela e montada a partir de BANCO['leituras'] com o MESMO visivel()
+        # que imita as seis politicas, porque a view de verdade e
+        # security_invoker e herda o RLS de `leituras`: um diario fechado
+        # chega ao group by com zero linhas. Imitar o efeito aqui e o que faz
+        # a assercao de "diario fechado nao tem distribuicao" medir algo.
+        #
+        # A linha de `nota` nula forma o proprio grupo, como na view: e dela
+        # que sai o total exato de leituras da pessoa.
+        if tab == 'distribuicao_de_notas':
+            alvo = None
+            if 'perfil' in q and q['perfil'][0].startswith('eq.'):
+                alvo = q['perfil'][0][3:]
+            conta = {}
+            for l in BANCO.get('leituras', []):
+                if alvo and l.get('perfil') != alvo: continue
+                if not visivel(l, 'leituras'): continue
+                chave = (l.get('perfil'), l.get('nota'))
+                conta[chave] = conta.get(chave, 0) + 1
+            return j([{'perfil': k[0], 'nota': k[1], 'qtd': v}
+                      for k, v in conta.items()])
+
         if tab == 'listas':
             if 'lista_itens' in sel:
                 saida = [dict(x, lista_itens=sorted(
@@ -246,7 +301,7 @@ def servir(rota, estado):
                 saida = [dict(x, perfis=next(
                     (dict(usuario=p['usuario'], nome=p['nome'])
                      for p in BANCO['perfis'] if p['id'] == x['perfil']), {})) for x in saida]
-        return j(saida)
+        return j(recortar(saida, q))
 
     # ---- a RPC de apagar a conta, com o cascateamento do esquema -----------
     #
@@ -1842,6 +1897,249 @@ def rodar():
               pg.locator('#estante-do-leitor').is_hidden())
         checa('a frase "está fechado" aparece UMA vez, não uma por seção',
               pg.inner_text('body').count('está fechado') == 1)
+        nav.close()
+
+        # ============ item 14: o histograma e o diário do perfil alheio ====
+        #
+        # 57 leituras, e o número É o teste: MAIS que o limite de 40 de
+        # leiturasDe. É ele que separa "a distribuição veio do servidor" de "a
+        # distribuição veio da janela que a tela já tinha em mãos". Com um
+        # fixture de 5 linhas as duas implementações passam iguais — que é o
+        # mesmo que não ter teste.
+        print('\nperfil alheio: o histograma vem da vida inteira, não da janela')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        BANCO['livros'].append({'chave': '/works/OL2W', 'titulo': 'Vidas Secas',
+                                'autores': ['Graciliano Ramos'], 'ano': 1938,
+                                'capa': 'c2.jpg'})
+        for i in range(57):
+            BANCO['leituras'].append({
+                'id': 'L%02d' % i, 'perfil': 'uid-2',
+                'livro': '/works/OL1W' if i % 2 else '/works/OL2W',
+                'nota': [5.0, 4.0, 3.5][i % 3],
+                'resenha': None, 'spoiler': False, 'relido': False,
+                # as mais ANTIGAS são as de nota 3,5 — se a tela somar só as 40
+                # mais recentes, é essa faixa que encolhe
+                'lido_em': '2026-%02d-%02d' % (i // 28 + 1, i % 28 + 1),
+                'criado_em': '2026-01-01T00:00:00Z', 'cliente_id': 'c%d' % i})
+        # uma leitura SEM nota: não entra em barra nenhuma, mas TEM que entrar
+        # no total da linha "Leituras"
+        BANCO['leituras'].append({
+            'id': 'Lsem', 'perfil': 'uid-2', 'livro': '/works/OL1W', 'nota': None,
+            'resenha': None, 'spoiler': False, 'relido': False,
+            'lido_em': '2025-01-01', 'criado_em': '2025-01-01T00:00:00Z',
+            'cliente_id': 'csem'})
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/leitor/bia', wait_until='networkidle')
+        pg.wait_for_selector('#notas-do-leitor .histograma', timeout=10000)
+
+        # A FONTE: a contagem por nota que a API tem, não a que a tela mostrou.
+        fonte = {}
+        for l in BANCO['leituras']:
+            if l['perfil'] == 'uid-2' and l['nota'] is not None:
+                fonte[l['nota']] = fonte.get(l['nota'], 0) + 1
+        total_api = sum(fonte.values())
+
+        na_tela = pg.evaluate("""() => {
+          var h = document.querySelector('#notas-do-leitor .histograma');
+          if (!h) return -1;
+          return [].slice.call(h.querySelectorAll('.col')).reduce(function (s, c) {
+            var m = (c.getAttribute('title') || '').match(/— (\\d+)/);
+            return s + (m ? parseInt(m[1], 10) : 0);
+          }, 0);
+        }""")
+        checa('o histograma alheio soma o que a API tem, não as 40 da janela',
+              na_tela == total_api,
+              '%d na tela, %d na API (leiturasDe traz no máximo 40)' % (na_tela, total_api))
+
+        # total certo com baldes trocados também é errado
+        baldes = pg.evaluate("""() => {
+          var o = {};
+          [].slice.call(document.querySelectorAll('#notas-do-leitor .col'))
+            .forEach(function (c) {
+              var m = (c.getAttribute('title') || '').match(/^([\\d,]+) — (\\d+)/);
+              if (m) o[m[1]] = parseInt(m[2], 10);
+            });
+          return o;
+        }""")
+        # O rótulo da coluna sai de nota1(), que é String(n) do JS: lá
+        # String(4.0) é "4", não "4.0". Normalizo do mesmo jeito, senão a
+        # asserção falha por causa do zero à direita do Python e não por
+        # causa do app — foi o que aconteceu na primeira execução.
+        def rotulo(n):
+            return (str(int(n)) if float(n) == int(n) else str(n)).replace('.', ',')
+        esperado = dict((rotulo(k), v) for k, v in fonte.items())
+        checa('e cada meia-estrela bate com a contagem da API',
+              all(baldes.get(k, 0) == v for k, v in esperado.items()),
+              '%s vs %s' % (baldes, esperado))
+
+        checa('a linha "Leituras" mostra o total honesto, e não o tamanho da janela',
+              '58' in pg.inner_text('#leitor-numeros'),
+              pg.inner_text('#leitor-numeros').replace('\n', ' | '))
+
+        # o D28/D33 numa tela nova: a distribuição é DELA, não minha
+        checa('nenhuma coluna do histograma alheio marca a MINHA nota',
+              pg.locator('#notas-do-leitor .col.minha').count() == 0)
+        checa('e a legenda diz de QUEM é a distribuição',
+              '@bia' in (pg.get_attribute('#notas-do-leitor .histograma', 'aria-label') or ''),
+              pg.get_attribute('#notas-do-leitor .histograma', 'aria-label'))
+        nav.close()
+
+        # ---- o piso de cinco --------------------------------------------
+        print('\nperfil alheio: abaixo de cinco notas o gráfico não afirma nada')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        for i in range(3):
+            BANCO['leituras'].append({
+                'id': 'P%d' % i, 'perfil': 'uid-2', 'livro': '/works/OL1W',
+                'nota': 4.0, 'resenha': None, 'spoiler': False, 'relido': False,
+                'lido_em': '2026-03-0%d' % (i + 1),
+                'criado_em': '2026-03-01T00:00:00Z', 'cliente_id': 'p%d' % i})
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/leitor/bia', wait_until='networkidle')
+        pg.wait_for_selector('.perfil-topo', timeout=10000)
+        pg.wait_for_timeout(1500)
+        # htmlHistograma normaliza pela coluna mais cheia: UMA nota 4 sai
+        # idêntica a QUATROCENTAS notas 4. Abaixo de cinco não há forma.
+        checa('com 3 avaliações a seção do histograma não é desenhada',
+              pg.locator('#notas-do-leitor').is_hidden()
+              and pg.locator('#notas-do-leitor .histograma').count() == 0)
+        checa('mas a linha "Leituras" continua contando as 3',
+              '3' in pg.inner_text('#leitor-numeros'))
+        nav.close()
+
+        # ---- diário fechado: nem pede, nem desenha -----------------------
+        print('\nperfil alheio: diário fechado não tem distribuição')
+        zerar(); estado = {}
+        BANCO['perfis'][1]['privado'] = True
+        BANCO['livros'].append(LIVRO)
+        for i in range(9):
+            BANCO['leituras'].append({
+                'id': 'F%d' % i, 'perfil': 'uid-2', 'livro': '/works/OL1W',
+                'nota': 5.0, 'resenha': None, 'spoiler': False, 'relido': False,
+                'lido_em': '2026-04-0%d' % (i + 1),
+                'criado_em': '2026-04-01T00:00:00Z', 'cliente_id': 'f%d' % i})
+        nav, ctx, pg = montar(pw, estado)
+        pedidos_dist = []
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        pg.reload(wait_until='networkidle')
+        pg.on('request', lambda r: pedidos_dist.append(r.url)
+              if '/rest/v1/distribuicao_de_notas' in r.url else None)
+        pg.goto(BASE + '#/leitor/bia', wait_until='networkidle')
+        pg.wait_for_selector('.perfil-topo', timeout=10000)
+        pg.wait_for_timeout(1500)
+        checa('com o diário fechado, a distribuição nem é pedida à rede',
+              not pedidos_dist, str(pedidos_dist[:1]))
+        checa('e nenhum histograma é desenhado no perfil privado',
+              pg.locator('#notas-do-leitor .histograma').count() == 0)
+        nav.close()
+
+        # ---- o diário completo alheio ------------------------------------
+        print('\nperfil alheio: o diário completo, paginado')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        # um livro que só existe no SERVIDOR: se a tabela usar livroDe() em vez
+        # do título da linha, ele sai como "Livro"
+        BANCO['livros'].append({'chave': '/works/OL9W', 'titulo': 'Grande Sertão',
+                                'autores': ['Guimarães Rosa'], 'ano': 1956,
+                                'capa': 'c9.jpg'})
+        for i in range(57):
+            BANCO['leituras'].append({
+                'id': 'D%02d' % i, 'perfil': 'uid-2',
+                'livro': '/works/OL9W' if i % 3 else '/works/OL1W',
+                'nota': 4.0, 'resenha': 'Gostei.' if i == 0 else None,
+                'spoiler': False, 'relido': False,
+                'lido_em': '2026-%02d-%02d' % (i // 28 + 1, i % 28 + 1),
+                'criado_em': '2026-01-01T00:00:00Z', 'cliente_id': 'd%d' % i})
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        # EU curti o livro que ela também leu — sem isto a asserção do coração
+        # passa dos dois lados, que é o mesmo que não ter teste
+        pg.evaluate("""() => {
+          var e = JSON.parse(localStorage.getItem('letterbooks:v1'));
+          e.curtidas = ['/works/OL1W', '/works/OL9W'];
+          localStorage.setItem('letterbooks:v1', JSON.stringify(e));
+        }""")
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/leitor/bia/diario', wait_until='networkidle')
+        pg.wait_for_selector('.tabela-diario', timeout=10000)
+
+        def linhas_na_tela():
+            return pg.evaluate("""() => document.querySelectorAll(
+              '.tabela-diario tbody tr:not(.faixa-mes):not(.linha-resenha)').length""")
+
+        checa('a primeira página do diário alheio traz 50 linhas',
+              linhas_na_tela() == 50, str(linhas_na_tela()))
+        checa('e o subtítulo não afirma que são todas',
+              'mais recentes' in pg.inner_text('.sub-pagina'),
+              pg.inner_text('.sub-pagina'))
+        checa('nenhuma linha do diário alheio traz "editar" ou "apagar"',
+              pg.locator('.tabela-diario [data-acao=editar-log]').count() == 0
+              and pg.locator('.tabela-diario [data-acao=apagar-log]').count() == 0)
+        checa('e nenhuma linha carimba a MINHA curtida no diário dela',
+              pg.locator('.tabela-diario .cel-marca i.on').count() == 0,
+              str(pg.locator('.tabela-diario .cel-marca i.on').count()))
+        checa('os títulos saem da linha do servidor, não de livroDe()',
+              'Grande Sertão' in pg.inner_text('.tabela-diario')
+              and 'Livro' not in [c.strip() for c in
+                                  pg.locator('.tabela-diario .cel-livro').all_inner_texts()])
+        checa('a tela tem saída, e ela é a tira de atalhos',
+              pg.locator('.perfil-atalhos a[href="#/leitor/bia"]').count() == 1)
+
+        pg.click('[data-acao=mais]')
+        pg.wait_for_timeout(1500)
+        total_api = len([l for l in BANCO['leituras'] if l['perfil'] == 'uid-2'])
+        checa('"Ver mais" traz o resto, e a contagem bate com a API',
+              linhas_na_tela() == total_api,
+              '%d na tela, %d na API' % (linhas_na_tela(), total_api))
+        checa('e o botão "Ver mais" some quando acabou',
+              pg.locator('[data-acao=mais]').count() == 0)
+        checa('e aí o subtítulo passa a afirmar o total',
+              'registradas' in pg.inner_text('.sub-pagina'),
+              pg.inner_text('.sub-pagina'))
+        nav.close()
+
+        # ---- o diário alheio fechado, e o meu próprio ---------------------
+        print('\ndiário alheio: fechado, e o desvio quando sou eu')
+        zerar(); estado = {}
+        BANCO['perfis'][1]['privado'] = True
+        BANCO['livros'].append(LIVRO)
+        BANCO['leituras'].append({
+            'id': 'X1', 'perfil': 'uid-2', 'livro': '/works/OL1W', 'nota': 5.0,
+            'resenha': None, 'spoiler': False, 'relido': False,
+            'lido_em': '2026-05-01', 'criado_em': '2026-05-01T00:00:00Z',
+            'cliente_id': 'x1'})
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/leitor/bia/diario', wait_until='networkidle')
+        pg.wait_for_selector('.perfil-atalhos', timeout=10000)
+        pg.wait_for_timeout(1200)
+        corpo = pg.inner_text('body')
+        checa('o diário fechado diz que está fechado',
+              'está fechado' in corpo)
+        checa('e NÃO diz que a pessoa não registrou nada',
+              'ainda não registrou' not in corpo)
+        checa('e não desenha tabela nenhuma',
+              pg.locator('.tabela-diario').count() == 0)
+        checa('e mesmo fechado a tela tem saída',
+              pg.locator('.perfil-atalhos a[href="#/leitor/bia"]').count() == 1)
+
+        # sou eu: o endereço alheio do MEU diário desvia para o de verdade
+        pg.goto(BASE + '#/leitor/marcela/diario', wait_until='networkidle')
+        pg.wait_for_timeout(1500)
+        checa('o meu @ no endereço alheio desvia para o meu diário',
+              pg.evaluate("() => location.hash") == '#/diario',
+              pg.evaluate("() => location.hash"))
         nav.close()
 
         # ---- desistir da folha de listas NÃO pode criar a lista ------------

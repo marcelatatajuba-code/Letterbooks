@@ -442,6 +442,32 @@ CASOS = [
         ],
     },
     {
+        'nome': 'perfil-alheio-passa-da-janela-de-40',
+        'defeitos': ['D109'],
+        'porque': 'PRECIPÍCIO CONHECIDO, e este JÁ TINHA CAÍDO: leiturasDe traz no '
+                  'máximo 40 linhas, e a linha "Leituras" do perfil alheio mostrava '
+                  'o tamanho dessa janela — quem tem 57 leituras aparecia com "40", '
+                  'sem nada na tela dizendo que era um teto. O comportamento travado '
+                  'é que o número vem da view de agregação (soma de qtd, com a linha '
+                  'de nota nula inclusa) e não do que a tela tem em mãos. 57 é o '
+                  'número que importa: com menos de 41 leituras as duas '
+                  'implementações dão o mesmo resultado, e o caso não mede nada.',
+        'banco': {'livros': [ACERVO[TORTO]], 'perfis': perfil('marcela', 'bia'),
+                  'leituras': [leitura('J%03d' % i, 'bia', TORTO,
+                                       nota=[5.0, 4.0, 3.5][i % 3], dia=(i % 28) + 1)
+                               for i in range(57)]},
+        'diario': diario(livros=[TORTO]),
+        'sessao': None,
+        'rota': '#/leitor/bia',
+        'esperar': '#leitor-numeros',
+        'checagens': [
+            ('a linha "Leituras" conta as 57, e não as 40 da janela',
+             "document.querySelector('#leitor-numeros').innerText.includes('57')"),
+            ('e ela virou porta para o diário completo',
+             "!!document.querySelector('#leitor-numeros a[href$=\"/diario\"]')"),
+        ],
+    },
+    {
         'nome': 'resenha-no-limite-do-recorte',
         'defeitos': [],
         'porque': 'PRECIPÍCIO CONHECIDO: recortar() corta em 240 caracteres e volta '
@@ -568,6 +594,16 @@ def cobertura(caminho_csv=None):
 # propósito: "não coberto" sem motivo escrito vira dívida invisível.
 
 SO_DE_TELA = {
+    'D113': 'caminho de saída do RASTREADOR (cwd em vez do próprio arquivo), '
+            'não do app — a prova é a data de docs/rastreio.json mudar a cada '
+            'passada, que era o que não acontecia',
+    'D112': 'cobertura do RASTREADOR (faltava uma segunda pessoa no mundo '
+            'semeado), não do app — a prova é #/leitor/<@>/diario passar a '
+            'aparecer na lista de estados visitados de rastreio.json',
+    'D110': 'defeito do MOCK (limit/offset), não do app — a prova de que ele '
+            'foi consertado é a asserção do item 14 ficar vermelha sem ele',
+    'D111': 'defeito de uma PROVA em psql (provar-v4 sem raise), não do app — '
+            'provado desfazendo a política e vendo a prova sair com status 3',
     'D01': 'escala de layout — medida em pixel contra os quadros do vídeo',
     'D02': 'tipografia — idem',
     'D03': 'escala de layout — idem',

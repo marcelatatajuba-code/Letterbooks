@@ -44,6 +44,19 @@ select (select id::text from auth.users where email='ana@x.com')   as id_ana,
        (select id::text from auth.users where email='bruno@x.com') as id_bruno,
        (select id::text from auth.users where email='carla@x.com') as id_carla \gset
 
+-- Os mesmos tres ids, agora tambem em GUCs de sessao. O psql NAO interpola
+-- `:'id_bruno'` dentro de bloco com dolar-aspas — `raise exception` com
+-- :'var' morre com "syntax error at or near :" —, e sem um jeito de nomear o
+-- Bruno la dentro as portas abaixo continuariam sendo `select count(*)`
+-- seguido de `\echo '   ^ 0'`, que NAO e assercao: e olho. O portoes.py roda
+-- este arquivo e le o STATUS do psql, entao um count que volta 2 onde devia
+-- voltar 0 IMPRIME 2, o psql sai com status zero, e o portao continua VERDE.
+-- As doze portas da chave de privacidade nao tinham como ficar vermelhas
+-- (D111). `current_setting` funciona dentro do plpgsql e atravessa `set role`.
+select set_config('prova.ana',   :'id_ana',   false) as g1,
+       set_config('prova.bruno', :'id_bruno', false) as g2,
+       set_config('prova.carla', :'id_carla', false) as g3;
+
 insert into livros (chave, titulo) values ('/works/OL1W', 'Dom Casmurro'),
                                           ('/works/OL2W', 'Vidas Secas'),
                                           ('/works/OL3W', 'A Hora da Estrela');
@@ -88,11 +101,18 @@ insert into seguidores (seguidor, seguido) values
 \echo '--- com a chave DESLIGADA (default false), a Carla ve tudo do Bruno ---'
 select set_config('request.jwt.claim.sub', :'id_carla', false) as carla;
 set role authenticated;
-select (select count(*) from leituras    where perfil = :'id_bruno') as leituras,
-       (select count(*) from marcadores  where perfil = :'id_bruno') as marcadores,
-       (select count(*) from listas      where perfil = :'id_bruno') as listas,
-       (select count(*) from feed        where perfil = :'id_bruno') as no_feed;
-\echo '   ^ 2, 2, 1, 2 — `default false` nao tira nada de ninguem'
+do $$
+declare b uuid := current_setting('prova.bruno')::uuid; l int; m int; li int; f int;
+begin
+  select count(*) into l  from leituras   where perfil = b;
+  select count(*) into m  from marcadores where perfil = b;
+  select count(*) into li from listas     where perfil = b;
+  select count(*) into f  from feed       where perfil = b;
+  if (l, m, li, f) <> (2, 2, 1, 2) then
+    raise exception 'FALHA: `default false` tirou algo de alguem (%, %, %, %)', l, m, li, f;
+  end if;
+end $$;
+\echo '   ok: 2, 2, 1, 2 — `default false` nao tira nada de ninguem'
 reset role;
 
 \echo ''
@@ -103,74 +123,127 @@ update perfis set privado = true where id = :'id_bruno';
 \echo '=== PORTA 1 — leituras. A que NAO tem tela: so a API le por aqui. ==='
 select set_config('request.jwt.claim.sub', :'id_carla', false) as carla2;
 set role authenticated;
-select count(*) as leituras_do_bruno_vistas_pela_carla
-  from leituras where perfil = :'id_bruno';
-\echo '   ^ 0'
-select count(*) as leituras_da_ana_intactas from leituras where perfil = :'id_ana';
-\echo '   ^ 1: fechar o diario do Bruno nao mexeu no da Ana'
+do $$
+declare b uuid := current_setting('prova.bruno')::uuid;
+        a uuid := current_setting('prova.ana')::uuid; n int; na int;
+begin
+  select count(*) into n  from leituras where perfil = b;
+  select count(*) into na from leituras where perfil = a;
+  if n <> 0 then raise exception 'VAZOU porta 1: % leituras do diario fechado', n; end if;
+  if na <> 1 then raise exception 'FALHA: fechar o Bruno mexeu na Ana (%)', na; end if;
+end $$;
+\echo '   ok: 0 do Bruno, e a 1 da Ana intacta'
 
 \echo ''
 \echo '=== PORTA 2 — marcadores. A porta que se esquece: a estante alheia ==='
 \echo '    nao tem tela nenhuma no app, entao ninguem pensa nela. A API tem. ==='
-select count(*) as estante_do_bruno from marcadores where perfil = :'id_bruno';
-\echo '   ^ 0'
+do $$
+declare b uuid := current_setting('prova.bruno')::uuid; n int;
+begin
+  select count(*) into n from marcadores where perfil = b;
+  if n <> 0 then raise exception 'VAZOU porta 2: % marcadores da estante fechada', n; end if;
+end $$;
+\echo '   ok: 0'
 
 \echo ''
 \echo '=== PORTA 3 — listas ==='
-select count(*) as listas_do_bruno from listas where perfil = :'id_bruno';
-\echo '   ^ 0'
+do $$
+declare b uuid := current_setting('prova.bruno')::uuid; n int;
+begin
+  select count(*) into n from listas where perfil = b;
+  if n <> 0 then raise exception 'VAZOU porta 3: % listas do diario fechado', n; end if;
+end $$;
+\echo '   ok: 0'
 
 \echo ''
 \echo '=== PORTA 4 — lista_itens, que herda a decisao da lista ==='
-select count(*) as itens_do_bruno from lista_itens
- where lista = 'cccccccc-0000-0000-0000-000000000001';
+do $$
+declare n int;
+begin
+  select count(*) into n from lista_itens
+   where lista = 'cccccccc-0000-0000-0000-000000000001';
+  if n <> 0 then raise exception 'VAZOU porta 4: % itens de lista fechada', n; end if;
+end $$;
 \echo '   ^ 0: a subconsulta da politica sofre o RLS de `listas`, entao os'
 \echo '     itens fecham sem repetir a regra da privacidade'
 
 \echo ''
 \echo '=== PORTA 5 — curtidas. Nao e so o par (perfil, leitura): e por aqui ==='
 \echo '    que se enumera o uuid de uma leitura privada. ==='
-select count(*) as curtidas_em_leitura_privada from curtidas
- where leitura = 'bbbbbbbb-0000-0000-0000-000000000001';
+do $$
+declare n int;
+begin
+  select count(*) into n from curtidas
+   where leitura = 'bbbbbbbb-0000-0000-0000-000000000001';
+  if n <> 0 then raise exception 'VAZOU porta 5: % curtidas enumeram a leitura privada', n; end if;
+end $$;
 \echo '   ^ 0 — e a Carla e quem tinha curtido: nem quem curtiu ve, porque'
 \echo '     a leitura por baixo sumiu'
-select count(*) as curtidas_na_ana from curtidas
- where leitura = 'aaaaaaaa-0000-0000-0000-000000000001';
+do $$
+declare n int;
+begin
+  select count(*) into n from curtidas
+   where leitura = 'aaaaaaaa-0000-0000-0000-000000000001';
+  if n <> 2 then raise exception 'FALHA: a chave comeu o rastro do Bruno no diario alheio (%)', n; end if;
+end $$;
 \echo '   ^ 2: a leitura da Ana e publica, inclusive a curtida do Bruno privado.'
 \echo '     A chave fecha o diario DELE, nao o rastro dele no diario dos outros.'
 
 \echo ''
 \echo '=== PORTA 6 — comentarios: prosa de terceiro pendurada numa leitura ==='
-select count(*) as comentarios_de_TERCEIROS_em_leitura_privada
-  from comentarios
- where leitura = 'bbbbbbbb-0000-0000-0000-000000000001'
-   and perfil <> :'id_carla';
+do $$
+declare c uuid := current_setting('prova.carla')::uuid; n int;
+begin
+  select count(*) into n from comentarios
+   where leitura = 'bbbbbbbb-0000-0000-0000-000000000001' and perfil <> c;
+  if n <> 0 then raise exception 'VAZOU porta 6: % comentarios de terceiro em leitura privada', n; end if;
+end $$;
 \echo '   ^ 0: o comentario da Ana na leitura fechada do Bruno sumiu para a'
 \echo '     Carla. E ESTE o vazamento — prosa de terceiro pendurada num diario'
 \echo '     privado, endereçavel por `?leitura=eq.<uuid>`.'
-select count(*) as meu_proprio_comentario from comentarios
- where leitura = 'bbbbbbbb-0000-0000-0000-000000000001'
-   and perfil = :'id_carla';
+do $$
+declare c uuid := current_setting('prova.carla')::uuid; n int;
+begin
+  select count(*) into n from comentarios
+   where leitura = 'bbbbbbbb-0000-0000-0000-000000000001' and perfil = c;
+  if n <> 1 then raise exception 'FALHA: quem escreveu perdeu o proprio texto (%)', n; end if;
+end $$;
 \echo '   ^ 1, e de proposito: a primeira metade do predicado devolve o proprio'
 \echo '     texto a quem escreveu. Fechar o diario alheio nao apaga a fala de'
 \echo '     ninguem, e nao revela nada novo a quem ja escreveu ali.'
 
 \echo ''
 \echo '=== PORTA 7 — a view `feed`, e os CINCO consumidores dela ==='
-select count(*) as bruno_no_feed from feed where perfil = :'id_bruno';
+do $$
+declare b uuid := current_setting('prova.bruno')::uuid; n int;
+begin
+  select count(*) into n from feed where perfil = b;
+  if n <> 0 then raise exception 'VAZOU porta 7: % linhas do diario fechado na view feed', n; end if;
+end $$;
 \echo '   ^ 0: a view e security_invoker, entao ela nao e uma porta propria —'
 \echo '     herda o RLS de leituras. Isto cobre feed, feedGeral, leiturasDe,'
 \echo '     leiturasDoLivro E o quinto, que nao aparece em grep por nome de'
 \echo '     funcao: o `publico("feed","?select=*&id=eq.")` do link de resenha.'
-select count(*) as link_de_resenha_privada from feed
- where id = 'bbbbbbbb-0000-0000-0000-000000000001';
+do $$
+declare n int;
+begin
+  select count(*) into n from feed where id = 'bbbbbbbb-0000-0000-0000-000000000001';
+  if n <> 0 then raise exception 'VAZOU: o link de resenha privada ainda abre (%)', n; end if;
+end $$;
 \echo '   ^ 0: um link de resenha compartilhado antes para de abrir. De'
 \echo '     proposito — mas a tela tem que dizer "privado", nao "apagada".'
-select count(*) as feed_da_ana from feed where perfil = :'id_ana';
-\echo '   ^ 1'
-select curtidas, comentarios from feed where perfil = :'id_ana';
-\echo '   ^ 2 e 1: as subconsultas de contagem da view tambem rodam sob o RLS'
-\echo '     do invocador, e a leitura da Ana e publica, entao contam certo'
+do $$
+declare a uuid := current_setting('prova.ana')::uuid; n int; cu int; co int;
+begin
+  select count(*) into n from feed where perfil = a;
+  if n <> 1 then raise exception 'FALHA: a Ana sumiu do feed (%)', n; end if;
+  select curtidas, comentarios into cu, co from feed where perfil = a;
+  if (cu, co) <> (2, 1) then
+    raise exception 'FALHA: as subconsultas da view contaram errado (% e %)', cu, co;
+  end if;
+end $$;
+\echo '   ok: 1 linha, com 2 curtidas e 1 comentario — as subconsultas de'
+\echo '     contagem tambem rodam sob o RLS do invocador'
 
 \echo ''
 \echo '=== PORTA 8 — a `avisos` NAO pode quebrar. Esta e a assercao que pega ==='
@@ -178,56 +251,100 @@ select curtidas, comentarios from feed where perfil = :'id_ana';
 reset role;
 select set_config('request.jwt.claim.sub', :'id_ana', false) as ana;
 set role authenticated;
-select tipo, quem = :'id_bruno' as veio_do_bruno from avisos order by tipo;
-\echo '   ^ tem que ter curtida E comentario vindos do Bruno PRIVADO.'
-\echo '     A view e INNER JOIN em perfis: se o predicado morasse la, estas'
-\echo '     duas linhas sumiriam sem erro, sem log e sem teste vermelho.'
-select count(*) as avisos_da_ana from avisos;
+do $$
+declare b uuid := current_setting('prova.bruno')::uuid; doBruno int; total int;
+begin
+  select count(*) into doBruno from avisos
+   where quem = b and tipo in ('curtida', 'comentario');
+  if doBruno <> 2 then
+    raise exception 'FALHA porta 8: os avisos vindos do Bruno PRIVADO sumiram (%). '
+                    'E o que acontece se o predicado for movido para perfis: a '
+                    'view e INNER JOIN em perfis e as linhas somem sem erro.', doBruno;
+  end if;
+  select count(*) into total from avisos;
+  if total <> 4 then
+    raise exception 'FALHA porta 8: a Ana devia ter 4 avisos, tem %', total;
+  end if;
+end $$;
 \echo '   ^ 4: curtida do Bruno, curtida da Carla, comentario do Bruno e o'
 \echo '     Bruno tendo comecado a seguir a Ana — TODOS os tres tipos de aviso'
 \echo '     atravessam a privacidade de quem os gerou, que e o ponto.'
 
 \echo ''
 \echo '=== PORTAS 9 e 10 — perfis e seguidores continuam PUBLICOS, de proposito ==='
-select count(*) as perfil_do_bruno_ainda_achavel from perfis where id = :'id_bruno';
+do $$
+declare b uuid := current_setting('prova.bruno')::uuid; n int;
+begin
+  select count(*) into n from perfis where id = b;
+  if n <> 1 then raise exception 'FALHA: diario privado nao pode sumir o PERFIL (%)', n; end if;
+end $$;
 \echo '   ^ 1: diario privado nao e perfil invisivel. O cartao (nome, @, bio)'
 \echo '     continua achavel pelo @ — senao a `avisos` e a `feed`, que sao'
 \echo '     INNER JOIN em perfis, fariam a pessoa sumir de telas onde so o'
 \echo '     nome dela apareceria. Quem quer sumir do indice apaga a conta.'
-select count(*) as seguidores_publicos from seguidores where seguido = :'id_bruno';
-\echo '   ^ 1: quem segue quem continua publico. Seguir nao e conteudo.'
+do $$
+declare b uuid := current_setting('prova.bruno')::uuid; n int;
+begin
+  select count(*) into n from seguidores where seguido = b;
+  if n <> 1 then raise exception 'FALHA: seguir nao e conteudo, devia continuar publico (%)', n; end if;
+end $$;
+\echo '   ok: 1 — quem segue quem continua publico. Seguir nao e conteudo.'
 
 \echo ''
 \echo '=== 4. o DONO continua vendo o diario dele inteiro ==='
 reset role;
 select set_config('request.jwt.claim.sub', :'id_bruno', false) as bruno;
 set role authenticated;
-select (select count(*) from leituras    where perfil = :'id_bruno') as leituras,
-       (select count(*) from marcadores  where perfil = :'id_bruno') as marcadores,
-       (select count(*) from listas      where perfil = :'id_bruno') as listas,
-       (select count(*) from lista_itens
-         where lista = 'cccccccc-0000-0000-0000-000000000001')       as itens,
-       (select count(*) from feed        where perfil = :'id_bruno') as no_feed;
-\echo '   ^ 2, 2, 1, 2, 2 — tudo. Privacidade e sobre terceiros; fechar o'
-\echo '     diario e nao poder mais ler o proprio diario seria um defeito.'
-select count(*) as curtidas_que_recebi from curtidas
- where leitura in (select id from leituras where perfil = :'id_bruno');
-\echo '   ^ 1: ele continua vendo quem curtiu a leitura fechada dele'
+do $$
+declare b uuid := current_setting('prova.bruno')::uuid;
+        l int; m int; li int; it int; f int; cu int;
+begin
+  select count(*) into l  from leituras    where perfil = b;
+  select count(*) into m  from marcadores  where perfil = b;
+  select count(*) into li from listas      where perfil = b;
+  select count(*) into it from lista_itens where lista = 'cccccccc-0000-0000-0000-000000000001';
+  select count(*) into f  from feed        where perfil = b;
+  select count(*) into cu from curtidas
+   where leitura in (select id from leituras where perfil = b);
+  if (l, m, li, it, f) <> (2, 2, 1, 2, 2) then
+    raise exception 'FALHA: o DONO perdeu o proprio diario (%, %, %, %, %)', l, m, li, it, f;
+  end if;
+  if cu <> 1 then
+    raise exception 'FALHA: o dono parou de ver quem curtiu a leitura fechada dele (%)', cu;
+  end if;
+end $$;
+\echo '   ok: 2, 2, 1, 2, 2 e 1 curtida recebida — privacidade e sobre'
+\echo '     terceiros; nao poder ler o proprio diario seria um defeito.'
 
 \echo ''
 \echo '=== 11. visitante (anon) nao ve nada de quem fechou o diario ==='
 reset role;
 select set_config('request.jwt.claim.sub', '', false) as sem_claim;
 set role anon;
-select (select count(*) from leituras    where perfil = :'id_bruno') as leituras,
-       (select count(*) from marcadores  where perfil = :'id_bruno') as marcadores,
-       (select count(*) from listas      where perfil = :'id_bruno') as listas,
-       (select count(*) from feed        where perfil = :'id_bruno') as no_feed;
-\echo '   ^ 0, 0, 0, 0. Atencao ao motivo: sem sessao auth.uid() e NULO, entao'
+do $$
+declare b uuid := current_setting('prova.bruno')::uuid; l int; m int; li int; f int;
+begin
+  select count(*) into l  from leituras   where perfil = b;
+  select count(*) into m  from marcadores where perfil = b;
+  select count(*) into li from listas     where perfil = b;
+  select count(*) into f  from feed       where perfil = b;
+  if (l, m, li, f) <> (0, 0, 0, 0) then
+    raise exception 'VAZOU para VISITANTE: %, %, %, %', l, m, li, f;
+  end if;
+end $$;
+\echo '   ok: 0, 0, 0, 0. Atencao ao motivo: sem sessao auth.uid() e NULO, entao'
 \echo '     `perfil = auth.uid()` e nulo — e a primeira metade do predicado nao'
 \echo '     salva ninguem. Quem protege aqui e o `not exists`.'
-select count(*) as ana_ainda_publica_para_visitante from feed where perfil = :'id_ana';
-\echo '   ^ 1: o app continua abrindo sem conta para o resto do acervo'
+do $$
+declare a uuid := current_setting('prova.ana')::uuid; n int;
+begin
+  select count(*) into n from feed where perfil = a;
+  if n <> 1 then
+    raise exception 'FALHA: o visitante perdeu o acervo PUBLICO (%) — zero em '
+                    'tudo tambem e a assinatura de um banco cego', n;
+  end if;
+end $$;
+\echo '   ok: 1 — o app continua abrindo sem conta para o resto do acervo'
 reset role;
 
 \echo ''
@@ -235,10 +352,17 @@ reset role;
 update perfis set privado = false where id = :'id_bruno';
 select set_config('request.jwt.claim.sub', :'id_carla', false) as carla3;
 set role authenticated;
-select (select count(*) from leituras where perfil = :'id_bruno') as leituras,
-       (select count(*) from listas   where perfil = :'id_bruno') as listas,
-       (select count(*) from feed     where perfil = :'id_bruno') as no_feed;
-\echo '   ^ 2, 1, 2 — de volta. A chave e ESTADO, nao destruicao: nada foi'
+do $$
+declare b uuid := current_setting('prova.bruno')::uuid; l int; li int; f int;
+begin
+  select count(*) into l  from leituras where perfil = b;
+  select count(*) into li from listas   where perfil = b;
+  select count(*) into f  from feed     where perfil = b;
+  if (l, li, f) <> (2, 1, 2) then
+    raise exception 'FALHA: desligar a chave nao devolveu tudo (%, %, %)', l, li, f;
+  end if;
+end $$;
+\echo '   ok: 2, 1, 2 — de volta. A chave e ESTADO, nao destruicao: nada foi'
 \echo '     apagado enquanto ela esteve ligada. Quem quer destruir apaga a'
 \echo '     conta, que e a outra metade deste item.'
 reset role;

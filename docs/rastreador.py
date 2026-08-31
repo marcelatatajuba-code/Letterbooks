@@ -34,6 +34,8 @@ from playwright.sync_api import sync_playwright
 import testar_social as S
 
 BASE = S.BASE
+SAIDA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'rastreio.json')
+
 MAX_ESTADOS = 90
 # 14 cortava a lista de ajustes do perfil no meio, e o rastreador nunca
 # chegava em #/conta — reprovava a cobertura por limitacao MINHA, nao do app.
@@ -244,6 +246,38 @@ def rastrear():
         J.criarConta(pg, 'ana@x.com', nome='Ana')
         J.registrarLeitura(pg, '%2Fworks%2FOL1W', 5, 'Uma resenha para o rastreador achar.')
         print('  entrou como @ana, com uma leitura registrada')
+
+        # UMA SEGUNDA PESSOA, e ela nao e enfeite: sem outro perfil no banco, o
+        # rastreador NUNCA alcanca #/leitor/<@> — nao ha ninguem para visitar —
+        # e portanto nunca alcancou o perfil alheio (desde a V11) nem o diario
+        # alheio (desde a V12). Ele relatava "14 de 14 telas" e "0 achados"
+        # sobre um app em que duas rotas inteiras nunca foram abertas: zero
+        # achado que quer dizer "nao mediu" e a mesma classe de defeito que o
+        # portao de RLS tinha quando so conferia se o arquivo existia (D112).
+        #
+        # 57 leituras, e o numero e o mesmo do teste do item 14: mais que as 40
+        # de leiturasDe e mais que as 50 da primeira pagina do diario, entao o
+        # "Ver mais" existe e o rastreador tem que clicar nele.
+        S.BANCO['perfis'].append({'id': 'uid-bia', 'usuario': 'bia', 'nome': 'Bia',
+                                  'bio': 'leio de tudo', 'local': 'Recife'})
+        for i in range(57):
+            S.BANCO['leituras'].append({
+                'id': 'R%02d' % i, 'perfil': 'uid-bia', 'livro': '/works/OL1W',
+                'nota': [5.0, 4.0, 3.5][i % 3],
+                'resenha': 'Resenha da Bia.' if i == 0 else None,
+                'spoiler': False, 'relido': False,
+                'lido_em': '2026-%02d-%02d' % (i // 28 + 1, i % 28 + 1),
+                'criado_em': '2026-01-01T00:00:00Z', 'cliente_id': 'r%d' % i})
+        # E a Ana SEGUE a Bia. Sem isto o feed de Amigos nao mostra a Bia,
+        # nenhum link para #/leitor/bia aparece na tela, e o rastreador — que
+        # so anda por links que ele ve — continua sem alcancar o perfil alheio.
+        # O id da Ana sai do proprio banco: criarConta acabou de escreve-lo.
+        eu = [x for x in S.BANCO['perfis'] if x.get('usuario') != 'bia']
+        if eu:
+            S.BANCO['seguidores'].append({'seguidor': eu[0]['id'], 'seguido': 'uid-bia',
+                                          'criado_em': '2026-01-01T00:00:00Z'})
+        print('  e @bia existe, com 57 leituras, seguida pela @ana —'
+              ' senao #/leitor nunca e visitado')
 
         fila = ['#/inicio']
         while fila and len(visitadas) < MAX_ESTADOS:
@@ -461,8 +495,16 @@ def relatar(erros_console):
                'achados': achados, 'curas': curas,
                'cobertura': [{'grupo': l[0], 'tela': l[1], 'rota': l[3],
                               'alcancada': l[4]} for l in linhas]},
-              open('rastreio.json', 'w'), indent=1, ensure_ascii=False)
-    print('\n(detalhe completo em rastreio.json)')
+              # CAMINHO ABSOLUTO, relativo a ESTE arquivo e nao ao diretorio de
+              # onde se chamou. Era `open('rastreio.json', 'w')`: rodar
+              # `python3 docs/rastreador.py` da raiz do repositorio escrevia
+              # `./rastreio.json`, enquanto o portoes.py le SEMPRE
+              # `docs/rastreio.json` — entao o portao pontuava um rastreio
+              # VELHO, de antes das mudancas, e dizia "0 achados graves" sobre
+              # um app que nem tinha sido percorrido. A terceira ferramenta
+              # desta volta a relatar verde sobre coisa que nao mediu (D113).
+              open(SAIDA, 'w'), indent=1, ensure_ascii=False)
+    print('\n(detalhe completo em %s)' % SAIDA)
     return len([a for a in achados if a['gravidade'] == 'alta'])
 
 

@@ -136,7 +136,8 @@
       "resumo": "Os dois buracos que sobraram da feature \"Perfil de outra pessoa\" depois da V11. Precisa de SERVIDOR: a distribuição não pode sair da janela de 40 linhas que `leiturasDe` traz — seria um rótulo vitalício sobre amostra recente, o defeito do histograma outra vez. Exige `Prefer: count=exact` em `pedir()` ou uma view de agregação. Traz junto a rota do diário alheio, que não existe.",
       "valor": "É o par do item 13, e o par importa: o GPM mostrou que recorte solto não fecha feature. Só com os dois entregues a feature vira `completo` e a paridade se move.",
       "esforco": "M",
-      "depende": "item 13"
+      "depende": "item 13",
+      "entregue": "V12. View de agregacao distribuicao_de_notas (security_invoker, grant a anon e authenticated) + provar-v7.sql com controle negativo: afrouxar a politica faz a prova estourar. Histograma no perfil alheio com piso de 5, rota #/leitor/<@>/diario paginada, e a linha \"Leituras\" deixando de mostrar o tamanho da janela de 40 (D109)."
     }
   ],
   "cortados": [

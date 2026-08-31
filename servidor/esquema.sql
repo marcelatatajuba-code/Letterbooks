@@ -537,6 +537,80 @@ revoke all on avisos from anon;
 grant select on avisos to authenticated;
 
 -- ============================================================================
+-- Distribuição de notas por perfil — "como esta pessoa avalia".
+--
+-- POR QUE UMA VIEW, e não `Prefer: count=exact`: a distribuição do perfil
+-- alheio NÃO pode sair da janela de 40 linhas que `leiturasDe` traz. Quarenta
+-- leituras recentes viram um rótulo VITALÍCIO ("como a @bia avalia") sobre
+-- amostra recente — a mesma classe de defeito que a primeira regra do
+-- CLAUDE.md documenta, e que o histograma da ficha já custou uma vez. E o
+-- `count=exact` mora no cabeçalho Content-Range, que `pedir()` descarta
+-- (js/nuvem.js:130): lê-lo exigiria mudar a função por onde passa TODA
+-- requisição do aplicativo, e depois DEZ requisições, uma por meia-estrela,
+-- numa tela que já faz sete idas à rede. Isso está escrito no próprio código,
+-- na justificativa do `temAvisoNovo`, que trocou `count=exact` por `limit=1`
+-- exatamente por isso.
+--
+-- POR QUE ELA NÃO REPETE O PREDICADO DE `privado`, e este é o ponto inteiro:
+-- `security_invoker = on` faz a agregação rodar sob o RLS de QUEM CONSULTA. A
+-- política "diário é público, salvo se privado" filtra as linhas ANTES do
+-- `group by`, e um diário fechado chega ao agregado com zero linhas — `group
+-- by` sobre zero linhas produz zero grupos. Não há distribuição para vazar
+-- porque não há linha para agregar. Escrever o `not exists` aqui seria a
+-- SÉTIMA cópia de uma regra que este arquivo declara em seis lugares de
+-- propósito, e a sétima é a que diverge no dia em que a chave mudar.
+--
+-- SEM o `security_invoker` a view roda com os poderes de quem a criou e
+-- devolve a distribuição de TODO diário fechado do aplicativo, inclusive para
+-- visitante sem conta. É a única linha deste arquivo cuja ausência passa
+-- VERDE nas quatro suítes de docs/ — nenhuma delas aplica RLS. Quem pega é o
+-- provar-v7.sql, e só porque ele tem controle negativo.
+--
+-- POR QUE NÃO É RPC: `security definer` ignora o RLS por inteiro e teria de
+-- reimplementar o predicado na mão. O único `security definer` deste esquema
+-- é `apagar_minha_conta()`, e ele se paga por ter ZERO argumentos — não há id
+-- para forjar. Uma função de distribuição recebe o perfil-alvo, que é o
+-- oposto do critério que justificou o precedente.
+--
+-- O grupo de `nota` NULA fica de propósito: `sum(qtd)` passa a ser o total
+-- exato de leituras da pessoa. É ele que conserta a linha "Leituras" do perfil
+-- alheio, que mostrava `leituras.length` — no máximo 40, para sempre, em
+-- qualquer diário maior que isso (D109).
+--
+-- `::int` não é enfeite: garante número no JSON e não a string de um `bigint`,
+-- que faria `f.qtd` virar concatenação dentro do htmlHistograma.
+--
+-- `drop view if exists` pelo mesmo motivo da `feed` e da `avisos` (D72), ainda
+-- que as três colunas aqui sejam escritas à mão e um `create or replace`
+-- funcionasse HOJE: quem acrescentar `media` ou `total` amanhã levaria
+-- `cannot change name of view column` DEPOIS de os `alter table` do topo já
+-- terem rodado, e deixaria o banco pela metade. E duas views com drop e uma
+-- sem é convite a copiar a errada. O grant vem colado porque o drop leva os
+-- privilégios junto.
+-- ============================================================================
+
+drop view if exists distribuicao_de_notas;
+
+create view distribuicao_de_notas
+  with (security_invoker = on) as
+  select l.perfil,
+         l.nota,
+         count(*)::int as qtd
+    from leituras l
+   group by l.perfil, l.nota;
+
+-- `anon` inclusive, e não por descuido: #/leitor/<@> abre SEM conta de
+-- propósito, por `publico()`. Esquecer o anon aqui faz o histograma existir
+-- para quem entrou e sumir em silêncio para o visitante — que é justamente
+-- quem chega por um link compartilhado, o caso de uso do item. O PostgREST
+-- devolve lista vazia sem erro nenhum, então isso não apareceria como falha.
+grant select on distribuicao_de_notas to anon, authenticated;
+
+-- A consulta é sempre `?perfil=eq.<uuid>`: o índice de leituras por perfil já
+-- serve o filtro, e o `not exists` da política cai no índice parcial
+-- `perfis_privados`. Medido com explain: não é varredura da tabela.
+
+-- ============================================================================
 -- Ao criar uma conta, criar o perfil junto — senão a pessoa entra e não
 -- existe em lugar nenhum. O @ inicial sai do e-mail e ganha sufixo se
 -- já estiver tomado.
