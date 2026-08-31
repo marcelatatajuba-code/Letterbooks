@@ -983,7 +983,7 @@
     }
 
     /* ---- as resenhas escritas sobre este livro ---- */
-    var resenhas = rede.leituras.filter(function (l) { return l.resenha; });
+    var resenhas = semOsDenunciados(rede.leituras.filter(function (l) { return l.resenha; }));
     if (resenhas.length) {
       var mostra = resenhas.slice(0, rede.mostrando);
       /* Sem contagem e sem chevron no título: não há contagem exata sem
@@ -1409,6 +1409,29 @@
       botoes.push('<button class="botao" id="botao-seguir" data-acao="seguir" disabled>…</button>');
     }
 
+    /* A denúncia NÃO entra na fileira de botões. Um `.botao` é par entre
+       iguais, e pôr a ação mais rara do app no mesmo peso de "Ver o livro" —
+       encostada em [Seguir], com 9px de vão — é erro de leitura esperando o
+       primeiro dedo grosso. Ela vira uma linha só, abaixo da fileira, em
+       versalete apagado.
+
+       Não se confunde com "Apagar" por três coisas que não dependem de
+       atenção: `v.minha` e `!v.minha` nunca coexistem; as formas e os lugares
+       são outros (pílula na ponta da fileira × versalete sozinho embaixo); e
+       as cores são outras (--perigo × --texto-2). */
+    /* Na PRÓPRIA página da resenha denunciada não se esconde a página inteira:
+       o endereço tem que continuar abrindo, senão quem clica num link antigo
+       cai num vazio que mente. O corpo vem coberto, e quem quiser ler lê. */
+    var jaDenunciei = v.noAr && !v.minha && denunciadoPorMim('leitura', v.id);
+    var linhaDenunciar =
+      jaDenunciei
+        ? '<p class="denunciar-linha"><span class="mais sem-link">' +
+          'Você já denunciou esta resenha.</span></p>'
+        : (v.noAr && !v.minha && v.resenha)
+          ? '<p class="denunciar-linha"><button class="mais" data-acao="denunciar-resenha">' +
+            'Denunciar esta resenha</button></p>'
+          : '';
+
     var quem = v.usuario
       ? '<a class="resenha-quem" href="#/leitor/' + encodeURIComponent(v.usuario) + '">' +
           '<span class="feed-avatar" aria-hidden="true">' +
@@ -1435,7 +1458,16 @@
        sabe o que escreveu — vem com o rótulo de aviso, como sempre veio. O de
        outra pessoa fica atrás do botão. O rótulo era style inline com --a1,
        verde de "o que você fez" num aviso; virou classe, em --texto-3. */
-    var corpo = v.resenha
+    /* Reusa a mesma capa do spoiler, de propósito: o gesto já existe no app e
+       não precisa ser aprendido duas vezes. E ela vem ANTES do teste de
+       spoiler — uma resenha denunciada com spoiler tem uma capa só, não duas
+       empilhadas. */
+    var corpo = (v.resenha && jaDenunciei)
+      ? '<div class="resenha-corpo">' +
+          '<button class="spoiler-aviso" data-acao="ver-spoiler" data-texto="' +
+          esc(v.resenha) + '">Você denunciou esta resenha. Ela continua no ar para ' +
+          'as outras pessoas. Tocar para ler mesmo assim.</button></div>'
+      : v.resenha
       ? '<div class="resenha-corpo">' +
           (v.spoiler && !v.minha
             ? '<button class="spoiler-aviso" data-acao="ver-spoiler" data-texto="' +
@@ -1491,6 +1523,7 @@
         corpo +
         acoesSociais +
         '<div class="linha-botoes resenha-botoes">' + botoes.join('') + '</div>' +
+        linhaDenunciar +
       '</article>' +
       (v.noAr ? htmlSecaoComentarios(v) : ''));
 
@@ -1513,6 +1546,15 @@
         Nuvem.apagarComentario(b.getAttribute('data-id')).then(function () {
           linha.remove();
         }, function (e) { aviso(e.message); });
+      },
+      'denunciar-resenha': function () {
+        abrirFolhaDenuncia({ tipo: 'leitura', id: v.id,
+                             oQue: 'esta resenha', quem: v.usuario });
+      },
+      'denunciar-comentario': function (b) {
+        abrirFolhaDenuncia({ tipo: 'comentario', id: b.getAttribute('data-id'),
+                             oQue: 'este comentário',
+                             quem: b.getAttribute('data-nome') });
       }
     });
 
@@ -1527,7 +1569,13 @@
     var cs = v.comentarios || [];
     return '<section class="secao" id="comentarios" style="margin-top:26px">' +
       '<h2>' + plural(cs.length, 'comentário', 'comentários') + '</h2>' +
-      '<div id="lista-comentarios">' + cs.map(htmlComentario).join('') + '</div>' +
+      /* `.map(htmlComentario)` passava o ÍNDICE como segundo argumento, então
+         `dona` chegaria 0, 1, 2… e o × apareceria em todo comentário menos o
+         primeiro. A função anônima existe só para não deixar isso acontecer. */
+      '<div id="lista-comentarios">' +
+        cs.filter(function (c) { return !denunciadoPorMim('comentario', c.id); })
+          .map(function (c) { return htmlComentario(c, !!v.minha); }).join('') +
+      '</div>' +
       (Nuvem.entrou()
         ? '<form id="forma-comentario" style="margin-top:14px">' +
             '<label class="campo"><span>Seu comentário</span>' +
@@ -1651,6 +1699,7 @@
       if (alvo.getAttribute('data-fechar') === 'fundo' && ev.target !== alvo) return;
       camada.innerHTML = '';
     });
+    ligarEscape();
   }
 
   function executarLink(qual, o) {
@@ -1712,6 +1761,7 @@
       if (alvo.getAttribute('data-fechar') === 'fundo' && ev.target !== alvo) return;
       camada.innerHTML = '';
     });
+    ligarEscape();
   }
 
   /* =============================================================== TELA: resenhas */
@@ -1785,7 +1835,7 @@
       }
       alvo.innerHTML = '<p class="sub-pagina">' +
         plural(linhas.length, 'resenha', 'resenhas') + ' para ler.</p>' +
-        linhas.map(htmlLinhaFeed).join('');
+        semOsDenunciados(linhas).map(htmlLinhaFeed).join('');
       ligarCurtidas(alvo);
     }, function (err) {
       if (tela.contains(alvo)) {
@@ -2081,6 +2131,7 @@
       if (alvo.getAttribute('data-fechar') === 'fundo' && ev.target !== alvo) return;
       camada.innerHTML = '';
     });
+    ligarEscape();
   }
 
   /* ================================================================== TELA: autor */
@@ -2970,7 +3021,7 @@
               '<a class="botao destaque" href="#/atividade/todos">Ver todo mundo</a></div>');
         return;
       }
-      alvo.innerHTML = linhas.map(htmlLinhaFeed).join('');
+      alvo.innerHTML = semOsDenunciados(linhas).map(htmlLinhaFeed).join('');
       ligarCurtidas(alvo);
     }, function (err) {
       if (tela.contains(alvo)) {
@@ -3173,7 +3224,7 @@
          que há zero resenhas, que é a mesma mentira noutro lugar. */
       (comResenha.length && !p.privado
         ? '<section class="secao"><h2>Resenhas</h2>' +
-          comResenha.slice(0, 10).map(htmlLinhaFeed).join('') + '</section>'
+          semOsDenunciados(comResenha).slice(0, 10).map(htmlLinhaFeed).join('') + '</section>'
         : '') +
 
       (leituras.length
@@ -3430,7 +3481,7 @@
      endereço, com curtida e comentário mas sem editar, apagar ou compartilhar.
      Foram absorvidas por desenhaResenha, que agora é a tela única. */
 
-  function htmlComentario(c) {
+  function htmlComentario(c, dona) {
     var p = c.perfis || {};
     var nome = p.nome || p.usuario || 'alguém';
     var eu = Nuvem.entrou() ? Nuvem.quemSou() : null;
@@ -3443,8 +3494,27 @@
           '<time>' + esc(quandoFoi(c.criado_em)) + '</time></p>' +
         '<p class="comentario-texto">' + esc(c.texto) + '</p>' +
       '</div>' +
-      (meu ? '<button class="comentario-apagar" data-acao="apagar-comentario" data-id="' +
-             esc(c.id) + '" aria-label="Apagar comentário">×</button>' : '') +
+      /* A terceira coluna da grade já existe e ficava VAZIA metade do tempo:
+         ela recebia o × só quando o comentário era seu e colapsava em 0px
+         quando era de outra pessoa. É o slot "o controle que esta linha te
+         oferece", desocupado desde que a lista nasceu — por isso a bandeira
+         entra aqui e não num menu de três pontos, que seria um menu de um
+         item só, ou seja, um botão com tampa.
+
+         `dona` é o segundo controle deste item: o RLS já deixava a dona da
+         resenha apagar comentário de qualquer pessoa nela desde o primeiro
+         dia, e a tela nunca ofereceu. Era uma condição num `if`. Sem isto o
+         item inteiro entrega um registro que ninguém lê; com isto, entrega a
+         única ação com efeito real diante de um comentário abusivo. */
+      (meu || dona
+        ? '<button class="comentario-apagar" data-acao="apagar-comentario" data-id="' +
+          esc(c.id) + '" aria-label="Apagar comentário">×</button>'
+        : '') +
+      (!meu && Nuvem.entrou()
+        ? '<button class="comentario-denunciar" data-acao="denunciar-comentario" ' +
+          'data-id="' + esc(c.id) + '" data-nome="' + esc(nome) + '" ' +
+          'aria-label="Denunciar comentário de ' + esc(nome) + '">⚑</button>'
+        : '') +
     '</div>';
   }
 
@@ -3929,6 +3999,24 @@
         '<p class="conta-texto">Fechar esconde, não apaga. Abrir de novo traz tudo de ' +
           'volta, inclusive os comentários.</p>' +
 
+        /* A volta atrás do esconder mora aqui, e não é enfeite: sem ela um
+           toque errado esconde a resenha de uma amiga para sempre naquele
+           aparelho, sem nenhuma porta. Só aparece quando há o que desfazer —
+           uma linha permanente dizendo "0 escondidos" é ruído. */
+        (quantosDenunciados()
+          ? '<section class="secao"><h2>Escondido neste aparelho</h2>' +
+            '<p class="conta-texto">' +
+              plural(quantosDenunciados(), 'coisa que você denunciou está escondida',
+                     'coisas que você denunciou estão escondidas') +
+              ' aqui. Elas continuam no ar para as outras pessoas — esconder é ' +
+              'só deste aparelho, e não desfaz a denúncia.</p>' +
+            '<div class="linhas">' +
+              linhaAjuste('button', 'type="button" class="sem-chevron" ' +
+                          'data-acao="mostrar-denunciados"',
+                          'Mostrar tudo de novo', '') +
+            '</div></section>'
+          : '') +
+
         '<section class="bloco espelho" id="espelho">' +
           '<span class="rotulo">Como outra pessoa vê você</span>' +
           '<p class="conta-texto">Carregando…</p>' +
@@ -3937,6 +4025,12 @@
     );
 
     acoes({
+      'mostrar-denunciados': function () {
+        esquecerDenuncias();
+        aviso('Tudo voltou a aparecer. As denúncias continuam registradas.');
+        desenhaPrivacidade(p);
+        espelharPrivacidade(p);
+      },
       'escolher-privacidade': function (b) {
         var querFechado = b.getAttribute('data-valor') === 'fechado';
         if (querFechado === fechado) return;
@@ -4018,6 +4112,219 @@
 
      E o botão de exportar fica ao lado, antes: porta destrutiva sem a cópia
      do lado é armadilha. */
+  /* ---- as duas peças que toda folha devia ter tido desde o começo -------
+
+     ESCAPE. Quatro folhas do app — compartilhar, apagar resenha, apagar lista
+     e apagar a conta — não fechavam com Esc. Quem navega por teclado abria a
+     folha de apagar a conta e ficava presa nela: o único jeito de sair era
+     achar o botão Cancelar com Tab. Três outras folhas já tratavam Esc, então
+     não era decisão, era esquecimento repetido. Isto aqui é o tratamento num
+     lugar só, para a quinta folha não repetir a mesma falta.
+
+     O ouvinte se remove sozinho quando a camada esvazia — sem isso cada folha
+     aberta deixaria um ouvinte vivo no documento para sempre. */
+  function ligarEscape() {
+    function aoTeclar(ev) {
+      if (ev.key !== 'Escape') return;
+      if (!camada.firstElementChild) {
+        document.removeEventListener('keydown', aoTeclar);
+        return;
+      }
+      camada.innerHTML = '';
+      document.removeEventListener('keydown', aoTeclar);
+    }
+    document.addEventListener('keydown', aoTeclar);
+  }
+
+  /* Fecha-e-pronto: para a folha que só informa e não decide nada. */
+  function ligarFolha() {
+    var painel = camada.firstElementChild;
+    if (!painel) return;
+    painel.addEventListener('click', function (ev) {
+      var saida = ev.target.closest('[data-fechar]');
+      if (!saida) return;
+      if (saida.getAttribute('data-fechar') === 'fundo' && ev.target !== saida) return;
+      camada.innerHTML = '';
+    });
+    ligarEscape();
+  }
+
+  /* ============================================== FOLHA: denunciar ===== */
+  /* DOIS toques: um abre, o outro escolhe o motivo E envia. Sem botão
+     [Enviar] — escolher entre quatro motivos nomeados já é decisão informada,
+     não um sim/não, e um toque errado erra o MOTIVO, não o envio. É o que a
+     folha de compartilhar já faz: tocar "Copiar o link" copia.
+
+     Lista fechada e nenhum campo de texto. Ninguém lê esta tabela hoje, e uma
+     caixa aberta convida a pessoa a escrever o desabafo dela num vazio que
+     nunca vai ser aberto — é a forma mais cruel de gesto vazio que este app
+     poderia oferecer. Vocabulário fixo também é o que torna a tabela contável
+     no dia em que alguém for olhar.
+
+     DECISÃO DE COR, para dar para reverter: nada de --perigo, e não é caso
+     duvidoso. O token está definido no CSS como "só quando alguma coisa vai
+     sumir", e denunciar não faz nada sumir — nem para quem denuncia, nem para
+     quem escreveu. Vermelho aqui seria a interface fazendo COM COR a promessa
+     que ela se recusa a fazer com palavras. Os três acentos também não
+     servem: verde é "o que você fez" (não é conquista), laranja é "o que você
+     gostou" (é o oposto), azul é "onde você está". Não cabe em nenhum, então
+     não ganha acento. */
+  var MOTIVOS_DE_DENUNCIA = [
+    ['spoiler', 'Conta o final sem avisar'],
+    ['ataque',  'Ataca uma pessoa ou grupo'],
+    ['sexual',  'Conteúdo sexual ou violento'],
+    ['spam',    'Spam ou propaganda']
+  ];
+
+  function abrirFolhaDenuncia(alvo) {
+    /* Sem conta não dá para denunciar: a política exige auth.uid(), e a
+       coluna `autor` é chave estrangeira para perfis. Mostrar o caminho é
+       melhor que esconder o botão — a página da resenha é a única tela deste
+       conjunto que abre sem conta, e é justamente onde cai quem recebeu um
+       link e topou com o abuso sem ter conta nenhuma. */
+    if (!Nuvem.entrou()) {
+      camada.innerHTML =
+        '<div class="folha-fundo" data-fechar="fundo"><div class="folha" role="dialog" ' +
+          'aria-modal="true" aria-label="Denunciar">' +
+          '<h2>Denunciar ' + esc(alvo.oQue) + '</h2>' +
+          '<p class="conta-texto">Para denunciar é preciso ter conta: sem saber de ' +
+            'quem veio, uma denúncia não se separa de mil iguais.</p>' +
+          '<div class="linhas">' +
+            linhaAjuste('a', 'href="#/conta"', 'Entrar ou criar conta', '') +
+          '</div>' +
+          '<div class="folha-rodape">' +
+            '<button class="botao" data-fechar="ok">Fechar</button>' +
+          '</div>' +
+        '</div></div>';
+      return ligarFolha();
+    }
+
+    camada.innerHTML =
+      '<div class="folha-fundo" data-fechar="fundo"><div class="folha" role="dialog" ' +
+        'aria-modal="true" aria-label="Denunciar">' +
+        '<h2>Denunciar ' + esc(alvo.oQue) + '</h2>' +
+        '<p class="folha-sub">' + esc(alvo.quem ? 'de @' + alvo.quem : '') + '</p>' +
+        '<p class="conta-texto">Fica registrado com a data, o motivo e o seu @. ' +
+          'Quem cuida do Letterbooks lê pelo painel do banco — não há ninguém de ' +
+          'plantão, então pode demorar.</p>' +
+        '<span class="rotulo">Por quê</span>' +
+        '<div class="linhas" role="radiogroup" aria-label="Motivo da denúncia">' +
+          MOTIVOS_DE_DENUNCIA.map(function (m) {
+            return '<button type="button" class="sem-chevron" data-acao="enviar-denuncia" ' +
+              'data-motivo="' + m[0] + '">' + esc(m[1]) + '</button>';
+          }).join('') +
+        '</div>' +
+        '<p class="conta-erro" id="denuncia-erro" role="alert" hidden></p>' +
+        '<div class="folha-rodape">' +
+          '<button class="botao" data-fechar="ok">Fechar</button>' +
+        '</div>' +
+      '</div></div>';
+
+    var painel = camada.firstElementChild;
+    painel.addEventListener('click', function (ev) {
+      var escolha = ev.target.closest('[data-acao=enviar-denuncia]');
+      if (escolha) {
+        var caixaErro = document.getElementById('denuncia-erro');
+        caixaErro.hidden = true;
+        var todos = painel.querySelectorAll('[data-acao=enviar-denuncia]');
+        for (var i = 0; i < todos.length; i++) todos[i].disabled = true;
+        escolha.textContent = 'Enviando…';
+        return Nuvem.denunciar({ tipo: alvo.tipo, id: alvo.id },
+                               escolha.getAttribute('data-motivo'))
+          .then(function () {
+            lembrarDenuncia(alvo.tipo, alvo.id);
+            confirmarDenuncia(alvo);
+          }, function (e) {
+            for (var j = 0; j < todos.length; j++) todos[j].disabled = false;
+            escolha.textContent = rotuloDoMotivo(escolha.getAttribute('data-motivo'));
+            caixaErro.textContent = e.message;
+            caixaErro.hidden = false;
+          });
+      }
+      var saida = ev.target.closest('[data-fechar]');
+      if (!saida) return;
+      if (saida.getAttribute('data-fechar') === 'fundo' && ev.target !== saida) return;
+      camada.innerHTML = '';
+      rotear();
+    });
+    ligarEscape();
+  }
+
+  function rotuloDoMotivo(codigo) {
+    for (var i = 0; i < MOTIVOS_DE_DENUNCIA.length; i++) {
+      if (MOTIVOS_DE_DENUNCIA[i][0] === codigo) return MOTIVOS_DE_DENUNCIA[i][1];
+    }
+    return codigo;
+  }
+
+  /* A folha NÃO fecha e NÃO vira aviso flutuante: troca de miolo no lugar. O
+     aviso some em 2,6 segundos, e a mensagem mais importante daqui é uma
+     NEGATIVA — quem não a ler volta amanhã achando que a resenha sumiu, que é
+     exatamente o dano que este item existe para evitar.
+
+     O que esta tela NÃO diz, e a lista é o trabalho: "obrigada por ajudar a
+     manter a comunidade segura", "nossa equipe vai analisar", "você receberá
+     uma resposta", "em até 24 horas". Não há equipe, não há análise, não há
+     resposta e não há prazo. A política do banco é `insert` e nada mais. */
+  function confirmarDenuncia(alvo) {
+    var painel = camada.querySelector('.folha');
+    if (!painel) return;
+    painel.innerHTML =
+      '<h2>Denúncia registrada</h2>' +
+      '<p class="conta-texto">Guardamos o motivo, a data e o seu @.</p>' +
+      '<p class="conta-texto">O Letterbooks não tem equipe de moderação. Ninguém vai ' +
+        'responder esta denúncia, e quem escreveu não fica sabendo — dizer o ' +
+        'contrário seria mentira.</p>' +
+      '<p class="conta-texto">O que muda agora: ' + esc(alvo.oQue) + ' some das suas ' +
+        'listas <b>neste aparelho</b>. Em outro aparelho continua aparecendo, e para ' +
+        'as outras pessoas também. Dá para voltar atrás em Privacidade.</p>' +
+      '<div class="folha-rodape">' +
+        '<button class="botao" data-fechar="ok">Fechar</button>' +
+      '</div>';
+  }
+
+  /* ---- o esconder, que é a única coisa que acontece de verdade hoje ------
+     Uma denúncia que não é lida e não muda nada é um botão que não faz
+     absolutamente nada — e um botão assim é pior que a ausência dele, porque
+     ensina que o app não responde. Some SÓ o item denunciado (não a pessoa:
+     silenciar alguém é item inteiro, com tabela nova e filtro em toda
+     consulta), SÓ neste aparelho, e SÓ depois que o servidor aceitou. Esconder
+     antes faria a pessoa acreditar que denunciou quando não denunciou. */
+  /* UM filtro só, chamado em todos os pontos. A alternativa era repetir a
+     condição em cinco lugares, e cinco cópias é como se esquece a quinta. */
+  function semOsDenunciados(linhas) {
+    return (linhas || []).filter(function (l) {
+      return !denunciadoPorMim('leitura', l.id);
+    });
+  }
+
+  var CHAVE_DENUNCIADOS = 'letterbooks:denunciados';
+
+  function denunciados() {
+    try { return JSON.parse(localStorage.getItem(CHAVE_DENUNCIADOS) || '{}') || {}; }
+    catch (e) { return {}; }
+  }
+
+  function lembrarDenuncia(tipo, id) {
+    var d = denunciados();
+    d[tipo.charAt(0) + ':' + id] = new Date().toISOString().slice(0, 10);
+    try { localStorage.setItem(CHAVE_DENUNCIADOS, JSON.stringify(d)); } catch (e) {}
+  }
+
+  function denunciadoPorMim(tipo, id) {
+    return !!denunciados()[tipo.charAt(0) + ':' + id];
+  }
+
+  function quantosDenunciados() {
+    var d = denunciados(), n = 0;
+    for (var k in d) if (d.hasOwnProperty(k)) n++;
+    return n;
+  }
+
+  function esquecerDenuncias() {
+    try { localStorage.removeItem(CHAVE_DENUNCIADOS); } catch (e) {}
+  }
+
   function abrirFolhaApagarConta(p) {
     var usuario = (p && p.usuario) || '';
 
@@ -4122,6 +4429,7 @@
         camada.innerHTML = '';
       });
 
+      ligarEscape();
       campo.focus();
 
       /* Os números chegam depois e só preenchem o inventário. Se a rede

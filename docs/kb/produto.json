@@ -300,9 +300,9 @@
       "nome": "Denunciar conteúdo",
       "area": "Atividade",
       "noOriginal": "Report em resenha e comentário.",
-      "noLetterbooks": "O caminho está pronto no servidor e na nuvem — tabela denuncias (servidor/esquema.sql:139), política de insert (:237) e Nuvem.denunciar (js/nuvem.js:426) — mas nenhuma tela chama: 'denunciar' não aparece uma vez sequer em js/app.js.",
+      "noLetterbooks": "Ação na página da resenha alheia e no comentário de outra pessoa, folha de dois toques com quatro motivos fixos (spoiler, ataque, sexual, spam) e sem campo de texto — ninguém lê a tabela hoje, e caixa aberta convida a pessoa a escrever num vazio que nunca vai ser aberto. O servidor precisou de DUAS políticas que não existiam: `auth.uid() = autor` (antes dava para assinar denúncia no nome de outra pessoa) e uma de select (sem ela o `return=representation` REVERTE o insert). PARCIAL de propósito: não há moderação, e a folha diz isso em vez de prometer análise. O único efeito real hoje é o item sumir das listas NESTE aparelho, com volta atrás em #/privacidade. Perfil, bio e lista continuam sem saída: a tabela só aponta para leitura e comentário.",
       "estado": "parcial",
-      "evidencia": "js/nuvem.js:426 denunciar; grep 'denunciar' em js/app.js: zero ocorrências"
+      "evidencia": "servidor/esquema.sql políticas de denuncias; servidor/provar-v6.sql; js/app.js abrirFolhaDenuncia"
     },
     {
       "nome": "Perfil (retrato, lugar, favoritos, atividade recente, histograma)",

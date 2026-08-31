@@ -31,7 +31,7 @@ def zerar(vazio=False):
     del pedidos[:]
     BANCO.clear()
     BANCO.update({'livros': [], 'leituras': [], 'marcadores': [], 'seguidores': [],
-                  'listas': [], 'lista_itens': [],
+                  'listas': [], 'lista_itens': [], 'denuncias': [],
                   'curtidas': [], 'comentarios': [], '_contas': {}, 'perfis': [] if vazio else [
                       {'id': 'uid-1', 'usuario': 'marcela', 'nome': 'Marcela', 'bio': '', 'local': ''},
                       {'id': 'uid-2', 'usuario': 'bia', 'nome': 'Bia', 'bio': 'leio de tudo',
@@ -271,6 +271,8 @@ def servir(rota, estado):
         # os dois lados: o que EU curti/comentei, e o que curtiram/comentaram
         # nas MINHAS leituras. O primeiro e o efeito colateral que a folha
         # precisa dizer em voz alta.
+        BANCO['denuncias']   = [x for x in BANCO.get('denuncias', [])
+                                if x.get('leitura') not in minhas]
         BANCO['curtidas']    = [x for x in BANCO.get('curtidas', [])
                                 if x.get('perfil') != quem and x.get('leitura') not in minhas]
         BANCO['comentarios'] = [x for x in BANCO.get('comentarios', [])
@@ -282,6 +284,43 @@ def servir(rota, estado):
     if r.method == 'POST':
         novas = corpo if isinstance(corpo, list) else [corpo]
         prefer = r.headers.get('prefer', '')
+
+        # ---- o que este mock passou a RECUSAR, e por que cada recusa ------
+        #
+        # Setima vez que ele precisa aprender antes de o teste medir alguma
+        # coisa (D18, D30, D31, D33, D58, D61 estao comentados neste arquivo).
+        # Ate aqui um POST para /rest/v1/qualquercoisa com corpo {} devolvia
+        # 201: `linhas = BANCO.setdefault(tab, [])` inventa tabela por nome de
+        # rota. Um teste escrito contra isso mede o proprio mock.
+        if tab == 'denuncias':
+            quem = estado.get('quem')
+            for n in novas:
+                # (a) a politica `with check (auth.uid() = autor)`. Era o buraco
+                #     de verdade: dava para assinar denuncia no nome de outra
+                #     pessoa. Se o mock nao recusar, o teste da politica passa
+                #     verde contra um servidor que aceita a forja.
+                if not quem or n.get('autor') != quem:
+                    return j({'code': '42501',
+                              'message': 'new row violates row-level security '
+                                         'policy for table "denuncias"'}, 403)
+                # (b) o check (leitura is not null or comentario is not null)
+                if not n.get('leitura') and not n.get('comentario'):
+                    return j({'code': '23514',
+                              'message': 'new row for relation "denuncias" violates '
+                                         'check constraint "denuncias_check"'}, 400)
+                # (c) coluna que nao existe — pega `corpo[alvo.tipo]` com tipo
+                #     errado, que era como a funcao da nuvem quebrava
+                for campo in n:
+                    if campo not in ('autor', 'leitura', 'comentario', 'motivo'):
+                        return j({'code': 'PGRST204',
+                                  'message': "Could not find the '%s' column of "
+                                             "'denuncias' in the schema cache" % campo}, 400)
+                # (d) a chave estrangeira do autor: conta viva SEM perfil
+                if not any(x['id'] == n['autor'] for x in BANCO.get('perfis', [])):
+                    return j({'code': '23503',
+                              'message': 'insert or update on table "denuncias" violates '
+                                         'foreign key constraint "denuncias_autor_fkey"'}, 400)
+
         # on_conflect + merge-duplicates: mandar o mesmo item duas vezes tem que
         # ATUALIZAR, não criar outra linha. O mock ignorava isso, e então o
         # teste passaria verde enquanto a produção duplicava o diário. Foi
@@ -1455,7 +1494,206 @@ def rodar():
               pg.evaluate("() => !!localStorage.getItem('letterbooks:v1')"))
         nav.close()
 
+        # ================================ denunciar ==========================
+        #
+        # A REGRA destas assercoes, e ela vem do tech lead: afirmar contra
+        # BANCO['denuncias'], nunca contra a folha dizer "registrada". A folha
+        # pinta sucesso a partir do que a nuvem devolve, e mock frouxo devolve
+        # sucesso para qualquer coisa — foi assim seis vezes.
+        print('\ndenunciar: a resenha de outra pessoa')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        BANCO['leituras'].append({'id': 'L9', 'perfil': 'uid-2', 'livro': '/works/OL1W',
+                                  'nota': 5, 'resenha': 'Resenha da Bia.',
+                                  'lido_em': '2026-08-20',
+                                  'criado_em': '2026-08-20T00:00:00Z', 'cliente_id': 'b1'})
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/resenha/L9', wait_until='networkidle')
+        pg.wait_for_selector('.resenha', timeout=10000)
+        pg.wait_for_timeout(900)
+        checa('a resenha alheia oferece denunciar',
+              pg.locator('[data-acao=denunciar-resenha]').count() == 1)
+        pg.locator('[data-acao=denunciar-resenha]').click()
+        pg.wait_for_selector('.folha', timeout=8000)
+        folha = pg.inner_text('.folha')
+        checa('a folha diz de quem e', '@bia' in folha)
+        checa('e nao promete analise nem prazo',
+              'analis' not in folha.lower() and 'prazo' not in folha.lower()
+              and '24 horas' not in folha)
+        checa('quatro motivos, sem caixa de texto',
+              pg.locator('[data-acao=enviar-denuncia]').count() == 4
+              and pg.locator('.folha textarea').count() == 0)
+        pg.locator('[data-acao=enviar-denuncia][data-motivo=ataque]').click()
+        pg.wait_for_timeout(1200)
+        # a assercao que importa: contra o BANCO, e comparando com a fonte
+        d = BANCO['denuncias']
+        checa('gravou UMA denuncia no banco', len(d) == 1, str(d))
+        checa('com o motivo em codigo, nao a frase da tela',
+              d and d[0].get('motivo') == 'ataque', str(d[:1]))
+        checa('apontando para a leitura, e nao para comentario',
+              d and d[0].get('leitura') == 'L9' and not d[0].get('comentario'))
+        checa('e assinada por QUEM denunciou',
+              d and d[0].get('autor') == 'uid-1')
+        confirma = pg.inner_text('.folha')
+        checa('a confirmacao diz que nao ha moderacao',
+              'não tem equipe de moderação' in confirma)
+        checa('e que o efeito e so neste aparelho', 'neste aparelho' in confirma)
+        nav.close()
+
+        print('\ndenunciar: some das listas, e a pagina continua abrindo')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        for n in (1, 2):
+            BANCO['leituras'].append({'id': 'L%d' % n, 'perfil': 'uid-2',
+                                      'livro': '/works/OL1W', 'nota': 5,
+                                      'resenha': 'Resenha %d.' % n, 'lido_em': '2026-08-2%d' % n,
+                                      'criado_em': '2026-08-2%dT00:00:00Z' % n,
+                                      'cliente_id': 'b%d' % n})
+        BANCO['seguidores'].append({'seguidor': 'uid-1', 'seguido': 'uid-2'})
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/atividade/todos', wait_until='networkidle')
+        pg.wait_for_timeout(1200)
+        antes = pg.locator('.feed-linha').count()
+        # compara com a FONTE, nao com "existe pelo menos um"
+        checa('o feed mostra as duas que a API tem',
+              antes == len(BANCO['leituras']), '%d na tela, %d na API' % (antes, len(BANCO['leituras'])))
+        pg.goto(BASE + '#/resenha/L1', wait_until='networkidle')
+        pg.wait_for_selector('.resenha', timeout=10000)
+        pg.locator('[data-acao=denunciar-resenha]').click()
+        pg.wait_for_selector('.folha', timeout=8000)
+        pg.locator('[data-acao=enviar-denuncia][data-motivo=spam]').click()
+        pg.wait_for_timeout(1200)
+        pg.locator('.folha [data-fechar=ok]').click()
+        pg.wait_for_timeout(600)
+        pg.goto(BASE + '#/atividade/todos', wait_until='networkidle')
+        pg.wait_for_timeout(1200)
+        depois = pg.locator('.feed-linha').count()
+        checa('a denunciada some do feed, e so ela',
+              depois == antes - 1, '%d -> %d' % (antes, depois))
+        checa('mas a API continua com as duas: esconder nao apaga',
+              len(BANCO['leituras']) == 2)
+        # recarregar o app inteiro: o esconder tem que sobreviver
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/atividade/todos', wait_until='networkidle')
+        pg.wait_for_timeout(1200)
+        checa('e continua escondida depois de recarregar',
+              pg.locator('.feed-linha').count() == antes - 1)
+        # a pagina propria continua abrindo, com o corpo coberto
+        pg.goto(BASE + '#/resenha/L1', wait_until='networkidle')
+        pg.wait_for_selector('.resenha', timeout=10000)
+        pg.wait_for_timeout(600)
+        checa('a pagina da resenha denunciada continua abrindo',
+              pg.locator('.resenha').count() == 1)
+        checa('com o texto coberto, nao sumido',
+              'Resenha 1.' not in pg.inner_text('body')
+              and 'denunciou esta resenha' in pg.inner_text('body'))
+        checa('e o botao de denunciar virou uma frase',
+              pg.locator('[data-acao=denunciar-resenha]').count() == 0)
+        # a volta atras
+        pg.goto(BASE + '#/privacidade', wait_until='networkidle')
+        pg.wait_for_timeout(1000)
+        checa('privacidade oferece desfazer o esconder',
+              pg.locator('[data-acao=mostrar-denunciados]').count() == 1)
+        pg.locator('[data-acao=mostrar-denunciados]').click()
+        pg.wait_for_timeout(800)
+        pg.goto(BASE + '#/atividade/todos', wait_until='networkidle')
+        pg.wait_for_timeout(1200)
+        checa('e desfazer traz as duas de volta',
+              pg.locator('.feed-linha').count() == antes)
+        checa('sem apagar a denuncia do banco', len(BANCO['denuncias']) == 1)
+        nav.close()
+
+        print('\ndenunciar: o que NAO pode aparecer')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        BANCO['leituras'].append({'id': 'M1', 'perfil': 'uid-1', 'livro': '/works/OL1W',
+                                  'nota': 5, 'resenha': 'Minha resenha.',
+                                  'lido_em': '2026-08-20',
+                                  'criado_em': '2026-08-20T00:00:00Z', 'cliente_id': 'a1'})
+        BANCO['comentarios'].append({'id': 'c1', 'leitura': 'M1', 'perfil': 'uid-2',
+                                     'texto': 'Comentario da Bia.',
+                                     'criado_em': '2026-08-21T00:00:00Z'})
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/resenha/M1', wait_until='networkidle')
+        pg.wait_for_selector('.resenha', timeout=10000)
+        pg.wait_for_timeout(900)
+        checa('na MINHA resenha nao ha como me denunciar',
+              pg.locator('[data-acao=denunciar-resenha]').count() == 0)
+        checa('mas o comentario de outra pessoa pode ser denunciado',
+              pg.locator('[data-acao=denunciar-comentario]').count() == 1)
+        # o achado do GPM: o RLS ja deixava a dona apagar, e a tela nao oferecia
+        checa('e a DONA da resenha pode apagar o comentario alheio',
+              pg.locator('.comentario [data-acao=apagar-comentario]').count() == 1)
+        pg.locator('[data-acao=denunciar-comentario]').click()
+        pg.wait_for_selector('.folha', timeout=8000)
+        pg.locator('[data-acao=enviar-denuncia][data-motivo=spoiler]').click()
+        pg.wait_for_timeout(1200)
+        d = BANCO['denuncias']
+        checa('a denuncia do comentario aponta para comentario, nao leitura',
+              len(d) == 1 and d[0].get('comentario') == 'c1' and not d[0].get('leitura'),
+              str(d))
+        nav.close()
+
+        print('\ndenunciar: sem conta, e quando a rede cai')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        BANCO['leituras'].append({'id': 'L9', 'perfil': 'uid-2', 'livro': '/works/OL1W',
+                                  'nota': 5, 'resenha': 'Resenha da Bia.',
+                                  'lido_em': '2026-08-20',
+                                  'criado_em': '2026-08-20T00:00:00Z', 'cliente_id': 'b1'})
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg, sessao=None)
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/resenha/L9', wait_until='networkidle')
+        pg.wait_for_selector('.resenha', timeout=10000)
+        pg.wait_for_timeout(800)
+        pg.locator('[data-acao=denunciar-resenha]').click()
+        pg.wait_for_selector('.folha', timeout=8000)
+        checa('sem conta, a folha convida a entrar em vez de esconder o botao',
+              'Entrar ou criar conta' in pg.inner_text('.folha'))
+        checa('e nenhuma denuncia foi feita', not BANCO['denuncias'])
+        nav.close()
+
+        # A REDE CAI: o pior defeito possivel aqui e esconder sem ter
+        # denunciado — a pessoa acreditaria que denunciou e nao denunciou.
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        BANCO['leituras'].append({'id': 'L9', 'perfil': 'uid-2', 'livro': '/works/OL1W',
+                                  'nota': 5, 'resenha': 'Resenha da Bia.',
+                                  'lido_em': '2026-08-20',
+                                  'criado_em': '2026-08-20T00:00:00Z', 'cliente_id': 'b1'})
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/resenha/L9', wait_until='networkidle')
+        pg.wait_for_selector('.resenha', timeout=10000)
+        pg.locator('[data-acao=denunciar-resenha]').click()
+        pg.wait_for_selector('.folha', timeout=8000)
+        estado['cair'] = True
+        pg.locator('[data-acao=enviar-denuncia][data-motivo=ataque]').click()
+        pg.wait_for_timeout(1500)
+        estado['cair'] = False
+        checa('rede fora: nada no banco', not BANCO['denuncias'])
+        guardado = pg.evaluate("() => localStorage.getItem('letterbooks:denunciados')")
+        checa('rede fora: NADA escondido no aparelho', not guardado, str(guardado))
+        checa('rede fora: a folha continua aberta, dizendo o que houve',
+              pg.locator('.folha').count() == 1
+              and not pg.locator('#denuncia-erro').is_hidden())
+        nav.close()
+
     print('\n' + '-' * 60)
+
 
     if erros:
         print('%d falha(s):' % len(erros))

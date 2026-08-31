@@ -13,7 +13,7 @@
 
    O seu diario nao passa por aqui: ele vive no localStorage e ja e offline.
    ========================================================================== */
-var CACHE = 'letterbooks-v23';
+var CACHE = 'letterbooks-v24';
 var CACHE_REDE = 'letterbooks-acervo-v1';
 
 var ARQUIVOS = [

@@ -188,6 +188,15 @@ de zero, e ninguém lia o status. Não foi o psql que ficou calado; fomos nós q
 não escutamos. Todo critério tem que RODAR o que ele afirma medir, e "não deu
 para medir" nunca conta como passou.
 
+**"O caro já foi feito no servidor" merece ser medido, não acreditado.** O
+item de denunciar foi para o backlog como esforço P, com a tabela, a política
+e a função da nuvem dadas como prontas. Nenhuma das três estava: a política
+deixava assinar denúncia no nome de outra pessoa, faltava a de select (sem
+ela o `return=representation` REVERTE o insert, com 403), e a função usava
+dado de chamada como nome de coluna e não olhava o motivo. Código que nunca
+foi chamado por ninguém não é código pronto — é código não testado com uma
+capa de pronto.
+
 **Provar que nasce não é provar que atualiza.** As seis provas em Postgres
 começavam todas de um banco vazio, e por isso nenhuma via o caminho que a dona
 do banco realmente faz: colar o `esquema.sql` num banco que já existe, com

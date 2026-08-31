@@ -1521,3 +1521,47 @@ a.feed-resenha:hover { background: var(--superficie-2); color: var(--texto); }
    três folhas (resenha, lista e agora conta), e o rastreador não pegava porque
    ele não abre folha. */
 .folha-rodape .botao { min-height: 44px; }
+
+/* ================================================================ denunciar */
+
+/* A ação mais rara do app: versalete apagado, uma linha abaixo da fileira de
+   botões. NÃO é um .botao — pílula no mesmo peso de "Ver o livro", encostada
+   em [Seguir] com 9px de vão, é erro de leitura esperando o primeiro dedo
+   grosso. E nada de --perigo: o token é "só quando alguma coisa vai sumir", e
+   denunciar não faz nada sumir. Vermelho aqui seria a interface prometendo com
+   cor o que ela se recusa a prometer com palavras. */
+.denunciar-linha { margin-top: 22px; text-align: center; }
+.denunciar-linha .sem-link { color: var(--texto-3); cursor: default; }
+
+/* A bandeira ocupa a terceira coluna da grade do comentário — o slot que já
+   existia e ficava vazio quando o comentário era de outra pessoa. */
+.comentario-denunciar {
+  align-self: start; padding: 12px 6px; margin: -12px -6px;
+  background: 0; border: 0; color: var(--texto-3);
+  font-size: 14px; line-height: 1; cursor: pointer;
+}
+.comentario-denunciar:hover { color: var(--texto-2); }
+
+/* DÍVIDAS DE ÁREA DE TOQUE, achadas pelo design ao medir o que este item
+   encosta. As três primeiras são de componentes que já estavam no ar. */
+
+/* `.mais` não crescia NADA: 16,5px, 37% da régua de 44. É o componente cuja
+   voz a linha de denúncia pegou emprestada, então o conserto vai na raiz e
+   vale para as outras três telas que já o usavam. */
+.mais { position: relative; }
+.mais::after { content: ""; position: absolute; inset: -14px; }
+
+/* inset -13 está certo para glifo de 18-30px e errado para caixa de versalete
+   (11px × 1,5 = 16,5): dava 42,5px, dois abaixo da régua. -14 resolve e
+   continua dentro dos 18px de margem da página. */
+.avaliacoes-nota .mais::after,
+.estado-exposicao::after { inset: -14px; }
+
+/* A capa do spoiler media 32,75px, e ela é o alvo de "tocar para ler" — que
+   agora é também o de "tocar para ler o que você denunciou". */
+.spoiler-aviso { min-height: 44px; }
+
+/* .folha-rodape .botao já tinha sido corrigido; o que faltou foi o .botao
+   DENTRO da folha e fora do rodapé — hoje isso é o "Exportar o diário antes"
+   da folha de apagar a conta, em 34px. */
+.folha .botao { min-height: 44px; }

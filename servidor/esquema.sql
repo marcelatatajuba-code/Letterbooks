@@ -337,10 +337,35 @@ create policy "apago comentário meu ou na minha resenha" on comentarios for del
   using (auth.uid() = perfil
          or exists (select 1 from leituras l where l.id = leitura and l.perfil = auth.uid()));
 
--- --- denúncias: escreve quem está logado, lê ninguém ----------------------
--- Você lê as denúncias pelo painel do Supabase, não pelo aplicativo.
+-- --- denúncias: escrevo a minha, leio a minha, e mais ninguém -------------
+-- Você lê TODAS as denúncias pelo painel do Supabase, com a service_role, não
+-- pelo aplicativo. Estas duas políticas são só o que a tela precisa.
+--
+-- `auth.uid() = autor`, e não `auth.uid() is not null`, que era o que estava
+-- aqui. A diferença não é estilo: com o `is not null`, qualquer pessoa logada
+-- gravava uma denúncia ASSINADA COM O UUID DE OUTRA. Medido num Postgres real
+-- antes de trocar — o Bruno denunciou no nome da Ana e a linha entrou. Como
+-- quem for moderar decide olhando `autor`, uma coluna forjável torna a tabela
+-- inútil para a única coisa que ela existe para fazer. E era alcançável de
+-- fora: a política não olhava o corpo do POST.
 create policy "posso denunciar"         on denuncias for insert
-  with check (auth.uid() is not null);
+  with check (auth.uid() = autor);
+
+-- E esta NÃO é conforto: sem uma política de select, o PostgREST não consegue
+-- ler de volta a linha que acabou de inserir, e um `Prefer: return=
+-- representation` faz o INSERT INTEIRO ser REVERTIDO — 42501, que o navegador
+-- recebe como 403. A denúncia se perde com cara de erro de servidor.
+--
+-- Pior: a mensagem mente sobre a causa. "new row violates row-level security
+-- policy" aparece tanto por falta de política de SELECT quanto por autor
+-- forjado — duas causas, uma frase. Quem for diagnosticar vai afrouxar o
+-- `with check` do insert atrás de um defeito que está na ausência do select.
+--
+-- Sem poder ler de volta, o aplicativo não tem NADA em mãos para afirmar que
+-- gravou: `pedir()` descarta o status. Dizer "denúncia registrada" ali seria o
+-- D65 de novo — "salvo" escrito por cima de coisa nenhuma.
+create policy "vejo as minhas denúncias" on denuncias for select
+  using (auth.uid() = autor);
 
 -- ============================================================================
 -- Backfill: dá cliente_id às leituras que subiram ANTES desta coluna existir.
@@ -574,6 +599,25 @@ create trigger ao_cadastrar
 -- lados, curtidas e comentários — inclusive os que a pessoa escreveu nas
 -- resenhas de outras. `denuncias.autor` vira nulo e a denúncia sobrevive ao
 -- denunciante, que é o certo.
+--
+-- A ASSIMETRIA, dita inteira porque metade dela estava calada aqui: o outro
+-- lado NÃO sobrevive. `denuncias.leitura` e `denuncias.comentario` são
+-- `on delete cascade`, então quem foi denunciado apaga a própria resenha e
+-- leva as denúncias junto — escreve, é denunciada, apaga, reescreve, e nada
+-- registra a reincidência. Medido: 3 denúncias viram 0.
+--
+-- Fica assim de propósito, e o motivo é que o conserto óbvio é pior que o
+-- defeito. Trocar por `on delete set null` dispara um UPDATE na denúncia, o
+-- UPDATE reavalia o `check (leitura is not null or comentario is not null)`
+-- lá de cima, e a operação estoura — a pessoa deixa de conseguir apagar a
+-- própria resenha, e qualquer estranho passa a congelar a resenha de alguém
+-- só denunciando. Isso é um vetor de abuso NOVO, criado pelo conserto do
+-- abuso. Também medido, antes de decidir.
+--
+-- Pagar direito custa uma coluna de instantâneo (o texto denunciado, copiado
+-- no momento da denúncia), relaxar o check e decidir retenção — item próprio.
+-- Isto aqui é dívida DECLARADA, e o provar-v6.sql trava o comportamento atual
+-- para ninguém "melhorar" com `set null` sem ler este parágrafo.
 create or replace function apagar_minha_conta() returns void
   language plpgsql security definer set search_path = public, auth
 as $$

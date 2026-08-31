@@ -118,6 +118,11 @@ var Nuvem = (function () {
     if (t.indexOf('perfis_usuario_key') >= 0)   return 'Esse nome de usuário já está em uso.';
     if (t.indexOf('perfis_usuario_check') >= 0) return 'O usuário aceita só letras minúsculas, números e _, de 3 a 20.';
     if (t.indexOf('rate limit') >= 0)           return 'Muitas tentativas seguidas. Espere um minuto.';
+    /* Conta viva e perfil inexistente. Não é caso raro: é o caminho normal de
+       quem apagou a conta e entrou de novo com o mesmo e-mail. Sem esta linha
+       a pessoa lê o nome da chave estrangeira dentro da folha de denúncia. */
+    if (t.indexOf('denuncias_autor_fkey') >= 0)
+      return 'Sua conta ainda não tem perfil. Abra a tela da conta para criar um.';
     if (resposta.status === 401)                return 'Sua sessão expirou. Entre de novo.';
     return m || ('Erro ' + resposta.status + ' no servidor.');
   }
@@ -592,10 +597,47 @@ var Nuvem = (function () {
     return tabela('comentarios', '?id=eq.' + id, { metodo: 'DELETE' });
   }
 
+  /* Escrita muito antes de existir tela que a chamasse, e por isso nunca tinha
+     encostado num servidor. Estava quebrada de quatro jeitos, e os quatro
+     valem a leitura porque nenhum deles apareceria em teste de tela:
+
+     1. `corpo[alvo.tipo]` usava DADO DE CHAMADA como nome de coluna. `tipo`
+        vindo 'resenha' (que é como a tela chama a coisa) montava um POST com a
+        chave `resenha` e o servidor devolvia 400 dizendo que a coluna não
+        existe. Agora a lista é fechada aqui dentro, e o que ela recusa ela
+        recusa antes de sair do aparelho.
+     2. Não olhava `motivo`. O banco declara `motivo text not null`, e `not
+        null` NÃO recusa string vazia — provado no provar-v6.sql. Dava para
+        gravar denúncia muda, e quem fosse moderar receberia uma linha em
+        branco sem ter como perguntar nada a ninguém.
+     3. Não pedia a linha de volta, então resolvia com sucesso sem saber se
+        gravou — `pedir()` descarta o status. Qualquer "denúncia registrada"
+        escrito em cima disso é o D65 outra vez. Agora pede, e só existe por
+        causa da política de select que esta entrega acrescentou: sem ela o
+        `return=representation` faria o insert inteiro ser REVERTIDO.
+     4. Mandava `autor: sessao.id` numa política que aceitava qualquer autor.
+        O servidor agora amarra `auth.uid() = autor`; o campo continua indo
+        porque a coluna é obrigatória, mas ele deixou de ser palavra da tela. */
+  var TIPOS_DE_DENUNCIA = { leitura: true, comentario: true };
+
   function denunciar(alvo, motivo) {
+    if (!alvo || !TIPOS_DE_DENUNCIA[alvo.tipo] || !alvo.id) {
+      return Promise.reject(new Error('Não sei o que é para denunciar.'));
+    }
+    motivo = String(motivo || '').trim();
+    if (!motivo) return Promise.reject(new Error('Escolha um motivo para a denúncia.'));
+
     var corpo = { autor: sessao.id, motivo: motivo };
-    corpo[alvo.tipo] = alvo.id;      /* 'leitura' ou 'comentario' */
-    return tabela('denuncias', '', { metodo: 'POST', corpo: corpo });
+    corpo[alvo.tipo] = alvo.id;
+    return tabela('denuncias', '', {
+      metodo: 'POST', corpo: corpo,
+      cabecalhos: { Prefer: 'return=representation' }
+    }).then(function (l) {
+      if (!l || !l.length) {
+        throw new Error('Não consegui registrar a denúncia. Tente de novo.');
+      }
+      return l[0];
+    });
   }
 
   /* ------------------------------------------------------------- migracao */

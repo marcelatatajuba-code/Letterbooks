@@ -97,7 +97,8 @@
       "resumo": "O caminho inteiro já está pronto e nunca é chamado: tabela denuncias (servidor/esquema.sql:139), política de insert (:237) e Nuvem.denunciar (js/nuvem.js:426). A palavra 'denunciar' não aparece uma única vez em js/app.js — verificado por grep. Falta a ação na resenha e no comentário, uma folha curta com o motivo, e o aviso de recebido.",
       "valor": "Para quem lê o feed 'Todo mundo', que mostra texto de estranhos sem nenhum caminho de moderação. O caro já foi feito no servidor; deixar a saída fechada é escolher não ter resposta no dia em que aparecer o primeiro abuso.",
       "esforco": "P",
-      "depende": "nada"
+      "depende": "nada",
+      "entregue": "V9 — denunciar resenha e comentário, com as duas políticas que faltavam no servidor e o × da dona da resenha"
     },
     {
       "ordem": 11,
