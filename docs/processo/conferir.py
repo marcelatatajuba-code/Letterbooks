@@ -67,7 +67,7 @@ confere('razão verificação/app', '0,%s' % (afirma_raz.group(1) if afirma_raz 
 confere('defeitos registrados', afirma_def.group(1) if afirma_def else '?', len(defeitos))
 
 for fase, rotulo in [('vibecoding', '3 de 10'), ('instrumentado', '4 de 13'),
-                     ('time-hibrido', '4 de 79')]:
+                     ('time-hibrido', '4 de 84')]:
     total, daUsuaria = porFase(fase)
     confere('%s: achados pela usuária' % fase, rotulo, '%d de %d' % (daUsuaria, total))
     if ('**%s**' % rotulo) not in doc:

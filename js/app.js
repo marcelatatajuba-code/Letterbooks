@@ -194,8 +194,11 @@
     var dica = livro.titulo + (livro.ano ? ' (' + livro.ano + ')' : '');
     return '<a class="cartao" href="' + rotaLivro(livro.chave) + '" title="' + esc(dica) + '"' +
            ' aria-label="' + esc(livro.titulo) + '">' +
-           htmlCapa(livro, '') +
-           '<div class="cartao-legenda">' + esc(livro.titulo) + '</div></a>';
+           /* Sem `.cartao-legenda`: os QUATRO lugares que usam este cartão são
+              `.trilho` ou `.fileira`, e o CSS esconde a legenda nos dois. Era
+              a quinta cópia do mesmo título dentro do mesmo cartão. O nome
+              acessível vem do aria-label, que vence o title no algoritmo. */
+           htmlCapa(livro, '') + '</a>';
   }
 
   function htmlCartao(livro, ordem) {
@@ -3676,6 +3679,14 @@
 
       '<section class="secao" id="listas-do-leitor" hidden></section>' +
 
+      /* A estante vem ANTES de "Resenhas", e isto foi medido, não sentido:
+         "Resenhas" é o único bloco ilimitado desta página (1.426 a 2.470px,
+         contra ~195 de todos os outros). Com ela depois, a estante começava
+         aos 3.091px — quatro telas de rolagem — e mesmo no perfil mais curto
+         que a tela consegue ser ela nascia 23px abaixo da dobra. Não havia
+         configuração de conteúdo em que ela aparecesse sem rolar. */
+      '<section id="estante-do-leitor" hidden></section>' +
+
       /* Num diário fechado estas seções não são "vazias": elas não existem
          para quem olha. Desenhar o cabeçalho "Resenhas" sobre nada seria dizer
          que há zero resenhas, que é a mesma mentira noutro lugar. */
@@ -3702,9 +3713,7 @@
                       'Essa pessoa escolheu não mostrar o que lê. Você pode seguir e ' +
                       'continuar por aqui — se ela abrir, as leituras aparecem.')
           : htmlVazio('Ainda sem leituras registradas',
-                      'Quando ' + esc(nome) + ' registrar a primeira, ela aparece aqui.')) +
-
-      '<section id="estante-do-leitor" hidden></section>'
+                      'Quando ' + esc(nome) + ' registrar a primeira, ela aparece aqui.'))
     );
 
     acoes({
@@ -3754,19 +3763,29 @@
         if (b) b.push(m.livro);
       });
 
+      /* `livroDe` devolve `titulo: 'Livro'` para o que ainda não chegou. Sem
+         este filtro o primeiro quadro eram TRINTA E SEIS cartões dizendo
+         "Livro" — e "Livro, link" trinta e seis vezes num leitor de tela —, e
+         eles ficariam para sempre se `completarLivros` falhasse, porque o
+         catch dele é vazio. O `.trilho-vazio` existe exatamente para isto e é
+         o que a home usa; esta seção não o usava. */
+      function conhecidos(chaves) {
+        return chaves.filter(function (c) { return !!Dados.livro(c); });
+      }
+
       function desenha() {
         if (!document.body.contains(caixa)) return;
 
-        var favs = por.favorito.slice(0, Dados.MAX_FAVORITOS);
-        vitrine.innerHTML = favs.length
-          ? '<span class="rotulo">Favoritos' +
-            (sabeOTotal && por.favorito.length > favs.length
-              ? '<span class="contador">' + por.favorito.length + '</span>' : '') +
-            '</span><div class="fileira">' +
-            favs.map(function (c) { return htmlCartaoNu(livroDe(c)); }).join('') +
-            '</div>'
+        var favsTodos = por.favorito.slice(0, Dados.MAX_FAVORITOS);
+        var favs = conhecidos(favsTodos);
+        vitrine.innerHTML = favsTodos.length
+          ? '<span class="rotulo">Favoritos</span>' +
+            (favs.length
+              ? '<div class="fileira">' + favs.map(function (c) {
+                  return htmlCartaoNu(livroDe(c)); }).join('') + '</div>'
+              : '<div class="trilho-vazio" aria-hidden="true"></div>')
           : '';
-        vitrine.hidden = !favs.length;
+        vitrine.hidden = !favsTodos.length;
 
         /* Seção sem item NÃO é desenhada, e isto é decisão, não economia. Os
            textos de vazio da estante são instrução em segunda pessoa dirigida
@@ -3778,11 +3797,16 @@
           .map(function (par) {
             var chaves = por[par[0]];
             if (!chaves.length) return '';
-            return '<section class="secao"><h2>' + par[1] +
+            var mostra = conhecidos(chaves.slice(0, 16));
+            return '<section class="secao prateleira"><h2>' + par[1] +
               (sabeOTotal ? '<span class="contador">' + chaves.length + '</span>' : '') +
-              '</h2><div class="trilho">' +
-              chaves.slice(0, 16).map(function (c) { return htmlCartaoNu(livroDe(c)); }).join('') +
-              '</div></section>';
+              '</h2>' +
+              (mostra.length
+                ? '<div class="trilho">' +
+                  mostra.map(function (c) { return htmlCartaoNu(livroDe(c)); }).join('') +
+                  '</div>'
+                : '<div class="trilho-vazio" aria-hidden="true"></div>') +
+              '</section>';
           }).join('');
         caixa.hidden = !caixa.innerHTML;
       }

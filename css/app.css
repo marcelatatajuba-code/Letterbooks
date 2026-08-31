@@ -1592,3 +1592,12 @@ a.feed-resenha:hover { background: var(--superficie-2); color: var(--texto); }
    em quatro lugares novos, então elas param de ser teoria. */
 .campo input { min-height: 44px; }
 .marcador { min-height: 44px; }
+
+/* Duas prateleiras seguidas no perfil alheio precisam de régua entre elas: são
+   o MESMO corpus (a mesma pessoa) e o mesmo livro cai nas três — `registrar()`
+   nunca tira de `querLer`, e curtir não tira de lido. Capa idêntica repetida a
+   192px de distância lê como muro, não como três seções. A home empilha sete
+   trilhos sem esse problema porque cada um é um acervo diferente. */
+.secao.prateleira + .secao.prateleira {
+  padding-top: 20px; border-top: 1px solid var(--borda);
+}

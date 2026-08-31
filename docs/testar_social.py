@@ -1721,6 +1721,13 @@ def rodar():
              'criado_em': '2026-08-21T00:00:00Z'},
             {'perfil': 'uid-2', 'livro': '/works/OL2W', 'tipo': 'curtida',
              'criado_em': '2026-08-22T00:00:00Z'},
+            # Aponta para um livro que NÃO existe nem no aparelho nem no
+            # servidor: livrosPorChave não vai resolvê-lo nunca. É o caso
+            # permanente, e é o que prende o defeito — `livroDe` devolve
+            # `titulo: 'Livro'` para o que não chegou, e sem o filtro a
+            # prateleira desenhava um cartão dizendo "Livro", para sempre.
+            {'perfil': 'uid-2', 'livro': '/works/OL_FANTASMA', 'tipo': 'quero',
+             'criado_em': '2026-08-23T00:00:00Z'},
         ]
         nav, ctx, pg = montar(pw, estado)
         pg.goto(BASE, wait_until='networkidle')
@@ -1776,6 +1783,12 @@ def rodar():
               str(sorted(guardado.keys()) if guardado else None))
 
         # o achado do GPM e do tech lead: htmlCartao carimba os MEUS marcadores
+        # o aparelho marcou os dois livros logo acima, então um cartão errado
+        # AQUI carimbaria — é o que faz esta asserção valer alguma coisa
+        checa('nenhum cartão diz "Livro" — o que não chegou não é desenhado',
+              pg.evaluate("""() => [...document.querySelectorAll(
+                '#estante-do-leitor .cartao, #favoritos-do-leitor .cartao')]
+                .every(c => c.getAttribute('aria-label') !== 'Livro')"""))
         # o aparelho marcou os dois livros logo acima, então um cartão errado
         # AQUI carimbaria — é o que faz esta asserção valer alguma coisa
         checa('nenhum cartão da estante alheia carimba selo meu',
