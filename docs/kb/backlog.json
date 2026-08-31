@@ -118,6 +118,15 @@
       "valor": "Para quem busca 'Dom Casmurro' num app cuja interface é toda em português e recebe uma edição inglesa com capa de editora americana. É o único terreno em que o incumbente local ganha por acervo e não por design. Está por último apesar do impacto alto porque a solução inteira repousa em conhecimento de treino não confirmado contra a API viva — por isso a primeira entrega é a medição, não o código.",
       "esforco": "M",
       "depende": "nada (mas a entrega 2 depende do resultado da entrega 1)"
+    },
+    {
+      "ordem": 13,
+      "titulo": "Perfil alheio completo: favoritos e estante",
+      "tipo": "fidelidade",
+      "resumo": "desenhaLeitor já mostra @, bio, seguir, contagens, 10 resenhas, um trilho de leituras e as listas. Faltam FAVORITOS e ESTANTE (quero ler / curtidas / favoritos). O dado já é público por RLS (\"marcadores são públicos, salvo se privado\") e `Nuvem.meusMarcadores` já sabe ler a tabela — falta a leitura por perfil alheio e o desenho. Diário completo e histograma ficam FORA: são consulta pesada na tabela mais quente e merecem item próprio.",
+      "valor": "É o recorte mais barato entre as 11 parciais, e é fidelidade — no original o perfil de outra pessoa é uma vitrine, não um cartão de visita. Também é o primeiro item escolhido pela cadência nova: atacar recorte de parcial em vez de item novo inteiro, que é o que o portão 1 precisa para se mover.",
+      "esforco": "P",
+      "depende": "nada"
     }
   ],
   "cortados": [

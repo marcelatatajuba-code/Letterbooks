@@ -220,7 +220,7 @@
       "nome": "Compartilhar",
       "area": "Registrar",
       "noOriginal": "Compartilha o link do filme ou da resenha.",
-      "noLetterbooks": "cartaoDeCompartilhar (js/app.js:1659) desenha no canvas uma imagem 1080x1920 com capa, título, autoria e nota e entrega pela folha do sistema (entregarCartao app.js:1790). É RECURSO NOVO, não existe no Letterboxd. O que o original faz — mandar um link — não existe: a resenha local não tem endereço público.",
+      "noLetterbooks": "Duas metades. O LINK, que é o que o original faz, existe desde a V4: toda resenha que está no servidor tem endereço próprio em #/resenha/<uuid>, e a folha oferece \"Copiar o link\" (`podeCompartilhar = v.noAr`). E o CARTÃO, que é recurso nosso e não existe no Letterboxd: cartaoDeCompartilhar desenha um 1080x1920 com capa, título, autoria e nota, entregue pela folha do sistema. PARCIAL porque a resenha que ainda não subiu — modo local, ou fila pendente — não tem endereço para compartilhar, e nesse estado só o cartão existe.",
       "estado": "parcial",
       "evidencia": "js/app.js:1659 cartaoDeCompartilhar"
     },
@@ -284,7 +284,7 @@
       "nome": "Perfil de outra pessoa",
       "area": "Atividade",
       "noOriginal": "O perfil alheio mostra favoritos, diário, listas, watchlist, resenhas e estatísticas.",
-      "noLetterbooks": "telaLeitor/desenhaLeitor (js/app.js:2127/2166) mostram avatar-inicial, @, bio, botão seguir, contagens sociais, até 10 resenhas e um trilho de 16 leituras recentes. Falta: favoritos, estante/quero ler, listas, diário completo e histograma — nada disso é consultado, embora marcadores e listas sejam públicos por RLS.",
+      "noLetterbooks": "telaLeitor/desenhaLeitor mostram avatar-inicial, @, bio, botão seguir, contagens sociais, até 10 resenhas, um trilho de 16 leituras recentes e as LISTAS da pessoa (enfeitarComAsListas, desde a V5). PARCIAL pelo que continua ausente: favoritos, estante/quero ler, diário completo e histograma — nada disso é consultado, embora `marcadores` seja público por RLS e `meusMarcadores` já saiba ler a tabela. É o recorte mais barato de fechar entre as parciais: o dado já é público e a função de leitura já existe.",
       "estado": "parcial",
       "evidencia": "js/app.js:2166 desenhaLeitor; servidor/esquema.sql:203 e :207 políticas públicas"
     },
@@ -396,9 +396,9 @@
       "nome": "Sincronizar o que você registra para a nuvem",
       "area": "Sistema",
       "noOriginal": "Tudo mora no servidor por definição.",
-      "noLetterbooks": "Local primeiro, sempre: Dados anuncia, Sinc enfileira no localStorage e esvazia quando dá (js/sinc.js:54 enfileirar, :83 empurrar, :170 ligar em online/visibilitychange). Mas a fila só entende três tipos (js/sinc.js:128): leitura, leitura-apagada e marcador. LISTAS não sobem: Dados.criarLista/alternarNaLista não chamam anunciar (js/dados.js), então uma lista criada depois da migração nunca chega ao servidor.",
+      "noLetterbooks": "Local primeiro, sempre: Dados anuncia, Sinc enfileira no localStorage e esvazia quando dá (enfileirar/empurrar, ligado em online e visibilitychange). A fila entende cinco tipos: leitura, leitura-apagada, marcador, lista e lista-apagada — as listas passaram a subir na V5, e `criarLista`/`alternarNaLista` anunciam. PARCIAL pelo que sobrou: a META DO ANO nunca sobe. As colunas `meta_ano` e `meta_total` existem em `perfis` desde o primeiro dia e NADA em js/nuvem.js as escreve (grep: zero) — quem troca de aparelho perde a meta, em silêncio.",
       "estado": "parcial",
-      "evidencia": "js/sinc.js:128 enviar; js/dados.js criarLista (sem anunciar)"
+      "evidencia": "js/sinc.js enfileirar/empurrar; js/dados.js anunciar; grep meta_ano em js/nuvem.js = 0"
     },
     {
       "nome": "Trazer da nuvem para o aparelho (segundo aparelho, navegador limpo)",

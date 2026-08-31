@@ -637,6 +637,7 @@ SO_DE_TELA = {
     'D90': 'teclado virtual — CSS; medido pelo design contra a faixa do iPhone SE',
     'D91': 'área de toque — CSS; medida pelo rastreador, que agora olha dentro da folha',
     'D92': 'texto de rótulo — travado em testar.py ("diz se ha copia em algum lugar")',
+    'D93': 'descrição desatualizada no produto.json — não é código do app;\n            o portão mede paridade a partir deste arquivo',
     'D42': 'defeito do runner desta suíte, não do app',
     'D43': 'defeito de nomenclatura entre suítes, não do app',
 }
