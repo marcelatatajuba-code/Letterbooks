@@ -133,6 +133,33 @@ duplicar a cada visita.
 
 ---
 
+## Depois de cada atualização do app
+
+**Rode o `esquema.sql` de novo.** Ele é feito para isso — rodar duas vezes não
+quebra nada e não apaga nada seu.
+
+Quando uma entrega acrescenta uma coluna ou uma view, o aplicativo continua
+funcionando e a tela nova **nunca recebe uma linha**. Sem erro, sem aviso, sem
+nada: é o modo de falha mais silencioso deste projeto, e a única pista é uma
+tela que vive vazia.
+
+Para saber se o seu banco está em dia sem precisar decorar o que mudou, cole o
+**`conferir.sql`** no SQL Editor. Ele não muda nada — só olha e diz, linha por
+linha, o que falta e o que aquilo quebra:
+
+```
+ coluna cliente_id em leituras   | ok                                  | …
+ view avisos                     | FALTA — rode o esquema.sql de novo  | a aba Você funciona e nunca recebe uma linha
+ RLS ligada em todas as tabelas  | ok                                  | …
+```
+
+Se aparecer qualquer `FALTA`, o conserto é sempre o mesmo: colar o
+`esquema.sql` inteiro e rodar.
+
+Se aparecer **`PERIGO`**, não é falta de atualização — é o diário de todo mundo
+ficando editável por qualquer pessoa. Esse é para consertar antes de fechar o
+navegador.
+
 ## Se der errado
 
 **"Sem conexão com o servidor."** — a URL em `config.js` está errada ou o
