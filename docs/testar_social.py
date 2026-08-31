@@ -402,7 +402,22 @@ def servir(rota, estado):
                 iguais = [x for x in linhas
                           if x['lista'] == n['lista'] and x['livro'] == n['livro']]
                 if iguais:
-                    iguais[0].update(n)
+                    # E AQUI ELE HONRA O `Prefer`, que antes ele IGNORAVA.
+                    #
+                    # O ramo fazia `iguais[0].update(n)` sempre. O PostgREST de
+                    # verdade, com `resolution=ignore-duplicates` (o padrao de
+                    # emLotes), traduz para ON CONFLICT DO NOTHING: a linha ja
+                    # existe, entao a coluna `ordem` NAO e escrita. Reordenar
+                    # uma lista mandava a ordem nova e o banco descartava em
+                    # silencio — e o mock, atualizando sempre, daria VERDE.
+                    #
+                    # E a nona vez que este mock precisa aprender uma coisa
+                    # antes de o teste medir alguma coisa, e a primeira em que
+                    # o que ele nao sabia era um CABECALHO e nao um filtro. Tres
+                    # linhas abaixo, marcadores/curtidas/seguidores ja checavam
+                    # o prefer: o ramo de lista_itens e que nao checava.
+                    if 'merge-duplicates' in prefer:
+                        iguais[0].update(n)
                     continue
                 linhas.append(n); criadas.append(n)
                 continue
@@ -2140,6 +2155,59 @@ def rodar():
         checa('o meu @ no endereço alheio desvia para o meu diário',
               pg.evaluate("() => location.hash") == '#/diario',
               pg.evaluate("() => location.hash"))
+        nav.close()
+
+        # ============ item 15: a meta do ano sobe, desce, e nao e comida ===
+        print('\nmeta do ano: desce para o aparelho que nao a escreveu')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        BANCO['perfis'][0]['meta_ano'] = 2026
+        BANCO['perfis'][0]['meta_total'] = 30
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)                      # aparelho com a meta padrao (12)
+        pg.reload(wait_until='networkidle')
+        pg.wait_for_timeout(1800)
+        local = pg.evaluate("() => JSON.parse(localStorage.getItem('letterbooks:v1')).perfil.meta")
+        checa('a meta desceu da conta para o aparelho',
+              local.get('total') == 30, str(local))
+        pg.goto(BASE + '#/perfil', wait_until='networkidle')
+        pg.wait_for_timeout(1200)
+        checa('e o perfil DESENHA a meta que veio da conta',
+              'de 30 livros' in pg.inner_text('.pagina'),
+              ' | '.join(l for l in pg.inner_text('.pagina').split('\n')
+                         if 'livros' in l)[:120])
+        nav.close()
+
+        # A ASSERCAO QUE PROTEGE A EDICAO OFFLINE. Sem o `if` da fila em
+        # aplicarMeta, a meta editada sem rede e sobrescrita pela do servidor
+        # na abertura seguinte — e a fila entao sobe o valor sobrescrito. A
+        # edicao morre sem erro nenhum.
+        print('\nmeta do ano: a edicao que esperava na fila VENCE a descida')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        BANCO['perfis'][0]['meta_ano'] = 2026
+        BANCO['perfis'][0]['meta_total'] = 12
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        # o aparelho editou para 24 sem rede: a meta ja esta local e o item
+        # esperou na fila
+        pg.evaluate("""() => {
+          var e = JSON.parse(localStorage.getItem('letterbooks:v1'));
+          e.perfil.meta = { ano: 2026, total: 24 };
+          localStorage.setItem('letterbooks:v1', JSON.stringify(e));
+          localStorage.setItem('letterbooks:fila', JSON.stringify(
+            [{ tipo: 'meta', dado: { ano: 2026, total: 24 }, tentativas: 0, em: Date.now() }]));
+        }""")
+        pg.reload(wait_until='networkidle')
+        pg.wait_for_timeout(2200)
+        local = pg.evaluate("() => JSON.parse(localStorage.getItem('letterbooks:v1')).perfil.meta")
+        checa('a descida NAO comeu a meta que estava na fila',
+              local.get('total') == 24, '%s (o servidor tinha 12)' % local)
+        checa('e a fila subiu a meta editada para a conta',
+              BANCO['perfis'][0].get('meta_total') == 24,
+              str(BANCO['perfis'][0].get('meta_total')))
         nav.close()
 
         # ---- desistir da folha de listas NÃO pode criar a lista ------------

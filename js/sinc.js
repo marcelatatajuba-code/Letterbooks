@@ -88,6 +88,9 @@ var Sinc = (function () {
     /* Trocar o nome da lista e depois por dois livros nela sao tres anuncios do
        MESMO alvo. Vale o ultimo estado, como na leitura: o envio e por estado,
        nao por movimento. */
+    /* A meta tem UM alvo por conta, entao dois anuncios de meta sao sempre o
+       mesmo alvo: quem mexe tres vezes manda uma. */
+    if (tipo === 'meta') return item.tipo === 'meta';
     if (tipo === 'lista' || tipo === 'lista-apagada') {
       return (item.tipo === 'lista' || item.tipo === 'lista-apagada') &&
              item.dado.id === dado.id;
@@ -168,6 +171,7 @@ var Sinc = (function () {
     if (item.tipo === 'marcador')        return enviarMarcador(item.dado);
     if (item.tipo === 'lista')           return enviarLista(item.dado);
     if (item.tipo === 'lista-apagada')   return apagarLista(item.dado);
+    if (item.tipo === 'meta')            return enviarMeta(item.dado);
     return Promise.reject(new Error('Tipo desconhecido na fila: ' + item.tipo));
   }
 
@@ -188,6 +192,14 @@ var Sinc = (function () {
       if (linha && linha.id) Dados.marcarRemoto(atual.id, linha.id);
       return linha;
     });
+  }
+
+  /* So as duas colunas da meta, nunca o perfil inteiro. `salvarPerfil` e a
+     mesma funcao que grava `privado` e `usuario/nome/bio/local`: um corpo
+     montado a partir de um retrato velho do perfil reabriria um diario
+     fechado. Mandar so o que mudou e o que impede isso. */
+  function enviarMeta(meta) {
+    return Nuvem.salvarPerfil({ meta_ano: meta.ano, meta_total: meta.total });
   }
 
   /* Nada de `if (!reg.remoto) return`: quem registra e apaga em seguida nunca
@@ -249,9 +261,16 @@ var Sinc = (function () {
                         /* Lista que nao desce nao serve: quem instala no
                            segundo aparelho encontraria a aba vazia. Falha aqui
                            nao derruba o resto da descida. */
-                        Nuvem.minhasListas().catch(function () { return []; })])
+                        Nuvem.minhasListas().catch(function () { return []; }),
+                        /* O perfil desce junto por causa da META. Sem ele,
+                           quem definiu 24 livros no computador abre o celular
+                           novo e encontra 12 — o padrao do esquema — sem nada
+                           dizendo que a meta se perdeu. Falha aqui nao derruba
+                           a descida: a meta local continua valendo. */
+                        Nuvem.meuPerfil().catch(function () { return null; })])
       .then(function (r) {
         var leituras = r[0] || [], marcadores = r[1] || [], listas = r[2] || [];
+        aplicarMeta(r[3]);
 
         /* As fichas dos livros vem numa consulta so, em vez de uma ida a rede
            por linha: um diario de 200 leituras faria 200 chamadas. */
@@ -295,6 +314,29 @@ var Sinc = (function () {
         console.warn('Sinc: nao consegui trazer o diario da conta:', err.message);
         return null;
       });
+  }
+
+  /* A meta que veio do servidor, com a UNICA excecao que importa: se ha item
+     `meta` esperando na fila, o servidor NAO ganha.
+
+     `descer()` roda antes de `empurrar()`, de proposito. Sem esta guarda, quem
+     edita a meta no metro e abre o app com rede tem a edicao sobrescrita pela
+     meta velha do servidor — e a fila entao sobe o valor sobrescrito. A
+     edicao morre sem erro nenhum, que e a mesma classe de perda silenciosa que
+     o `tirarDaFila` por identidade ja documenta neste arquivo.
+
+     Fora isso o servidor ganha, e sem cerimonia: a meta e um escalar que a
+     pessoa pos de proposito no lugar mais recente, e uma folha perguntando
+     "12 ou 40?" seria a maior cerimonia do app sobre o menor dado dele.
+
+     `meta_ano` menor que o ano corrente nao vira aqui: virar o ano e escrita
+     como efeito de leitura, e cada aparelho que abrisse o perfil mandaria um
+     PATCH. Quem grava o ano e a confirmacao da folha. */
+  function aplicarMeta(perfil) {
+    if (!perfil) return;
+    if (perfil.meta_total === null || perfil.meta_total === undefined) return;
+    if (fila.some(function (i) { return i.tipo === 'meta'; })) return;
+    Dados.guardarMeta({ ano: perfil.meta_ano, total: perfil.meta_total });
   }
 
   /* ------------------------------------------------------------------ ligar */

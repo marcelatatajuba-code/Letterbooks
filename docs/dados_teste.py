@@ -264,6 +264,30 @@ CASOS = [
         ],
     },
     {
+        'nome': 'meta-nula-no-servidor-nao-zera-a-local',
+        'defeitos': ['D117'],
+        'porque': 'FORMA DE DADO QUE CORROMPE: a conta pode ter meta_ano/meta_total '
+                  'NULOS — é o estado de todo perfil criado antes da V13, e o de quem '
+                  'nunca mexeu na meta. A descida aplica a meta do servidor sobre a '
+                  'local; se ela aceitar o nulo, a meta que a pessoa escolheu neste '
+                  'aparelho vira 0 ou desaparece, em silêncio, só por ter aberto o '
+                  'app com rede. O comportamento travado é que nulo do servidor NÃO '
+                  'toca na meta local — só um total > 0 substitui.',
+        'banco': {'livros': [ACERVO[CASMURRO]],
+                  'perfis': [dict(x, meta_ano=None, meta_total=None)
+                             for x in perfil('marcela')]},
+        'diario': diario(livros=[CASMURRO]),
+        'sessao': 'marcela',
+        'rota': '#/perfil',
+        'esperar': '.perfil-nome',
+        'checagens': [
+            ('a meta local sobreviveu ao nulo do servidor',
+             "Dados.estado().perfil.meta.total === 12"),
+            ('e a tela continua mostrando a meta, nao um zero',
+             "document.body.innerText.includes('de 12 livros')"),
+        ],
+    },
+    {
         'nome': 'perfil-sem-nome',
         'defeitos': ['D17'],
         'porque': 'O nome padrão do modo local é "Leitora". Quando a conta não tem '
@@ -594,6 +618,10 @@ def cobertura(caminho_csv=None):
 # propósito: "não coberto" sem motivo escrito vira dívida invisível.
 
 SO_DE_TELA = {
+    'D116': 'gatilho de uma seção de #/conta (quanto vs. soAqui) — o caso é de '
+            'FLUXO com duas contas e um aparelho zerado, e vive em '
+            'jornada_e2e "o aparelho novo NAO e convidado a enviar o que veio '
+            'da conta", confirmada vermelha antes do conserto',
     'D113': 'caminho de saída do RASTREADOR (cwd em vez do próprio arquivo), '
             'não do app — a prova é a data de docs/rastreio.json mudar a cada '
             'passada, que era o que não acontecia',

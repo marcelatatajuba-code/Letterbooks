@@ -83,6 +83,31 @@ contagem da tela contra a contagem que a API tem) à que compara a tela consigo
 mesma: "tem dez colunas" passa nas duas implementações; "40 na tela, 57 na API"
 só passa na certa.
 
+**O inventário também apodrece, e ele é a entrada do portão.** O commit que
+criou a descida da nuvem tocou seis arquivos e três suítes, marcou o item como
+`entregue` no backlog — e não tocou o `produto.json`. A feature ficou `ausente`
+por doze entregas e a paridade foi medida PARA BAIXO todo esse tempo. A
+auditoria que devia pegar isso escolheu sozinha o próprio escopo ("as 11
+features parciais") e, por construção, não olhava para uma `ausente` que tinha
+sido entregue.
+
+Duas regras saem daí. A primeira: **feature só vira `completo` quando a
+evidência aponta para uma asserção com NOME**, e não para uma linha de código —
+linha prova que existe, asserção prova que funciona. A segunda: o elo entre o
+que foi entregue e o que o portão conta é um **campo explícito** (`fecha`), e
+não casamento por palavra; casar por palavra já falhou aqui uma vez, com as
+especificações, e foi trocado por um campo `item` pelo mesmo motivo. O portão 1
+confere esse elo e não pode fechar enquanto a própria entrada dele não for
+conferível.
+
+**Quando a especificação e o defeito discordam, vá ao dado.** O convite "envie
+o diário deste aparelho" disparava em `logs + listas + marcações > 0`. A frase
+estava certa no dia em que foi escrita e virou mentira quando a sincronização
+ganhou volta: o número passou a contar justamente o que tinha ACABADO DE DESCER
+da conta. A resposta ("o que só existe aqui") já estava gravada em toda linha,
+no campo `remoto`, e ninguém perguntava a ela. Antes de acrescentar coluna ou
+estado para responder uma pergunta, procure se o dado já responde.
+
 **Espera de teste tem que casar só com o destino.** Duas vezes uma
 `wait_for_selector` casou com a tela ANTERIOR (`.conta h1`, depois
 `.grade .cartao` — que a busca também desenha) e o teste virou moeda. O sinal

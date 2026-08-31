@@ -9,7 +9,10 @@
       "valor": "Para quem instala o PWA no iPhone depois de criar a conta no computador. Hoje ela entra e encontra um diário vazio, com um botão que pode duplicar ou apagar o que ela já tinha. É a diferença entre 'tenho conta' e 'não tenho conta nenhuma', e é o único item da fila que estraga dado enquanto espera.",
       "esforco": "G",
       "depende": "nada",
-      "entregue": "eeb6206 — V1: a sincronização passa a ter volta"
+      "entregue": "eeb6206 — V1: a sincronização passa a ter volta",
+      "fecha": [
+        "Trazer da nuvem para o aparelho (segundo aparelho, navegador limpo)"
+      ]
     },
     {
       "ordem": 2,
@@ -127,7 +130,10 @@
       "valor": "É o recorte mais barato entre as 11 parciais, e é fidelidade — no original o perfil de outra pessoa é uma vitrine, não um cartão de visita. Também é o primeiro item escolhido pela cadência nova: atacar recorte de parcial em vez de item novo inteiro, que é o que o portão 1 precisa para se mover.",
       "esforco": "P",
       "depende": "nada",
-      "entregue": "V11 — favoritos e estante no perfil alheio, e o cartão que carimbava selo alheio"
+      "entregue": "V11 — favoritos e estante no perfil alheio, e o cartão que carimbava selo alheio",
+      "fecha": [
+        "Perfil de outra pessoa"
+      ]
     },
     {
       "ordem": 14,
@@ -137,7 +143,179 @@
       "valor": "É o par do item 13, e o par importa: o GPM mostrou que recorte solto não fecha feature. Só com os dois entregues a feature vira `completo` e a paridade se move.",
       "esforco": "M",
       "depende": "item 13",
-      "entregue": "V12. View de agregacao distribuicao_de_notas (security_invoker, grant a anon e authenticated) + provar-v7.sql com controle negativo: afrouxar a politica faz a prova estourar. Histograma no perfil alheio com piso de 5, rota #/leitor/<@>/diario paginada, e a linha \"Leituras\" deixando de mostrar o tamanho da janela de 40 (D109)."
+      "entregue": "V12. View de agregacao distribuicao_de_notas (security_invoker, grant a anon e authenticated) + provar-v7.sql com controle negativo: afrouxar a politica faz a prova estourar. Histograma no perfil alheio com piso de 5, rota #/leitor/<@>/diario paginada, e a linha \"Leituras\" deixando de mostrar o tamanho da janela de 40 (D109).",
+      "fecha": [
+        "Perfil de outra pessoa"
+      ]
+    },
+    {
+      "ordem": 15,
+      "titulo": "A conta guarda a sua meta — e a devolve no aparelho novo",
+      "tipo": "fidelidade",
+      "resumo": "As colunas meta_ano e meta_total existem em `perfis` desde o primeiro dia e NADA em js/nuvem.js as escrevia. Sobe pela fila do sinc.js (tipo `meta`, alvo unico, enviarMeta manda so as duas colunas) e desce junto com Sinc.descer(), com a guarda que impede a descida de comer a edicao que espera na fila. Traz junto o D116: o convite de migrar passa a olhar o que SO esta aqui (linha sem `remoto`) em vez de tudo.",
+      "valor": "Quem definiu 24 livros no computador e abriu o celular novo encontrava 12, o padrao do esquema, sem nada dizendo que a meta se perdeu — e a barra do perfil passava a mentir.",
+      "esforco": "P",
+      "depende": "nada",
+      "fecha": [
+        "Sincronizar o que você registra para a nuvem"
+      ],
+      "entregue": "V13 — a meta sobe pela fila e desce com o Sinc.descer(), com a guarda que impede a descida de comer a edicao que espera na fila (confirmada vermelha sem ela). Junto foi o D116: o convite de migrar passou a olhar o que SO esta aqui."
+    },
+    {
+      "ordem": 16,
+      "titulo": "CSV para fora, Goodreads e Skoob para dentro",
+      "tipo": "fidelidade",
+      "resumo": "exportarArquivo escreve JSON proprio e Dados.importar exige d.versao. Exportar CSV com as colunas do original, e importar de fora casando por ISBN (API.buscar ja trata ISBN de 10 e 13) com queda para titulo+autoria. Previa antes de gravar, e o nao casado NAO entra: livro sem chave vira leitura orfa.",
+      "valor": "Quem tem 300 livros no Skoob nao recomeca do zero. Foi cortado da rodada 1 por sequencia — sem a descida da nuvem, importar 300 e perde-los na troca de celular era pior que nao importar — e esse motivo caducou na V1.",
+      "esforco": "M",
+      "depende": "nada",
+      "fecha": [
+        "Exportar e importar os dados"
+      ]
+    },
+    {
+      "ordem": 17,
+      "titulo": "Compartilhar também o que ainda não subiu, e o link do livro",
+      "tipo": "fidelidade",
+      "resumo": "podeCompartilhar = v.noAr esconde o link inteiro quando a resenha ainda nao tem `remoto`. No estado sem endereco, a folha passa a oferecer o link do LIVRO, que sempre existe. E a segunda metade que a auditoria achou: compartilhar a FICHA do livro manda so a imagem — desenhaLivro chama cartaoDeCompartilhar sem endereco.",
+      "valor": "Para quem escreve no metro e quer mandar agora. Hoje a folha some sem explicar.",
+      "esforco": "P",
+      "depende": "nada",
+      "fecha": [
+        "Compartilhar"
+      ]
+    },
+    {
+      "ordem": 18,
+      "titulo": "Ordenar os livros da lista, e a lista ganha capa",
+      "tipo": "fidelidade",
+      "resumo": "A coluna `ordem` existe em lista_itens e nada na tela a move. Botoes de subir/descer por item (nao arrastar: HTML5 DnD nao funciona em toque). O D115 — que descartava a ordem no servidor por ignore-duplicates — foi consertado na V13, entao o caminho de gravacao ja esta livre.",
+      "valor": "Uma lista ordenada e um argumento; uma lista sem ordem e um monte. E era divida de banco: o campo ja estava gravado e nao significava nada.",
+      "esforco": "M",
+      "depende": "nada",
+      "fecha": [
+        "Criar e editar lista (nome, descrição, itens, ordem)"
+      ]
+    },
+    {
+      "ordem": 19,
+      "titulo": "Visor de capa em tela cheia",
+      "tipo": "fidelidade",
+      "resumo": "htmlCartao sempre navega para a ficha; nao ha rota de visor. Rota #/capa/<chave> com a capa em object-fit: contain sobre a copia desfocada, e as quatro acoes do original embaixo reusando os data-acao que a ficha ja tem.",
+      "valor": "No original e como se folheia uma estante; aqui cada capa custa uma navegacao de ida e volta.",
+      "esforco": "M",
+      "depende": "nada",
+      "fecha": [
+        "Visor de capa em tela cheia"
+      ]
+    },
+    {
+      "ordem": 20,
+      "titulo": "Estado vazio com a voz do app, num catálogo só",
+      "tipo": "fidelidade",
+      "resumo": "htmlVazio e usado em 26 chamadas e o texto explica o que a tela faz em vez de ter voz. Os textos saem das chamadas e vao para UM catalogo (chave da tela -> titulo, frase, acao), e htmlVazio passa a receber a chave. Assim a suite consegue afirmar alguma coisa. ATENCAO: pelo menos quatro dos vazios sao honestidade que carrega peso (o diario fechado) e NAO podem virar piada — a lista dos intocaveis vai na especificacao.",
+      "valor": "O vazio e a primeira tela de quem instala, e hoje soa como formulario.",
+      "esforco": "P",
+      "depende": "nada",
+      "fecha": [
+        "Estado vazio com a voz do app"
+      ]
+    },
+    {
+      "ordem": 21,
+      "titulo": "Buscar também listas e resenhas",
+      "tipo": "fidelidade",
+      "resumo": "htmlEscopos tem tres abas e nenhuma consulta listas nem o texto das resenhas. Duas abas novas contra o PostgREST, com indices GIN — senao e varredura na tabela mais quente. Os dois escopos respeitam a chave de privacidade, e isso precisa de prova propria com controle negativo.",
+      "valor": "Depois das V5 e V6 existe conteudo escrito na nuvem e nenhuma porta para acha-lo.",
+      "esforco": "M",
+      "depende": "nada",
+      "fecha": [
+        "Buscar listas e resenhas"
+      ]
+    },
+    {
+      "ordem": 22,
+      "titulo": "Registro privado, um a um",
+      "tipo": "fidelidade",
+      "resumo": "A chave da V9 e do PERFIL inteiro, binaria. Coluna leituras.privado, botao na folha de registro, e o predicado nas politicas de select que ja existem. NAO reabre o 'so para quem eu sigo', que continua recusado por escrito.",
+      "valor": "Diario de leitura tem pagina que nao e para ninguem, e hoje a unica saida e fechar o perfil inteiro — sumir da rede para esconder uma linha.",
+      "esforco": "M",
+      "depende": "nada",
+      "fecha": [
+        "Privacidade do perfil e do diário"
+      ]
+    },
+    {
+      "ordem": 23,
+      "titulo": "Retrato de perfil, sem bucket e sem build",
+      "tipo": "fidelidade",
+      "resumo": "Coluna perfis.avatar, foto recortada e redimensionada para 256px por canvas em JS, gravada como data URI com teto duro. DELIBERADAMENTE sem Supabase Storage: Storage e a unica superficie que nenhuma suite deste repositorio consegue imitar, e entregar sem verificacao e o que esta casa nao faz. Se alguem trocar essa decisao no meio da implementacao, o item vira G e chega sem prova.",
+      "valor": "E a lacuna de fidelidade mais visivel que sobrou, e a primeira coisa que se nota num feed de gente.",
+      "esforco": "M",
+      "depende": "nada",
+      "fecha": [
+        "Perfil (retrato, lugar, favoritos, atividade recente, histograma)"
+      ]
+    },
+    {
+      "ordem": 24,
+      "titulo": "Escolher quais avisos você quer receber",
+      "tipo": "fidelidade",
+      "resumo": "A V7 entregou o AVISO, nao a PREFERENCIA. Coluna em perfis respeitada NA VIEW e nao na tela — filtrar no cliente seria trazer o dado e fingir que nao trouxe. O quarto pedaco do original (icone alternativo do app) NAO existe em PWA no iOS: entra como linha ausente declarada, nunca como promessa, e ALGUEM PRECISA CONFIRMAR NUM IPHONE REAL antes de fechar a feature.",
+      "valor": "Quem recebe aviso de tudo desliga tudo.",
+      "esforco": "M",
+      "depende": "nada",
+      "fecha": [
+        "Ajustes (notificações, privacidade, ícone do app)"
+      ]
+    },
+    {
+      "ordem": 25,
+      "titulo": "O feed conta mais que 'leu': curtiu, comentou, seguiu, criou lista",
+      "tipo": "fidelidade",
+      "resumo": "CAMPOS_FEED so traz colunas de leitura e htmlLinhaFeed so sabe montar leu/releu. View `eventos` com union all sobre curtidas, comentarios, seguidores e listas, com security_invoker = on — sem isso o RLS das tabelas de baixo e ignorado e a chave de privacidade vaza inteira. Nasce com drop view if exists e com prova de controle negativo.",
+      "valor": "Um feed de um tipo so e um mural de registros.",
+      "esforco": "G",
+      "depende": "nada",
+      "fecha": [
+        "Eventos do feed além de leitura (curtiu, comentou, seguiu, criou lista)"
+      ]
+    },
+    {
+      "ordem": 26,
+      "titulo": "Escolher quais eventos entram no feed",
+      "tipo": "fidelidade",
+      "resumo": "telaAtividade tem so Seguindo/Todo mundo. Folha de filtro por tipo sobre a view `eventos` do item 25, com a escolha lembrada no aparelho. Filtro no SELECT, nao no cliente.",
+      "valor": "Filtrar uma coisa so nao e filtro — por isso foi cortado na rodada 1, e a dependencia agora tem dono.",
+      "esforco": "P",
+      "depende": "item 25",
+      "fecha": [
+        "Filtros de atividade"
+      ]
+    },
+    {
+      "ordem": 27,
+      "titulo": "Denunciar perfil e lista, e bloquear uma pessoa",
+      "tipo": "fidelidade",
+      "resumo": "A V9 entregou denuncia de resenha e comentario; a tabela so aponta para leitura e comentario. Alvo generico (tipo + id) com CHECK, mais as duas politicas no molde das que a V9 teve que criar (sem a de select, o return=representation REVERTE o insert). Junto vai a unica moderacao que uma casa sem equipe entrega com honestidade: BLOQUEAR — o conteudo some das suas telas do lado do SERVIDOR, e nao so neste aparelho.",
+      "valor": "Denunciar sem nada acontecer e uma promessa que a folha hoje evita fazer, e ela esta certa em evitar.",
+      "esforco": "M",
+      "depende": "nada",
+      "fecha": [
+        "Denunciar conteúdo"
+      ]
+    },
+    {
+      "ordem": 28,
+      "titulo": "Filtros de grade — bloqueado pela medição do item 12",
+      "tipo": "fidelidade",
+      "resumo": "BLOQUEADO POR MEDICAO, e e a razao de existir como item em vez de entrar na fila. Dos cinco eixos do original, dois nao tem equivalente na Open Library (Genero e Pais: so existe subject livre) e um e outro dado (Duracao -> paginas). Sobram Ano e Idioma, e Idioma e o que a ENTREGA 1 do item 12 existe para decidir. Sem a medicao, um filtro implementado aqui passaria verde num fixture que ignora todo parametro de recorte — o defeito do mock que ignorava limit e offset, outra vez.",
+      "valor": "Filtrar a grade e o gesto do original sobre qualquer grade.",
+      "esforco": "M (indeterminado ate a medicao)",
+      "depende": "item 12, entrega 1",
+      "fecha": [
+        "Filtros de grade (Ano, Gênero, País, Idioma, Duração)"
+      ]
     }
   ],
   "cortados": [
@@ -163,5 +341,7 @@
     "Estante física (tenho, empresto, emprestei) — NOVA e barata (um valor a mais no CHECK de marcadores.tipo, servidor/esquema.sql:76). Cortei porque é o Skoob, não o original, e a dor não se compara com nenhum dos 12 — ninguém abandona o app por não conseguir registrar um empréstimo.",
     "Releitura comparada (como você mudou de ideia) — NOVA e a mais barata da lista: o dado já está gravado (múltiplos logs com nota e o campo relido, verificado em js/dados.js e em servidor/esquema.sql:54-64), falta só ler e desenhar. Cortei por alcance: só existe para quem tem anos de diário, e num app novo isso é ninguém. Guardar para quando houver histórico."
   ],
-  "nota_entregue": "O campo \"entregue\" marca o que já está no ar. Sem ele o portões.py contava para sempre os mesmos itens de fidelidade e o portão 1 nunca poderia fechar — um medidor que não sabe o que foi feito não mede nada."
+  "nota_entregue": "O campo \"entregue\" marca o que já está no ar. Sem ele o portões.py contava para sempre os mesmos itens de fidelidade e o portão 1 nunca poderia fechar — um medidor que não sabe o que foi feito não mede nada.",
+  "nota_fecha": "O campo `fecha` lista, pelo NOME EXATO, as features de produto.json que o item fechou. O portao 1 confere: item `entregue` cujo `fecha` aponta para uma feature que nao esta `completo` derruba o criterio. Ele nasceu do D114 — o item 1 foi entregue na V1 e a feature ficou `ausente` por doze entregas, medindo a paridade para baixo o tempo todo. Campo explicito, e nao casamento por palavra: casar por palavra ja falhou nesta casa com as especificacoes e foi trocado por um campo `item` pelo mesmo motivo. Os itens sem `fecha` sao os que ninguem conferiu ainda; o portao os conta em voz alta ate alguem conferir, e preencher por adivinhacao seria trocar uma escrituracao errada por outra.",
+  "raciocinio_v13": "A fila de fidelidade tinha ficado VAZIA com a paridade em 67% — o backlog parou de descrever o trabalho que fecha o portao 1. Os itens 15 a 28 sao as 18 features abertas de produto.json viradas em itens, cada um fechando uma feature INTEIRA pelo nome exato (campo `fecha`), porque `parcial` conta como nao-feito e recorte solto nao move a paridade. A conta que ordena a fila: 54 comparaveis, 90% = 49 completos, e hoje sao 38 — faltam 11, e so 5 das 18 abertas podem continuar abertas. Cada feature virada fora-de-escopo tira um item de trabalho mas NAO compra folga (a folga fica em 5 ate a quarta), entao fora-de-escopo e economia de trabalho e nunca atalho para o portao. Tres candidatas a fora-de-escopo foram levantadas e NAO foram executadas nesta volta: similares, onde-ler e etiquetas. Elas mudam o denominador do portao e por isso merecem commit proprio, com a justificativa escrita, para uma revisao futura poder derrubar uma sem tocar nas outras."
 }

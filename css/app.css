@@ -934,9 +934,19 @@ a.feed-linha.aviso:active { background: var(--superficie); }
 .curtiu-o-livro { color: var(--curtida); }
 
 @media (max-width: 720px) {
-  /* Quatro botoes de 44 quebram em duas linhas nos 354px uteis. E o
-     comportamento certo do wrap, nao um problema a consertar. */
-  .resenha-botoes .botao { min-height: 44px; }
+  /* A REGUA DE 44, NA RAIZ. Era `min-height: 34px` no .botao e tres remendos
+     separados (.resenha-botoes, .folha-rodape, .folha) pagando a mesma divida
+     em pedacos — e cada tela nova que usasse um .botao solto nascia a 34px de
+     novo. Era o caso de TODA a superficie de conta: [Entrar], [Criar conta],
+     [Esqueci a senha], [Criar o meu perfil], [Sair], [Voltar ao perfil] e o
+     [Enviar o que so esta aqui] deste item — inclusive a porta de entrada do
+     aplicativo.
+
+     Os tres remendos foram APAGADOS junto com esta linha entrar: o liquido e
+     duas linhas a MENOS de CSS, um seletor no lugar de tres, e a divida deixa
+     de poder reaparecer numa quarta tela. Quatro botoes de 44 quebram em duas
+     linhas nos 354px uteis, e isso e o comportamento certo do wrap. */
+  .botao { min-height: 44px; }
 }
 
 @media (max-width: 520px) {
@@ -1537,12 +1547,6 @@ a.feed-resenha:hover { background: var(--superficie-2); color: var(--texto); }
 
 .espelho { margin-top: 30px; border-top: 1px solid var(--borda); padding-top: 20px; }
 
-/* DÍVIDA PAGA, e ela já estava no ar: o botão "Apagar" das folhas destrutivas
-   herdava o min-height 34 do .botao — 10px abaixo da régua de 44. Vale para as
-   três folhas (resenha, lista e agora conta), e o rastreador não pegava porque
-   ele não abre folha. */
-.folha-rodape .botao { min-height: 44px; }
-
 /* ================================================================ denunciar */
 
 /* A ação mais rara do app: versalete apagado, uma linha abaixo da fileira de
@@ -1581,11 +1585,6 @@ a.feed-resenha:hover { background: var(--superficie-2); color: var(--texto); }
 /* A capa do spoiler media 32,75px, e ela é o alvo de "tocar para ler" — que
    agora é também o de "tocar para ler o que você denunciou". */
 .spoiler-aviso { min-height: 44px; }
-
-/* .folha-rodape .botao já tinha sido corrigido; o que faltou foi o .botao
-   DENTRO da folha e fora do rodapé — hoje isso é o "Exportar o diário antes"
-   da folha de apagar a conta, em 34px. */
-.folha .botao { min-height: 44px; }
 
 /* ============================================ folha de uma pergunta (t102+) */
 

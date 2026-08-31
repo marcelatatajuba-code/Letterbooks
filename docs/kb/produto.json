@@ -220,7 +220,7 @@
       "nome": "Compartilhar",
       "area": "Registrar",
       "noOriginal": "Compartilha o link do filme ou da resenha.",
-      "noLetterbooks": "Duas metades. O LINK, que é o que o original faz, existe desde a V4: toda resenha que está no servidor tem endereço próprio em #/resenha/<uuid>, e a folha oferece \"Copiar o link\" (`podeCompartilhar = v.noAr`). E o CARTÃO, que é recurso nosso e não existe no Letterboxd: cartaoDeCompartilhar desenha um 1080x1920 com capa, título, autoria e nota, entregue pela folha do sistema. PARCIAL porque a resenha que ainda não subiu — modo local, ou fila pendente — não tem endereço para compartilhar, e nesse estado só o cartão existe.",
+      "noLetterbooks": "Duas metades. O LINK, que é o que o original faz, existe desde a V4: toda resenha que está no servidor tem endereço próprio em #/resenha/<uuid>, e a folha oferece \"Copiar o link\" (`podeCompartilhar = v.noAr`). E o CARTÃO, que é recurso nosso e não existe no Letterboxd: cartaoDeCompartilhar desenha um 1080x1920 com capa, título, autoria e nota, entregue pela folha do sistema. PARCIAL porque a resenha que ainda não subiu — modo local, ou fila pendente — não tem endereço para compartilhar, e nesse estado só o cartão existe. E falta uma segunda metade que o registro nao mencionava: compartilhar a FICHA DO LIVRO manda so a imagem — desenhaLivro chama cartaoDeCompartilhar sem endereco, e entregarCartao so anexa carga.url quando ele existe. Resenha e lista tem link; livro nao tem.",
       "estado": "parcial",
       "evidencia": "js/app.js:1659 cartaoDeCompartilhar"
     },
@@ -236,17 +236,17 @@
       "nome": "Eventos do feed além de leitura (curtiu, comentou, seguiu, criou lista)",
       "area": "Atividade",
       "noOriginal": "O feed mistura tipos: 'X curtiu a resenha de Y', 'X seguiu Z', 'X adicionou à lista'.",
-      "noLetterbooks": "O feed é só leitura. CAMPOS_FEED (js/nuvem.js:310) só traz colunas de leitura, e htmlLinhaFeed só sabe montar 'leu/releu'. Curtidas, comentários e seguidas ficam invisíveis para a rede.",
+      "noLetterbooks": "O FEED continua so de leitura: CAMPOS_FEED traz apenas colunas de leitura e htmlLinhaFeed so sabe montar \"leu/releu\". O que mudou na V7 e que curtida, comentario e nova seguidora deixaram de ser invisiveis — mas na aba \"Voce\" (#/avisos, sobre a view `avisos`), que e a notificacao de quem foi ALVO, e nao o evento na linha do tempo da rede. Continua parcial pelo original: \"X curtiu a resenha de Y\" e \"X adicionou a lista\" nao aparecem para TERCEIROS em lugar nenhum.",
       "estado": "parcial",
-      "evidencia": "js/nuvem.js:310 CAMPOS_FEED; js/app.js:2017 htmlLinhaFeed"
+      "evidencia": "js/nuvem.js CAMPOS_FEED; js/app.js htmlLinhaFeed; js/app.js telaAvisos + servidor/esquema.sql view avisos — o que existe hoje para os outros tres eventos, e para quem"
     },
     {
       "nome": "Filtros de atividade",
       "area": "Atividade",
       "noOriginal": "Escolher quais tipos de evento entram no feed.",
-      "noLetterbooks": "Não existe. telaAtividade só tem as duas abas Seguindo/Todo mundo. Só faz sentido depois que o feed tiver mais de um tipo de evento.",
+      "noLetterbooks": "Nao existe. A nav de Atividade tem TRES fitas — Voce (#/avisos), Seguindo e Todo mundo — e nenhuma delas e filtro por tipo de evento: as duas ultimas trocam de QUEM, nao de O QUE. So faz sentido depois que o feed tiver mais de um tipo de evento.",
       "estado": "ausente",
-      "evidencia": "js/app.js:1959 telaAtividade"
+      "evidencia": "js/app.js htmlSegmentosAtividade / telaAtividade — tres fitas, nenhuma por tipo"
     },
     {
       "nome": "Curtir resenha",
@@ -308,7 +308,7 @@
       "nome": "Perfil (retrato, lugar, favoritos, atividade recente, histograma)",
       "area": "Perfil",
       "noOriginal": "Retrato redondo centralizado, lugar, quatro favoritos, atividade recente e histograma de notas.",
-      "noLetterbooks": "telaPerfil (js/app.js:1219) tem tudo na ordem certa — atalhos, avatar, favoritos (fileira), atividade recente (htmlAtividade app.js:249), histograma (htmlHistograma app.js:235), meta e bloco de dados. O 'retrato' é a inicial do nome num círculo: não há upload de foto, e a tabela perfis (servidor/esquema.sql:16) não tem coluna de avatar.",
+      "noLetterbooks": "telaPerfil (js/app.js:1219) tem tudo na ordem certa — atalhos, avatar, favoritos (fileira), atividade recente (htmlAtividade app.js:249), histograma (htmlHistograma app.js:235), meta e bloco de dados. O LUGAR existe e funciona (perfis.local, editado em pintarConta e desenhado em enfeitarPerfilComANuvem e desenhaLeitor) — a unica falta e a FOTO. O 'retrato' e a inicial do nome num circulo: não há upload de foto, e a tabela perfis (servidor/esquema.sql:16) não tem coluna de avatar.",
       "estado": "parcial",
       "evidencia": "js/app.js:1238 telaPerfil (div class=avatar com a inicial); servidor/esquema.sql:16 perfis"
     },
@@ -356,7 +356,7 @@
       "nome": "Ajustes (notificações, privacidade, ícone do app)",
       "area": "Perfil",
       "noOriginal": "Linhas de ajuste com valor e chevron, cobrindo perfil, conta, notificações, privacidade e ícone do app.",
-      "noLetterbooks": "#/avisos, terceira fita da nav de Atividade (\"Você\"), lê a view `avisos` do esquema — curtida, comentário e seguidora vêm das três tabelas que já gravavam criado_em desde o primeiro dia. O \"já vi isto\" é uma marca dágua no aparelho, sempre com horário de servidor. Ponto na aba, não contagem: assim a consulta é limit=1. V7 entregou o AVISO (#/avisos), não a PREFERÊNCIA de aviso: não há onde escolher receber só comentário, nem desligar. Continua parcial de propósito — a distinção é do GPM e é o que impede marcar como pronto o que não está.",
+      "noLetterbooks": "Duas das cinco linhas do original ja tem tela propria: PERFIL/CONTA em #/conta (usuario, nome, bio, lugar; sair; apagar a conta) e PRIVACIDADE em #/privacidade, alcancada pela linha \"Privacidade do diario\" (V8). A V7 entregou o AVISO (#/avisos, lendo a view `avisos`) — nao a PREFERENCIA de aviso. Continua parcial pelo que falta: nao ha onde escolher receber so comentario nem desligar, e nao ha escolha de icone do app. A distincao entre o aviso e a preferencia de aviso e o que impede marcar como pronto o que nao esta.",
       "estado": "parcial",
       "evidencia": "servidor/esquema.sql view avisos; js/app.js telaAvisos; servidor/provar-v3.sql"
     },
@@ -396,17 +396,17 @@
       "nome": "Sincronizar o que você registra para a nuvem",
       "area": "Sistema",
       "noOriginal": "Tudo mora no servidor por definição.",
-      "noLetterbooks": "Local primeiro, sempre: Dados anuncia, Sinc enfileira no localStorage e esvazia quando dá (enfileirar/empurrar, ligado em online e visibilitychange). A fila entende cinco tipos: leitura, leitura-apagada, marcador, lista e lista-apagada — as listas passaram a subir na V5, e `criarLista`/`alternarNaLista` anunciam. PARCIAL pelo que sobrou: a META DO ANO nunca sobe. As colunas `meta_ano` e `meta_total` existem em `perfis` desde o primeiro dia e NADA em js/nuvem.js as escreve (grep: zero) — quem troca de aparelho perde a meta, em silêncio.",
-      "estado": "parcial",
-      "evidencia": "js/sinc.js enfileirar/empurrar; js/dados.js anunciar; grep meta_ano em js/nuvem.js = 0"
+      "noLetterbooks": "Local primeiro, sempre: Dados anuncia, Sinc enfileira no localStorage e esvazia quando da (enfileirar/empurrar, ligado em online e visibilitychange). A fila entende SEIS tipos: leitura, leitura-apagada, marcador, lista, lista-apagada e — desde a V13 — meta. A META DO ANO sobe pela fila (enviarMeta manda SO meta_ano e meta_total, nunca o perfil inteiro: salvarPerfil e a mesma funcao que grava `privado`, e um corpo montado de um retrato velho reabriria um diario fechado) e desce junto com Sinc.descer(). A regra que protege a edicao sem rede: se ha item `meta` esperando na fila, a descida NAO aplica a meta do servidor — senao a meta editada no metro e sobrescrita pela velha e a fila sobe o valor sobrescrito, e a edicao morre sem erro. Fora isso o servidor ganha, sem cerimonia de conflito: e um escalar que a pessoa pos de proposito no lugar mais recente. COMPLETO.",
+      "estado": "completo",
+      "evidencia": "js/sinc.js enviarMeta e aplicarMeta (com a guarda da fila); js/dados.js guardarMeta e anunciar; js/app.js aoConfirmar da folha editar-meta (grava ano e total juntos: e a confirmacao que vira o ano, nunca a pintura); docs/testar_social.py \"a meta desceu da conta para o aparelho\", \"e o perfil DESENHA a meta que veio da conta\" e \"a descida NAO comeu a meta que estava na fila\" — esta ultima confirmada vermelha com a guarda removida (o local virava 12 enquanto a fila subia 24)."
     },
     {
       "nome": "Trazer da nuvem para o aparelho (segundo aparelho, navegador limpo)",
       "area": "Sistema",
       "noOriginal": "Entrou, está tudo lá.",
-      "noLetterbooks": "Não existe. Nenhuma função lê as PRÓPRIAS leituras/marcadores/listas de volta: Nuvem só expõe feed, feedGeral, leiturasDe, perfilDe (nuvem.js:317-344) e o app só as usa para telas sociais. Nuvem.migrar (nuvem.js:475) é mão única e roda uma vez por conta (jaMigrou, nuvem.js:436).",
-      "estado": "ausente",
-      "evidencia": "js/nuvem.js:475 migrar; js/nuvem.js retorna nenhuma função de leitura do próprio diário"
+      "noLetterbooks": "Existe desde a V1 (eeb6206), e e a metade de volta da sincronizacao. `Sinc.descer()` pede tres coisas de uma vez — minhasLeituras, meusMarcadores e minhasListas — e completa as fichas que faltam numa consulta so (livrosPorChave), em vez de uma ida a Open Library por linha. A fusao e de Dados: fundir() casa a linha do servidor com a local em tres passos (cliente_id, remoto, assinatura) e fundirListas() faz o mesmo pelo nome, entao descer duas vezes nao duplica — e a linha antiga que casou por assinatura recebe o cliente_id no servidor (adotarLeitura/adotarLista), que e conserto e nao remendo. Roda em dois momentos, ambos dentro de Sinc.ligar(): ao entrar na conta e ao abrir o app ja entrado. Desce ANTES de subir, de proposito — subir primeiro mandaria como novidade o que ja esta la. Descida que falha nao bloqueia o app.",
+      "estado": "completo",
+      "evidencia": "js/sinc.js descer(), chamado nos dois pontos de ligar(); js/nuvem.js minhasLeituras/meusMarcadores/minhasListas/livrosPorChave; js/dados.js fundir/fundirListas; docs/jornada_e2e.py passo 11 \"CELULAR NOVO: a Ana entra num aparelho zerado\" (limpa o localStorage, entra, e afirma que o diario desce com resenha e ficha e que #/diario DESENHA), a assercao \"a ESTANTE tambem desceu\" e \"a prateleira Quero ler DESENHA o livro no aparelho novo\" (os marcadores, que ate a V13 eram o unico dos tres caminhos sem teste), e o passo 12 \"descer duas vezes nao duplica\"; docs/testar_social.py \"listas: descem para um aparelho zerado\"."
     },
     {
       "nome": "Migração do diário local para a conta",
@@ -441,7 +441,8 @@
       "evidencia": "servidor/esquema.sql apagar_minha_conta; servidor/provar-v4.sql seções 13-16; js/app.js abrirFolhaApagarConta"
     }
   ],
-  "lacunas": [
+  "observacoes": "Três avisos antes de usar este inventário.\n\n1) docs/mapa_dados.py está DESATUALIZADO em relação ao código. Ele marca t074 (feed de amigos) e t082 como 'falta' e diz que a resenha foi reconstruída 'menos as curtidas e os comentários' — mas hoje existem telaAtividade (js/app.js:1959), telaLeitor (:2127), telaLeitura com comentários (:2241), telaGente (:2409), seguir (:2223) e curtir (:2102). A camada social do mapa já nasceu. O que o mapa ainda acerta: t030 (visor de capa) e t034 (filtros) continuam ausentes; t090 e t102 continuam parciais.\n\n2) O achado mais incômodo não está no mapa: o bloco 'Avaliações' da ficha do livro (js/app.js:683 e :707) mostra o histograma global do próprio usuário, não as notas daquele livro. Não é uma lacuna de feature — é uma tela que afirma uma coisa e mostra outra, e é a mais fácil de tomar por pronta em revisão visual, porque o gráfico está lá, bonito, no lugar certo.\n\n3) Sobre a regra de identidade. Encontrei três coisas que NÃO existem no Letterboxd e estão no Letterbooks: o cartão de imagem para compartilhar (cartaoDeCompartilhar, js/app.js:1659), a meta de leitura do ano com barra de progresso (telaPerfil), e todo o modo local com migração para a conta (js/nuvem.js:475). As três estão marcadas como novas no campo noOriginal das entradas correspondentes. Vale manter essa marcação em qualquer material de apresentação: a aba Estante também vai além do original (o Letterboxd só tem watchlist; aqui são quatro seções, js/app.js:1044), e a busca por Autores/Leitores substitui — não copia — o escopo 'Cast, Crew or Studios'.\n\nCoisas que verifiquei e estão sólidas, para não gastarem tempo revisando: a ordem local-primeiro da Sinc com fila persistida (js/sinc.js), a recusa de subir com chave service_role (js/nuvem.js:44-57), a exclusão deliberada do Supabase do cache do service worker (sw.js), o PATCH que recria a leitura se a linha sumiu (js/nuvem.js:260) e a limpeza de assuntos duplicados da Open Library (js/api.js:161 limparAssuntos).",
+  "lacunas_obsoletas_v6": [
     {
       "titulo": "Nada desce da nuvem: entrar em outro aparelho mostra um diário vazio",
       "porque": "Hoje a sincronização é mão única. Sinc sobe leituras e marcadores (js/sinc.js:128) e Nuvem.migrar sobe o resto uma vez (js/nuvem.js:475), mas não existe nenhuma função que leia o SEU diário de volta — Nuvem só sabe ler feed, feedGeral, leiturasDe e perfilDe. Na prática: você cria conta no computador, migra, instala o PWA no iPhone, entra — e o app está vazio. Pior, ele te oferece 'Trazer o diário deste aparelho' de novo (jaMigrou é por aparelho, no localStorage, js/nuvem.js:436), o que sobe um diário vazio ou duplica o que já está lá. É a diferença entre 'tenho conta' e 'não tenho conta nenhuma'.",
@@ -518,5 +519,5 @@
       "esforco": "M"
     }
   ],
-  "observacoes": "Três avisos antes de usar este inventário.\n\n1) docs/mapa_dados.py está DESATUALIZADO em relação ao código. Ele marca t074 (feed de amigos) e t082 como 'falta' e diz que a resenha foi reconstruída 'menos as curtidas e os comentários' — mas hoje existem telaAtividade (js/app.js:1959), telaLeitor (:2127), telaLeitura com comentários (:2241), telaGente (:2409), seguir (:2223) e curtir (:2102). A camada social do mapa já nasceu. O que o mapa ainda acerta: t030 (visor de capa) e t034 (filtros) continuam ausentes; t090 e t102 continuam parciais.\n\n2) O achado mais incômodo não está no mapa: o bloco 'Avaliações' da ficha do livro (js/app.js:683 e :707) mostra o histograma global do próprio usuário, não as notas daquele livro. Não é uma lacuna de feature — é uma tela que afirma uma coisa e mostra outra, e é a mais fácil de tomar por pronta em revisão visual, porque o gráfico está lá, bonito, no lugar certo.\n\n3) Sobre a regra de identidade. Encontrei três coisas que NÃO existem no Letterboxd e estão no Letterbooks: o cartão de imagem para compartilhar (cartaoDeCompartilhar, js/app.js:1659), a meta de leitura do ano com barra de progresso (telaPerfil), e todo o modo local com migração para a conta (js/nuvem.js:475). As três estão marcadas como novas no campo noOriginal das entradas correspondentes. Vale manter essa marcação em qualquer material de apresentação: a aba Estante também vai além do original (o Letterboxd só tem watchlist; aqui são quatro seções, js/app.js:1044), e a busca por Autores/Leitores substitui — não copia — o escopo 'Cast, Crew or Studios'.\n\nCoisas que verifiquei e estão sólidas, para não gastarem tempo revisando: a ordem local-primeiro da Sinc com fila persistida (js/sinc.js), a recusa de subir com chave service_role (js/nuvem.js:44-57), a exclusão deliberada do Supabase do cache do service worker (sw.js), o PATCH que recria a leitura se a linha sumiu (js/nuvem.js:260) e a limpeza de assuntos duplicados da Open Library (js/api.js:161 limparAssuntos)."
+  "nota_lacunas": "O array `lacunas` foi renomeado para `lacunas_obsoletas_v6` na V13. Ele e um retrato anterior a V6 e descrevia como abertas coisas entregues nas V1, V3, V4 e V5 — a primeira entrada dizia \"Nada desce da nuvem\", que era a mesma afirmacao falsa do D114. O portoes.py nunca leu este array, entao ele nao mexeu em numero nenhum; ele enganava humano e agente que abrissem o arquivo para se orientar. Mantido com o nome trocado em vez de apagado para nao perder o registro do que se pensava na epoca."
 }

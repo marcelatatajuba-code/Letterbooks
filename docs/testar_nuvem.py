@@ -231,7 +231,15 @@ def rodar():
         checa('gravou quando expira', s['expiraEm'] > time.time() * 1000)
 
         aut = [p for p in pedidos if p[1].startswith('/rest/v1/perfis')]
-        checa('o perfil veio do servidor', len(aut) == 1)
+        # DOIS, e o numero e pinado de proposito em vez de virar >= 1. Ao
+        # entrar ha dois consumidores independentes da mesma linha: o
+        # contaDentro() busca o perfil para preencher o formulario, e o
+        # Sinc.descer() busca de novo para trazer a META (V13). O custo e uma
+        # ida a rede a mais no login, e ele esta aceito e escrito aqui.
+        # Afrouxar para >= 1 esconderia um terceiro consumidor no dia em que
+        # alguem acrescentasse um — que e exatamente como este virou dois.
+        checa('o perfil veio do servidor, e exatamente duas vezes',
+              len(aut) == 2, '%d idas a /rest/v1/perfis' % len(aut))
 
         # --------------------------------------------------------- criar conta
         print('\ncriar conta')
@@ -288,7 +296,15 @@ def rodar():
         pg.reload(wait_until='networkidle')
         pg.wait_for_selector('[data-acao=migrar]')
         texto = pg.inner_text('.conta')
-        checa('conta as leituras certas', '3' in texto and 'leituras' in texto)
+        # O inventario agora diz o ESCOPO: nao "voce tem 3 leituras" (que
+        # conta tambem o que ja esta na conta), e sim quantas so existem
+        # aqui. Com o diario semeado e nada migrado, as tres sao locais.
+        checa('conta as leituras que SO estao aqui', '3 só aqui' in texto, texto[:160])
+        # .lower() porque o CSS deixa o botao em versalete: o inner_text
+        # devolve "ENVIAR O QUE SO ESTA AQUI".
+        checa('e o botao diz o escopo, nao "enviar para a conta"',
+              'só está aqui' in pg.inner_text('[data-acao=migrar]').lower(),
+              pg.inner_text('[data-acao=migrar]'))
         checa('promete nao apagar nada', 'nada é apagado' in texto)
 
         pg.click('[data-acao=migrar]')
@@ -346,7 +362,12 @@ def rodar():
         pg.wait_for_selector('.conta')
         checa('botao de migrar some depois de migrar',
               pg.locator('[data-acao=migrar]').count() == 0)
-        checa('mostra a data no lugar', 'Já enviado' in pg.inner_text('.conta'))
+        conta_txt = pg.inner_text('.conta')
+        checa('mostra a data no lugar', 'enviado para a conta' in conta_txt, conta_txt[:160])
+        # e a data DE VERDADE, nao so o rotulo: antes bastava a frase
+        import re as _re
+        checa('e a data aparece, formatada',
+              bool(_re.search(r'\d{2}/\d{2}/\d{4}', conta_txt)), conta_txt[:160])
         nav.close()
 
         # ------------------------------------------------------- migracao ruim

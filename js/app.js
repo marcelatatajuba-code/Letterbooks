@@ -2969,7 +2969,15 @@
                mutar o `d` velho grava num órfão e a edição some sem erro. */
             var e = Dados.estado();
             e.perfil.meta.total = parseInt(t, 10);
+            /* O ano e gravado JUNTO com o total, e so aqui: e a confirmacao
+               que vira o ano, nunca a pintura da tela. Quem comecou em 2025 e
+               confirma uma meta em 2026 passa a ter meta de 2026. */
+            e.perfil.meta.ano = new Date().getFullYear();
             Dados.salvar();
+            /* Sobe pela fila, e nao direto como a chave de privacidade: meta
+               atrasada por tres horas nao expoe nada de ninguem, entao nao vale
+               a ida a rede sincrona que a chave precisou. */
+            Dados.anunciar('meta', { ano: e.perfil.meta.ano, total: e.perfil.meta.total });
             aviso('Meta salva.');
             rotear();
           }
@@ -4727,8 +4735,31 @@
     var eu = Nuvem.quemSou();
     var d = Dados.estado();
     var marcacoes = d.querLer.length + d.curtidas.length + d.favoritos.length;
-    var quanto = d.logs.length + d.listas.length + marcacoes;
     var migrado = Nuvem.jaMigrou();
+
+    /* O QUE SO ESTA AQUI, e nao o que esta aqui (D116).
+    
+       O gatilho era `quanto = logs + listas + marcacoes`, e ele foi escrito
+       quando a sincronizacao era de mao unica. Depois que a V1 criou o
+       `Sinc.descer()`, esse numero passou a contar justamente o que ACABOU DE
+       VIR da conta: um aparelho zerado que entra numa conta com 200 leituras
+       recebe as 200 e e convidado a "enviar o diario deste aparelho para a
+       conta" — mandar de volta o que veio de la. O convite mentia em todo
+       segundo aparelho, que e exatamente o caso de uso que a V1 existia para
+       atender.
+
+       A resposta ja estava no dado e ninguem perguntava a ela: `remoto` e
+       gravado por `Dados.fundir` e por `marcarRemoto` em toda linha que o
+       servidor conhece — inclusive nas antigas, que a fusao casa por
+       assinatura. Linha sem `remoto` e linha que so existe aqui.
+
+       Marcacoes ficam de fora da conta de proposito: elas nao tem `remoto`
+       (nao ha o que casar, `fundir` so faz uniao de arrays) e reenvia-las e
+       idempotente, porque sobem com `ignore-duplicates`. Conta-las daria um
+       numero que nunca zera e o convite nunca sumiria. */
+    var soAquiLeituras = d.logs.filter(function (l) { return !l.remoto; }).length;
+    var soAquiListas   = d.listas.filter(function (l) { return !l.remoto; }).length;
+    var soAqui = soAquiLeituras + soAquiListas;
 
     /* O bloco de migracao so aparece se houver o que migrar e ainda nao tiver
        migrado. Depois disso vira uma linha com a data, para a pessoa saber que
@@ -4736,19 +4767,37 @@
     var blocoMigrar = '';
     if (migrado) {
       blocoMigrar =
-        '<section class="secao"><h2>Diário deste aparelho</h2>' +
-        '<p class="conta-texto">Já enviado para a sua conta em ' +
-          esc(dataCurta(migrado)) + '.</p></section>';
-    } else if (quanto) {
+        '<section class="secao"><h2>Este aparelho e a sua conta</h2>' +
+        '<div class="linhas">' +
+          linhaAjuste('span', 'class="sem-link"', 'Diário enviado para a conta',
+                      esc(dataCurta(migrado))) +
+        '</div></section>';
+    } else if (soAqui) {
+      /* O rotulo diz o ESCOPO, e o inventario diz o tamanho. "Enviar para a
+         conta" podia ser lido como subir por cima do que ja esta la; "Enviar o
+         que so esta aqui" nao pode. E o inventario sai do paragrafo e vira
+         `.linhas`, que e a forma da casa para par fato/valor: tres numeros
+         dentro de uma frase de quatro linhas e a maneira mais facil de nao ler
+         numero nenhum. */
       blocoMigrar =
-        '<section class="secao"><h2>Trazer o diário deste aparelho</h2>' +
-        '<p class="conta-texto">Você tem <b>' + d.logs.length + '</b> leituras, <b>' +
-          d.listas.length + '</b> listas e <b>' + marcacoes + '</b> marcações guardadas ' +
-          'só aqui. Enviar copia tudo para a conta. O que está no aparelho continua ' +
-          'onde está — nada é apagado.</p>' +
+        '<section class="secao"><h2>Este aparelho e a sua conta</h2>' +
+        '<p class="conta-texto">' + (migrado
+          ? 'A sua conta já recebeu um diário em ' + esc(dataCurta(migrado)) +
+            '. O que está listado abaixo foi registrado aqui e ainda não subiu.'
+          : 'O seu diário deste aparelho ainda não está na conta. Enviar copia ' +
+            'para lá o que só existe aqui. O que está no aparelho continua onde ' +
+            'está — nada é apagado dos dois lados.') + '</p>' +
+        '<div class="linhas">' +
+          linhaAjuste('span', 'class="sem-link"', 'Leituras',
+                      String(soAquiLeituras) + ' só aqui') +
+          linhaAjuste('span', 'class="sem-link"', 'Listas',
+                      String(soAquiListas) + ' só aqui') +
+          linhaAjuste('span', 'class="sem-link"', 'Marcações', String(marcacoes)) +
+        '</div>' +
         '<p class="conta-erro" id="migrar-erro" role="alert" hidden></p>' +
         '<div class="linha-botoes">' +
-          '<button class="botao destaque" data-acao="migrar">Enviar para a conta</button>' +
+          '<button class="botao destaque" data-acao="migrar">' +
+          'Enviar o que só está aqui</button>' +
         '</div></section>';
     }
 

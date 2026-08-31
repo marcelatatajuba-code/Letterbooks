@@ -76,6 +76,21 @@ var Dados = (function () {
     }
   }
 
+  /* A meta que veio da conta. Quem decide se ela vence a local e o Sinc (ele
+     e quem sabe se ha edicao esperando na fila); aqui so grava e anuncia.
+
+     `ano` menor que o corrente e aceito como esta: virar o ano e decisao de
+     quem confirma a folha, nao efeito de uma leitura. */
+  function guardarMeta(meta) {
+    if (!meta || !(meta.total > 0)) return false;
+    var m = estado.perfil.meta;
+    if (m.total === meta.total && m.ano === meta.ano) return false;
+    m.total = meta.total;
+    if (meta.ano) m.ano = meta.ano;
+    salvar();
+    return true;
+  }
+
   function clonar(o) { return JSON.parse(JSON.stringify(o)); }
   function id() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
   function hoje() { return new Date().toISOString().slice(0, 10); }
@@ -520,11 +535,16 @@ var Dados = (function () {
   return {
     estado:     function () { return estado; },
     aoMudar:    aoMudar,
+    /* Exportado para a folha da meta poder anunciar sem passar por uma
+       funcao de escrita: a meta ja foi gravada em `estado.perfil` pela
+       propria folha, e o que falta e so avisar o Sinc. */
+    anunciar:   anunciar,
     marcarRemoto: marcarRemoto,
     fundir:     fundir,
     salvar:     salvar,
     guardarLivro: guardarLivro,
     guardarLivroDaLinha: guardarLivroDaLinha,
+    guardarMeta:         guardarMeta,
     livro:      livro,
 
     registrar:  registrar,

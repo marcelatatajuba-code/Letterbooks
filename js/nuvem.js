@@ -809,7 +809,18 @@ var Nuvem = (function () {
     var entrar = chaves.length
       ? emLotes('lista_itens', chaves.map(function (c, i) {
           return { lista: idRemoto, livro: c, ordem: i };
-        }))
+        }),
+        /* `merge-duplicates` + `on_conflict`, e sem isto a ORDEM nao grava.
+           O padrao de emLotes e `ignore-duplicates`, que o PostgREST traduz
+           para ON CONFLICT DO NOTHING. A chave de lista_itens e (lista, livro):
+           num reordenar as linhas JA EXISTEM, entao o banco descartava a
+           coluna `ordem` nova em silencio — sem erro, sem log, e a ordem
+           voltava na proxima descida. Reparavel so olhando o banco.
+
+           Mesmo sem tela de reordenar isto ja errava de leve: tirar um livro
+           do meio deixa os `ordem` dos que ficaram com buracos, porque eles
+           tambem nao eram reescritos. */
+        'return=minimal,resolution=merge-duplicates', '?on_conflict=lista,livro')
       : Promise.resolve();
 
     return entrar.then(function () {

@@ -235,6 +235,26 @@ def rodar():
         checa('o perfil da Ana mostra 1 seguidor', 'Seguidores' in pg.inner_text('.pagina'),
               'o proprio perfil nao mostra seguidores')
 
+        # A ESTANTE tambem tem que descer, e ate aqui NENHUMA suite exercitava
+        # esse caminho. `Sinc.descer()` pede Nuvem.meusMarcadores() e
+        # Dados.fundir os despeja nas tres colecoes locais pelo mapa COLECAO
+        # (quero->querLer, curtida->curtidas, favorito->favoritos) — codigo de
+        # verdade, sem uma linha de teste. Marco um livro aqui, no aparelho
+        # velho, para o passo 11 poder conferir que ele reaparece no novo.
+        #
+        # Sem isto, "Trazer da nuvem" seria dado como completo com um dos tres
+        # caminhos (leituras, listas, marcadores) nunca provado — e a regra que
+        # o GPM propos, e que eu aceito, e que feature so vira `completo`
+        # quando a evidencia aponta para uma assercao com nome.
+        # A marca entra pelo BANCO e nao por clique, de proposito: o que esta
+        # sendo provado e a DESCIDA, nao o gesto de marcar (que a testar.py ja
+        # cobre). E o botao [data-acao=quero] vive no painel lateral, que nao
+        # existe a 390px — clicar nele aqui exigiria alargar a janela no meio
+        # de uma jornada que e toda de celular.
+        S.BANCO['marcadores'].append({'perfil': 'uid-1', 'livro': '/works/OL1W',
+                                      'tipo': 'quero',
+                                      'criado_em': '2026-08-25T00:00:00Z'})
+
         print('\n11. CELULAR NOVO: a Ana entra num aparelho zerado')
         # O item que fazia a conta nao significar nada. Ate agora a
         # sincronizacao era de mao unica: subia e nunca trazia de volta.
@@ -271,6 +291,34 @@ def rodar():
         pg.wait_for_timeout(900)
         checa('e o diario DESENHA a leitura no aparelho novo',
               pg.locator('.tabela-diario tbody tr').count() >= 1)
+
+        # O terceiro caminho da descida, que nao tinha teste nenhum.
+        checa('a ESTANTE tambem desceu: o "quero ler" veio junto',
+              pg.evaluate("() => Dados.estado().querLer.length") >= 1,
+              str(pg.evaluate("() => Dados.estado().querLer")))
+        pg.goto(BASE + '#/estante', wait_until='networkidle')
+        pg.wait_for_timeout(900)
+        # A prateleira "Quero ler" ESPECIFICAMENTE, e nao um .cartao
+        # qualquer: #/estante tem quatro secoes e a de "Lidos" e montada a
+        # partir dos logs, entao `.grade .cartao >= 1` passava mesmo com os
+        # marcadores NAO tendo descido. Descobri desfazendo o conserto: a
+        # assercao de cima ficou vermelha e esta continuou verde — que e o
+        # mesmo que nao ter teste, e foi exatamente o D98.
+        naQueroLer = pg.evaluate("() => { var s = [].slice.call(document.querySelectorAll('.secao')).find(function (x) { var h = x.querySelector('h2'); return h && /Quero ler/.test(h.innerText); }); return s ? s.querySelectorAll('.cartao').length : -1; }")
+        checa('e a prateleira "Quero ler" DESENHA o livro no aparelho novo',
+              naQueroLer >= 1, '%d cartoes na secao Quero ler' % naQueroLer)
+
+        # O CONVITE MENTE NO APARELHO NOVO (D116). #/conta oferece "Enviar o
+        # diario deste aparelho para a conta" com base em
+        # `quanto = logs + listas + marcacoes`, e depois que a V1 criou o
+        # descer() esse numero conta justamente o que ACABOU DE VIR da
+        # conta. Aparelho zerado que entra numa conta cheia recebe 200
+        # leituras e e convidado a mandar as 200 de volta.
+        pg.goto(BASE + '#/conta', wait_until='networkidle')
+        pg.wait_for_timeout(1500)
+        checa('o aparelho novo NAO e convidado a enviar o que veio da conta',
+              pg.locator('[data-acao=migrar]').count() == 0,
+              'o convite apareceu num aparelho que nao tem nada proprio')
 
         print('\n12. e nao duplicou nada ao descer')
         checa('o banco continua com uma leitura so',

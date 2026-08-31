@@ -45,6 +45,49 @@ fid_abertos = [x for x in back['backlog']
 criterio(1, 'itens de fidelidade em aberto', str(len(fid_abertos)), '0', len(fid_abertos) == 0,
          'o primeiro é: ' + (fid_abertos[0]['titulo'] if fid_abertos else '—'))
 
+# ---------------------------------------------------------------------------
+# O INVENTÁRIO CONFERE COM O QUE FOI ENTREGUE?
+#
+# Este critério existe por causa do D114, e ele mora no portão 1 de propósito:
+# não é sobre solidez, é sobre se o NÚMERO DE PARIDADE acima pode ser
+# acreditado. O portão 1 não pode fechar enquanto a sua própria entrada não
+# for conferível.
+#
+# O que aconteceu: o commit eeb6206 criou `Sinc.descer()`, tocou seis arquivos
+# e TRÊS suítes, marcou o item 1 do backlog como `entregue` — e não tocou em
+# `produto.json`. A feature "Trazer da nuvem para o aparelho" ficou `ausente`
+# por doze entregas, e a paridade foi medida para BAIXO todo esse tempo. A
+# auditoria posterior não pegou porque escolheu sozinha o próprio escopo ("as
+# 11 features parciais"), o que deixava fora, por construção, uma `ausente`
+# que tinha sido entregue.
+#
+# O elo é um campo EXPLÍCITO `fecha` (lista de nomes de features), e não
+# casamento por palavra: casar por palavra já falhou nesta casa uma vez, com
+# as especificações, e foi trocado por um campo `item` pelo mesmo motivo.
+#
+# Item entregue sem `fecha` não é erro de ninguém — é dívida de escrituração
+# que ninguém tinha como ver. Ela aparece aqui, contada, até ser paga.
+_nomes = set(f['nome'] for f in prod['features'])
+_por_nome = {f['nome']: f for f in prod['features']}
+_entregues = [x for x in back['backlog'] if x.get('entregue')]
+_sem_fecha = [x for x in _entregues if not x.get('fecha')]
+_quebrados, _desconhecidos = [], []
+for x in _entregues:
+    for nome in (x.get('fecha') or []):
+        if nome not in _nomes:
+            _desconhecidos.append('item %s → "%s"' % (x['ordem'], nome[:40]))
+        elif _por_nome[nome]['estado'] != 'completo':
+            _quebrados.append('item %s entregue, mas "%s" está %s'
+                              % (x['ordem'], nome[:40], _por_nome[nome]['estado']))
+_problemas = _quebrados + _desconhecidos
+criterio(1, 'entregue no backlog = completo no produto',
+         '%d de %d conferidos' % (len(_entregues) - len(_sem_fecha), len(_entregues)),
+         'todos', not _problemas and not _sem_fecha,
+         ('; '.join(_problemas)[:150] if _problemas
+          else ('faltam declarar o campo `fecha`: itens ' +
+                ', '.join(str(x['ordem']) for x in _sem_fecha)
+                if _sem_fecha else 'cada entrega aponta para a feature que fechou')))
+
 try:
     rastreio = json.load(open(caminho('docs/rastreio.json'), encoding='utf-8'))
     cob = [x for x in rastreio['cobertura'] if x['alcancada'] is not None]
