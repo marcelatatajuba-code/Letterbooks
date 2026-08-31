@@ -15,7 +15,12 @@ proxy = os.environ.get('HTTPS_PROXY')
 erros = []
 pedidos = []
 
-SESSAO = {'token': 'tok', 'atualizar': 'ref',
+# O token TEM que ser 'tok-<uid>': e assim que o /auth do mock devolve (linha
+# 68) e e assim que ele descobre quem esta pedindo. Com 'tok' seco, o
+# estado['quem'] ficava None em toda requisicao semeada — e nenhum teste
+# reparou porque nenhum dependia de identidade ate os avisos existirem. Mock que
+# nao sabe quem esta falando nao consegue provar nada que dependa de "meu".
+SESSAO = {'token': 'tok-uid-1', 'atualizar': 'ref',
           'expiraEm': int((time.time() + 3600) * 1000),
           'id': 'uid-1', 'email': 'marcela@exemplo.com'}
 
@@ -135,6 +140,64 @@ def servir(rota, estado):
         # exatamente o que ele existe para pegar. É a quinta vez neste projeto
         # que o mock precisa aprender uma coisa antes de o teste valer algo.
         sel = q.get('select', [''])[0]
+
+        # A VIEW `avisos` nao existe para o mock: o ramo generico faria
+        # BANCO.setdefault('avisos', []) e devolveria lista vazia PARA SEMPRE.
+        # Toda assercao de "nao tem aviso" passaria verde sem medir nada, e so a
+        # de "tem aviso" falharia — no lugar errado. Ela e montada aqui a partir
+        # das tres tabelas de origem, com as mesmas regras da view de verdade:
+        # nada de auto-aviso, e so o que aponta para quem esta pedindo.
+        if tab == 'avisos':
+            eu = estado.get('quem')
+            porId = {x['id']: x for x in BANCO['leituras']}
+            perfis = {x['id']: x for x in BANCO['perfis']}
+            saida = []
+
+            def quemE(pid):
+                p = perfis.get(pid, {})
+                return p.get('usuario'), p.get('nome')
+
+            for c in BANCO.get('curtidas', []):
+                l = porId.get(c['leitura'])
+                if not l or l['perfil'] != eu or c['perfil'] == l['perfil']: continue
+                u, n = quemE(c['perfil'])
+                lv = next((b for b in BANCO['livros'] if b['chave'] == l['livro']), {})
+                saida.append({'id': 'c:%s:%s' % (c['perfil'], c['leitura']),
+                              'tipo': 'curtida', 'criado_em': c.get('criado_em'),
+                              'quem': c['perfil'], 'usuario': u, 'quem_nome': n,
+                              'leitura': l['id'], 'titulo': lv.get('titulo'),
+                              'tem_resenha': bool(l.get('resenha')), 'livro': l['livro']})
+            for m in BANCO.get('comentarios', []):
+                l = porId.get(m['leitura'])
+                if not l or l['perfil'] != eu or m['perfil'] == l['perfil']: continue
+                u, n = quemE(m['perfil'])
+                lv = next((b for b in BANCO['livros'] if b['chave'] == l['livro']), {})
+                saida.append({'id': 'm:%s' % m['id'], 'tipo': 'comentario',
+                              'criado_em': m.get('criado_em'), 'quem': m['perfil'],
+                              'usuario': u, 'quem_nome': n, 'leitura': l['id'],
+                              'titulo': lv.get('titulo'),
+                              'tem_resenha': bool(l.get('resenha')), 'livro': l['livro']})
+            for g in BANCO.get('seguidores', []):
+                if g['seguido'] != eu: continue
+                u, n = quemE(g['seguidor'])
+                saida.append({'id': 's:%s:%s' % (g['seguidor'], g['seguido']),
+                              'tipo': 'seguidor', 'criado_em': g.get('criado_em'),
+                              'quem': g['seguidor'], 'usuario': u, 'quem_nome': n,
+                              'leitura': None, 'titulo': None,
+                              'tem_resenha': False, 'livro': None})
+
+            # A marca d'agua: `criado_em=gt.<ts>`. O laco generico so entende
+            # `eq.` e `in.` e IGNORA todo o resto em silencio — sem esta linha o
+            # teste de "o ponto some depois de abrir" passaria verde com a marca
+            # nunca aplicada, que e o defeito exato que ele existe para pegar.
+            if 'criado_em' in q and q['criado_em'][0].startswith('gt.'):
+                corte = q['criado_em'][0][3:]
+                saida = [x for x in saida if (x.get('criado_em') or '') > corte]
+
+            saida.sort(key=lambda x: x.get('criado_em') or '', reverse=True)
+            lim = int(q.get('limit', ['50'])[0])
+            return j(saida[:lim])
+
         if tab == 'listas':
             if 'lista_itens' in sel:
                 saida = [dict(x, lista_itens=sorted(
@@ -617,6 +680,124 @@ def rodar():
               pg.evaluate("() => JSON.parse(localStorage.getItem('letterbooks:v1')).logs.length") == 0)
         checa('e o servidor tambem — nao ficou uma leitura fantasma la',
               len(BANCO['leituras']) == 0, '%d linhas no banco' % len(BANCO['leituras']))
+        nav.close()
+
+        # ============================ avisos ==================================
+        # Curtir, comentar e seguir funcionavam e NINGUEM do outro lado ficava
+        # sabendo. A unica forma de descobrir um comentario era reabrir aquela
+        # resenha por acaso.
+        print('\navisos: quem curtiu, quem comentou, quem comecou a seguir')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        BANCO['livros'].append({'chave': '/works/OL2W', 'titulo': 'Vidas Secas',
+                                'autores': ['Graciliano Ramos'], 'ano': 1938})
+        # duas leituras MINHAS: uma com resenha, outra so com nota
+        BANCO['leituras'] += [
+            {'id': 'L1', 'perfil': 'uid-1', 'livro': '/works/OL1W', 'nota': 5.0,
+             'resenha': 'Capitu me pegou.', 'lido_em': '2026-08-20', 'relido': False,
+             'spoiler': False, 'criado_em': '2026-08-20T10:00:00Z', 'cliente_id': 'a1'},
+            {'id': 'L2', 'perfil': 'uid-1', 'livro': '/works/OL2W', 'nota': 4.0,
+             'resenha': '', 'lido_em': '2026-08-21', 'relido': False, 'spoiler': False,
+             'criado_em': '2026-08-21T10:00:00Z', 'cliente_id': 'a2'},
+            # e uma da Bia, para provar que os avisos dela nao vazam para mim
+            {'id': 'L3', 'perfil': 'uid-2', 'livro': '/works/OL1W', 'nota': 3.0,
+             'resenha': '', 'lido_em': '2026-08-22', 'relido': False, 'spoiler': False,
+             'criado_em': '2026-08-22T10:00:00Z', 'cliente_id': 'b1'}]
+        BANCO['curtidas'] += [
+            {'perfil': 'uid-2', 'leitura': 'L1', 'criado_em': '2026-08-29T10:00:00Z'},
+            {'perfil': 'uid-2', 'leitura': 'L2', 'criado_em': '2026-08-28T10:00:00Z'},
+            {'perfil': 'uid-1', 'leitura': 'L1', 'criado_em': '2026-08-27T10:00:00Z'},  # eu mesma
+            {'perfil': 'uid-1', 'leitura': 'L3', 'criado_em': '2026-08-26T10:00:00Z'}]  # da Bia
+        BANCO['comentarios'].append({'id': 'M1', 'leitura': 'L1', 'perfil': 'uid-2',
+                                     'texto': 'Tambem quero ler.',
+                                     'criado_em': '2026-08-30T10:00:00Z'})
+        BANCO['seguidores'].append({'seguidor': 'uid-2', 'seguido': 'uid-1',
+                                    'criado_em': '2026-08-25T10:00:00Z'})
+
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        pg.reload(wait_until='networkidle')
+        pg.wait_for_timeout(1200)
+        checa('o ponto aparece na aba quando ha novidade',
+              pg.locator('#ponto-avisos:not([hidden])').count() == 1)
+        checa('e o link diz isso em voz alta, nao so em cor',
+              'novidade' in pg.locator('.abas-pe a[href="#/atividade"]')
+              .get_attribute('aria-label'))
+
+        pg.goto(BASE + '#/avisos', wait_until='networkidle')
+        pg.wait_for_selector('.aviso', timeout=10000)
+        checa('quatro avisos: duas curtidas, um comentario, uma seguidora',
+              pg.locator('.aviso').count() == 4, '%d' % pg.locator('.aviso').count())
+        texto = pg.inner_text('#avisos')
+        checa('a curtida na leitura COM resenha diz "sua resenha"',
+              'curtiu sua resenha de' in texto)
+        checa('e na leitura so com nota diz "seu registro"',
+              'curtiu seu registro de' in texto)
+        checa('o comentario tem a concordancia certa',
+              'comentou na sua resenha de' in texto)
+        checa('a seguidora nao fala de livro nenhum',
+              'comecou a seguir voce' in texto.replace('ç','c').replace('ê','e').replace('ó','o'))
+        checa('curtir a PROPRIA leitura nao vira aviso',
+              texto.count('Marcela') == 0, texto[:200])
+        checa('e o que eu fiz na leitura da Bia nao aparece aqui',
+              'Vidas Secas' in texto and texto.count('Dom Casmurro') == 2)
+        checa('a linha da seguidora nao desenha capa',
+              pg.locator('.aviso .capa').count() == 0)
+        checa('a curtida leva ao endereco da resenha',
+              pg.locator('.aviso').first.get_attribute('href').startswith('#/resenha/'))
+        # D05 de novo: <a> dentro de <a> e HTML invalido e o navegador parte a
+        # linha em fragmentos. Foi assim que o contador deu 12 em vez de 4 — e a
+        # contagem so denunciou porque ela compara com o que a API devolveu.
+        checa('nenhuma ancora aninhada dentro da linha',
+              pg.evaluate("() => document.querySelectorAll('.aviso a').length") == 0)
+
+        print('\navisos: abrir apaga o ponto, e ele nao volta sozinho')
+        checa('todas nasceram marcadas como novas',
+              pg.locator('.aviso-novo').count() == 4)
+        checa('o ponto sumiu depois de pintar',
+              pg.locator('#ponto-avisos[hidden]').count() == 1)
+        marca = pg.evaluate("() => JSON.parse(localStorage.getItem('letterbooks:avisos:uid-1'))")
+        checa('a marca guardada e um horario de SERVIDOR, o do mais novo',
+              marca and marca['visto'] == '2026-08-30T10:00:00Z', str(marca))
+        pg.goto(BASE + '#/inicio', wait_until='networkidle')
+        pg.wait_for_timeout(1200)
+        checa('e voltando ao app o ponto continua apagado',
+              pg.locator('#ponto-avisos[hidden]').count() == 1)
+
+        print('\navisos: coisa nova depois da marca acende o ponto de novo')
+        BANCO['comentarios'].append({'id': 'M2', 'leitura': 'L1', 'perfil': 'uid-2',
+                                     'texto': 'Reli e continua bom.',
+                                     'criado_em': '2026-08-31T10:00:00Z'})
+        # Reabrir o app, nao navegar por dentro dele. O ponto e conferido em TRES
+        # momentos — abrir, a sessao mudar, e a aba voltar a aparecer — e nao a
+        # cada tela pintada: isso seria uma ida a rede por navegacao. Consequencia
+        # assumida: quem esta com o app aberto so ve o ponto na proxima vez que
+        # voltar a ele. Num diario de leitura, em que o evento e uma curtida por
+        # dia, a diferenca entre "na hora" e "quando voce volta" nao existe.
+        pg.reload(wait_until='networkidle')
+        pg.wait_for_timeout(1400)
+        checa('reabrindo o app, o ponto voltou',
+              pg.locator('#ponto-avisos:not([hidden])').count() == 1)
+        pg.goto(BASE + '#/avisos', wait_until='networkidle')
+        pg.wait_for_selector('.aviso', timeout=10000)
+        checa('so o novo esta marcado como novo',
+              pg.locator('.aviso-novo').count() == 1,
+              '%d marcados' % pg.locator('.aviso-novo').count())
+        nav.close()
+
+        print('\navisos: sem conta e sem nuvem, a tela explica em vez de mentir')
+        zerar(); estado = {}
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg, sessao=None)
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/avisos', wait_until='networkidle')
+        pg.wait_for_selector('.conta', timeout=8000)
+        checa('sem conta, convida a entrar',
+              'Entre na sua conta' in pg.inner_text('.conta'))
+        checa('e nao acende ponto nenhum',
+              pg.locator('#ponto-avisos[hidden]').count() == 1)
         nav.close()
 
         # ============ o 💬 da resenha nao pode jogar a pessoa na home =========

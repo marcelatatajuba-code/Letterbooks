@@ -43,6 +43,7 @@ Depois, de dentro de `docs/`:
 | `python3 jornada_e2e.py` | a jornada inteira com DUAS contas, do cadastro ao comentário |
 | `python3 testar_regressao.py` | as FORMAS de dado que já quebraram: livro sem capa, leitura órfã, perfil só com @, resenha no limite do corte |
 | `python3 rastreador.py` | anda o app sozinho: cobertura, acessibilidade, alvos de toque |
+| `psql ... -f servidor/provar-v3.sql` | a view de avisos: quem vê o quê, num Postgres de verdade |
 | `psql ... -f servidor/provar-v2.sql` | a identidade das listas, num Postgres de verdade |
 | `node testar-chave.js` | a trava que recusa a chave errada do Supabase |
 | `node testar-assuntos.js` | a limpeza de assuntos da Open Library |
@@ -182,7 +183,7 @@ completa, use a skill `/ciclo`. Para só verificar, `/verificar`.
 **Quando parar de dar voltas:** não é quando o backlog acabar — ele sempre
 volta a encher. É quando `python3 docs/processo/portoes.py` fechar os dois
 portões que ele mede (fidelidade e solidez). Hoje: fidelidade **aberto** em
-61% de paridade e 4 itens, solidez **fechado**.
+63% de paridade e 3 itens, solidez **fechado**.
 
 Marque o item do backlog com `entregue` ao publicá-lo. Sem isso o portão conta
 para sempre os mesmos itens e não pode fechar nunca.

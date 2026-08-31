@@ -561,6 +561,9 @@ SO_DE_TELA = {
     'D56': 'âncora de hash — estrutura de DOM; travado em testar.py 9b e testar_social',
     'D57': 'credencial recusada pelo servidor — coberto por testar_social',
     'D58': 'defeito do mock, não do app',
+    'D59': 'fluxo social — coberto por testar_social, bloco avisos',
+    'D60': 'estrutura de DOM (âncora aninhada) — travado em testar_social',
+    'D61': 'defeito do mock, não do app',
     'D42': 'defeito do runner desta suíte, não do app',
     'D43': 'defeito de nomenclatura entre suítes, não do app',
 }

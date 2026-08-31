@@ -2849,6 +2849,25 @@
      cartao. Frase ocupa uma linha e cabem dez na tela; cartao ocupa cinco e
      cabem duas. */
 
+  /* A mesma fita para as duas telas. "Você" primeiro porque é o recorte mais
+     apertado — o que aconteceu COM você — e os outros dois abrem para fora, na
+     mesma gramática do original: Você | Seguindo | Todo mundo.
+
+     "Você" é rota PRÓPRIA (#/avisos) e não um terceiro valor de
+     #/atividade/<aba>: telaAtividade e telaAvisos leem coisas diferentes, e um
+     item futuro do backlog mexe em telaAtividade + CAMPOS_FEED + htmlLinhaFeed
+     ao mesmo tempo. Rota separada mantém os dois independentes; a fita
+     compartilhada mantém a aparência de uma coisa só, que é o que a pessoa vê. */
+  function htmlSegmentosAtividade(ativo) {
+    var abas = [['avisos', 'Você', '#/avisos'],
+                ['seguindo', 'Seguindo', '#/atividade/seguindo'],
+                ['todos', 'Todo mundo', '#/atividade/todos']];
+    return '<nav class="segmentos" aria-label="Atividade">' + abas.map(function (a) {
+      return '<a href="' + a[2] + '"' + (a[0] === ativo ? ' class="ativa"' : '') +
+             '>' + a[1] + '</a>';
+    }).join('') + '</nav>';
+  }
+
   function telaAtividade(aba) {
     marcarAba('atividade');
     aba = aba || 'seguindo';
@@ -2867,12 +2886,7 @@
           '<a class="botao destaque" href="#/conta">Entrar ou criar conta</a></div></div>');
     }
 
-    var abas = [['seguindo', 'Seguindo'], ['todos', 'Todo mundo']];
-    pintar(
-      '<nav class="segmentos" aria-label="Atividade">' + abas.map(function (a) {
-        return '<a href="#/atividade/' + a[0] + '"' +
-               (a[0] === aba ? ' class="ativa"' : '') + '>' + a[1] + '</a>';
-      }).join('') + '</nav>' +
+    pintar(htmlSegmentosAtividade(aba) +
       '<div id="feed"><p class="carregando">Carregando…</p></div>');
 
     acoes({
@@ -3131,6 +3145,182 @@
         }).join('') + '</div>';
       caixa.hidden = false;
     }).catch(function () { /* sem as listas o perfil continua inteiro */ });
+  }
+
+  /* ==================================================== TELA: avisos ====== */
+
+  /* NOVO — não existe quadro de notificação em nenhuma das 24 telas do
+     inventário do original; o mais perto é "Ajustes" marcado parcial com
+     "falta notificações". Está marcado como novo de propósito: inventar a
+     referência seria pior do que assumir o acréscimo.
+
+     O que a pessoa vê aqui vem de uma VIEW no banco (servidor/esquema.sql),
+     não de uma tabela de notificações — o evento já estava gravado em
+     curtidas, comentarios e seguidores desde o primeiro dia, com hora de
+     servidor. O que não estava gravado era "já vi isto", e isso mora numa
+     marca d'água no aparelho, logo abaixo. */
+
+  var CHAVE_AVISOS = 'letterbooks:avisos:';
+
+  function marcaDeAvisos() {
+    var eu = Nuvem.entrou() ? Nuvem.quemSou() : null;
+    if (!eu) return null;
+    try { return JSON.parse(localStorage.getItem(CHAVE_AVISOS + eu.id) || 'null'); }
+    catch (e) { return null; }
+  }
+
+  /* A marca é SEMPRE o criado_em da linha mais nova já mostrada — um horário
+     de SERVIDOR. Nunca Date.now(). O relógio do aparelho e o do Postgres não
+     são o mesmo relógio: um celular adiantado gravaria uma marca no futuro e a
+     pessoa perderia avisos para sempre, sem erro, sem log e sem teste que
+     visse. É o defeito silencioso mais caro que este item poderia ter. */
+  function gravarMarcaDeAvisos(criadoEm) {
+    var eu = Nuvem.entrou() ? Nuvem.quemSou() : null;
+    if (!eu || !criadoEm) return;
+    try {
+      localStorage.setItem(CHAVE_AVISOS + eu.id, JSON.stringify({ visto: criadoEm }));
+    } catch (e) { /* navegação privada: a marca vale enquanto a aba viver */ }
+  }
+
+  function telaAvisos() {
+    marcarAba('atividade');
+
+    if (!Nuvem.ligada()) {
+      return pintar('<div class="conta"><h1>Você</h1>' +
+        '<p class="conta-texto">Aviso é a notícia de que alguém do outro lado ' +
+        'fez alguma coisa com o que você escreveu. No modo local não há outro ' +
+        'lado — o diário é só seu, neste aparelho.</p></div>');
+    }
+    if (!Nuvem.entrou()) {
+      return pintar('<div class="conta"><h1>Você</h1>' +
+        '<p class="conta-texto">Entre na sua conta para saber quem curtiu, ' +
+        'quem comentou e quem começou a te seguir.</p>' +
+        '<div class="linha-botoes">' +
+          '<a class="botao destaque" href="#/conta">Entrar ou criar conta</a></div></div>');
+    }
+
+    pintar(htmlSegmentosAtividade('avisos') +
+      '<div id="avisos"><p class="carregando">Carregando…</p></div>');
+
+    acoes({ 'ver-spoiler': revelarSpoiler });
+
+    var alvo = document.getElementById('avisos');
+    var marca = marcaDeAvisos();
+    var desde = marca && marca.visto;
+
+    Nuvem.avisos(50).then(function (linhas) {
+      if (!tela.contains(alvo)) return;
+      linhas = linhas || [];
+      if (!linhas.length) {
+        alvo.innerHTML = htmlVazio('Nada por aqui ainda',
+          'Quando alguém curtir, comentar ou começar a te seguir, aparece aqui.');
+        esconderPontoDeAvisos();
+        return;
+      }
+      /* Pinta PRIMEIRO, marca depois: as linhas novas precisam nascer com o
+         ponto naquele desenho. Marcar antes de pintar entregaria uma lista em
+         que nada é novo, logo depois de o ponto ter dito que havia. */
+      alvo.innerHTML = linhas.map(function (a) {
+        return htmlLinhaAviso(a, !!(desde && a.criado_em > desde) || !desde);
+      }).join('') +
+      (linhas.length >= 50
+        ? '<p class="avaliacoes-nota" style="margin-top:14px">' +
+          'Mostrando os 50 mais recentes.</p>' : '');
+
+      gravarMarcaDeAvisos(linhas[0].criado_em);
+      esconderPontoDeAvisos();
+    }, function (err) {
+      if (tela.contains(alvo)) {
+        alvo.innerHTML = '<p class="erro">' + esc(err.message) + '</p>';
+      }
+    });
+  }
+
+  /* Uma frase e um destino. Reusa .feed-linha porque é exatamente a mesma
+     forma — retrato, frase, meta — e a linha inteira é o alvo, sem alvo
+     aninhado: só há um lugar para onde ir. */
+  function htmlLinhaAviso(a, nova) {
+    var nome = a.quem_nome || a.usuario || 'alguém';
+    var titulo = a.titulo ? '<b>' + esc(a.titulo) + '</b>' : '';
+    var frase, destino;
+
+    /* <b>, nunca <a>: a linha inteira JA e um <a>, e ancora dentro de ancora e
+       HTML invalido — o navegador fecha a de fora e reabre, e uma linha vira
+       tres fragmentos. E o D05, que ja tinha acontecido com o glifo do diario
+       escapando para a celula seguinte. O destaque aqui e tipografico, nao um
+       segundo destino: so ha um lugar para onde ir. */
+    if (a.tipo === 'seguidor') {
+      frase = '<b class="alvo">' + esc(nome) + '</b> começou a seguir você';
+      destino = '#/leitor/' + encodeURIComponent(a.usuario || '');
+    } else {
+      /* "resenha" quando há texto, "registro" quando é só nota — a maioria das
+         leituras é só nota, e chamar isso de resenha seria rótulo mentindo.
+         As quatro frases estão escritas por extenso porque montar uma frase
+         com replace() é como se erra concordância em português. */
+      var oQue = a.tipo === 'curtida'
+        ? (a.tem_resenha ? 'curtiu sua resenha de ' : 'curtiu seu registro de ')
+        : (a.tem_resenha ? 'comentou na sua resenha de ' : 'comentou no seu registro de ');
+      frase = '<b class="alvo">' + esc(nome) + '</b> ' + oQue + titulo;
+      destino = '#/resenha/' + encodeURIComponent(a.leitura || '');
+    }
+
+    return '<a class="feed-linha aviso' + (nova ? ' aviso-novo' : '') + '" href="' +
+      destino + '">' +
+      '<span class="feed-avatar" aria-hidden="true">' +
+        esc(nome.trim().charAt(0).toUpperCase()) + '</span>' +
+      '<div class="feed-corpo">' +
+        '<p class="feed-frase">' + frase + '</p>' +
+        '<div class="feed-acoes">' +
+          (nova ? '<i class="marca-nova" role="img" aria-label="novo"></i>' : '') +
+          '<time>' + esc(quandoFoi(a.criado_em)) + '</time>' +
+        '</div>' +
+      '</div>' +
+    '</a>';
+  }
+
+  /* ---- o ponto na aba ----
+
+     Ponto, não número. Isso não é só desenho: com ponto a consulta é
+     `limit=1` ("tem alguma coisa mais nova?"), e contagem exigiria
+     `Prefer: count=exact`, que pedir() nem sabe ler porque descarta a
+     resposta e devolve só o corpo.
+
+     A cor é --texto, e os três acentos foram recusados um a um: verde é "o que
+     VOCÊ fez" e isto foi outra pessoa; laranja é "o que você gostou" e aqui é
+     alguém gostando de você; azul é "onde você está" e num ícone inativo diria
+     que aquela é a aba atual. --texto já tem precedente escrito no projeto — a
+     marca da sua nota no histograma — com a mesma justificativa de não ser um
+     quarto acento. */
+  function pontoDeAvisos() {
+    return document.getElementById('ponto-avisos');
+  }
+
+  function esconderPontoDeAvisos() {
+    var p = pontoDeAvisos();
+    if (!p) return;
+    p.hidden = true;
+    var link = p.closest('a');
+    if (link) link.setAttribute('aria-label', 'Atividade');
+  }
+
+  /* Três momentos, e nenhum timer: abrir o app, a sessão mudar, e a aba voltar
+     a aparecer. São os mesmos que o Sinc já escolheu — em PWA no iPhone um
+     setInterval em segundo plano é congelado, e o único efeito seria gastar
+     bateria quando ele descongela. */
+  function conferirAvisos() {
+    var p = pontoDeAvisos();
+    if (!p) return;
+    if (!Nuvem.ligada() || !Nuvem.entrou()) return esconderPontoDeAvisos();
+    if (location.hash.indexOf('#/avisos') === 0) return;   /* está lendo agora */
+
+    var marca = marcaDeAvisos();
+    Nuvem.temAvisoNovo(marca && marca.visto).then(function (tem) {
+      var alvo = pontoDeAvisos();
+      if (!alvo) return;
+      alvo.hidden = !tem;
+      var link = alvo.closest('a');
+      if (link) link.setAttribute('aria-label', tem ? 'Atividade, com novidade' : 'Atividade');
+    }).catch(function () { /* sem número é melhor do que número errado */ });
   }
 
   function atualizarBotaoSeguir(id) {
@@ -3579,6 +3769,7 @@
     if (rota === 'perfil')  return telaPerfil();
     if (rota === 'conta')   return telaConta();
     if (rota === 'atividade') return telaAtividade(partes[1]);
+    if (rota === 'avisos')  return telaAvisos();
     if (rota === 'leitor')  return telaLeitor(decodeURIComponent(partes[1] || ''));
     if (rota === 'seguidores' || rota === 'seguindo')
       return telaGente(rota, decodeURIComponent(partes[1] || ''));
@@ -3603,5 +3794,15 @@
 
   window.addEventListener('hashchange', rotear);
   Sinc.ligar();
+
+  /* Os três momentos do ponto de avisos, e nenhum timer. Ficam aqui, ao lado do
+     Sinc.ligar(), porque são os mesmos instantes que ele já escolheu para
+     acordar — e porque juntá-los deixa visível que são três, não uma sondagem. */
+  conferirAvisos();
+  Nuvem.aoMudar(conferirAvisos);
+  window.addEventListener('online', conferirAvisos);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) conferirAvisos();
+  });
   rotear();
 })();

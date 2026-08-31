@@ -77,7 +77,8 @@
    "resumo": "Tabela nova (a 11ª — hoje o esquema tem 10 e nenhuma de notificação), alimentada por gatilho no insert de curtidas, comentarios e seguidores, com RLS de dono; rota e tela novas no roteador (js/app.js:2726, hoje sem nada disso) e um marcador de não-lidas na barra de abas. Cada notificação leva ao endereço público da resenha, que o item 4 cria.",
    "valor": "Para quem já curtiu, comentou ou seguiu — tudo isso já funciona (js/app.js:2102, 2223, 2259) e ninguém do outro lado fica sabendo. É o motor que faz voltar ao app; sem ele, toda a camada social já construída fica parada. Fica atrás do 7 porque é G, depende do 4, e a dor só aparece quando houver tráfego — que os itens 1 a 6 é que criam.",
    "esforco": "G",
-   "depende": "item 4 (a notificação precisa de um endereço para onde levar)"
+   "depende": "item 4 (a notificação precisa de um endereço para onde levar)",
+   "entregue": "V7 — avisos por view, ponto na aba, marca dágua no aparelho"
   },
   {
    "ordem": 9,

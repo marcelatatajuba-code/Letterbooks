@@ -323,6 +323,103 @@ create or replace view feed
 grant select on feed to anon, authenticated;
 
 -- ============================================================================
+-- Avisos: quem curtiu, quem comentou e quem começou a seguir você.
+--
+-- VIEW, e não tabela — a decisão foi tomada olhando as três tabelas de origem:
+-- curtidas.criado_em, comentarios.criado_em e seguidores.criado_em já são
+-- `timestamptz not null default now()` desde o primeiro dia. Todo evento de
+-- aviso JÁ está gravado, com hora de servidor. Uma tabela nova não guardaria
+-- nenhum dado que o banco não tenha; guardaria só o estado de "lida" — e uma
+-- marca d'água única no aparelho expressa isso, porque abrir a tela marca tudo
+-- de uma vez. O que a tabela custaria: três gatilhos `security definer` (que
+-- ignoram RLS por inteiro, a maior superfície nova que este esquema teria), a
+-- primeira política de select não-pública, e grant por coluna para o dono não
+-- reescrever `tipo`. Nada disso se paga por um estado que ninguém usa por item.
+--
+-- O `where destino = auth.uid()` fica DENTRO da view, e isto não é estilo: se
+-- ficasse na query string do aplicativo, qualquer pessoa leria os avisos de
+-- qualquer outra trocando um uuid em `?destino=eq.`. Nenhuma suíte da casa
+-- veria — o Supabase de mentira não aplica RLS. Só provar-v3.sql pega.
+--
+-- security_invoker pelo mesmo motivo escrito acima para a `feed`: hoje as
+-- tabelas de baixo são todas públicas para leitura e nada vazaria, mas no dia
+-- em que o diário privado entrar, uma view "definer" continuaria devolvendo
+-- tudo — e o vazamento não estaria em lugar nenhum do código do aplicativo.
+--
+-- Seguidores não tem chave primária de coluna única, então o id de cada linha
+-- é sintético e textual. Ele serve para o aplicativo distinguir uma linha da
+-- outra, nunca para apontar para uma tabela.
+-- ============================================================================
+
+create or replace view avisos
+  with (security_invoker = on) as
+
+  -- curtiram uma leitura sua
+  select 'c:' || c.perfil || ':' || c.leitura as id,
+         'curtida'::text  as tipo,
+         c.criado_em      as criado_em,
+         l.perfil         as destino,
+         c.perfil         as quem,
+         p.usuario, p.nome as quem_nome,
+         l.id             as leitura,
+         li.titulo,
+         (l.resenha is not null and l.resenha <> '') as tem_resenha,
+         l.livro          as livro
+    from curtidas c
+    join leituras l  on l.id = c.leitura
+    join perfis   p  on p.id = c.perfil
+    join livros   li on li.chave = l.livro
+   where l.perfil = auth.uid()
+     and c.perfil <> l.perfil          -- curtir a própria leitura não avisa
+
+  union all
+
+  -- comentaram numa leitura sua
+  select 'm:' || m.id,
+         'comentario',
+         m.criado_em,
+         l.perfil,
+         m.perfil,
+         p.usuario, p.nome,
+         l.id,
+         li.titulo,
+         (l.resenha is not null and l.resenha <> ''),
+         l.livro
+    from comentarios m
+    join leituras l  on l.id = m.leitura
+    join perfis   p  on p.id = m.perfil
+    join livros   li on li.chave = l.livro
+   where l.perfil = auth.uid()
+     and m.perfil <> l.perfil
+
+  union all
+
+  -- começaram a seguir você
+  select 's:' || s.seguidor || ':' || s.seguido,
+         'seguidor',
+         s.criado_em,
+         s.seguido,
+         s.seguidor,
+         p.usuario, p.nome,
+         null::uuid,
+         null::text,
+         false,
+         null::text
+    from seguidores s
+    join perfis p on p.id = s.seguidor
+   where s.seguido = auth.uid();
+
+-- Só quem entrou. Duas camadas, de propósito:
+--   1. o `where destino = auth.uid()` já devolve zero linha para visitante,
+--      porque auth.uid() é nulo sem sessão. Esta é a que realmente protege.
+--   2. o revoke é explícito porque o Supabase concede privilégio nas tabelas
+--      novas do schema public a anon e authenticated por padrão — um `grant`
+--      sozinho não tira nada de ninguém, e ler o arquivo daria a impressão
+--      errada de que tira.
+revoke all on avisos from anon;
+grant select on avisos to authenticated;
+
+-- ============================================================================
 -- Ao criar uma conta, criar o perfil junto — senão a pessoa entra e não
 -- existe em lugar nenhum. O @ inicial sai do e-mail e ganha sufixo se
 -- já estiver tomado.

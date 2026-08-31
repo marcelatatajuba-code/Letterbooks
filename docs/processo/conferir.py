@@ -29,7 +29,7 @@ VERIFICACAO = SUITES + ['docs/testar_regressao.py', 'docs/dados_teste.py',
                         'docs/rastreador.py', 'docs/fixtures.py',
                         'docs/testar-chave.js', 'docs/testar-assuntos.js',
                         'servidor/provar.sql', 'servidor/provar-v1.sql',
-                        'servidor/provar-v2.sql']
+                        'servidor/provar-v2.sql', 'servidor/provar-v3.sql']
 APP = ['js/api.js', 'js/app.js', 'js/config.js', 'js/dados.js', 'js/nuvem.js',
        'js/sinc.js', 'css/app.css', 'index.html', 'sw.js']
 
@@ -67,7 +67,7 @@ confere('razão verificação/app', '0,%s' % (afirma_raz.group(1) if afirma_raz 
 confere('defeitos registrados', afirma_def.group(1) if afirma_def else '?', len(defeitos))
 
 for fase, rotulo in [('vibecoding', '3 de 10'), ('instrumentado', '4 de 13'),
-                     ('time-hibrido', '2 de 34')]:
+                     ('time-hibrido', '2 de 37')]:
     total, daUsuaria = porFase(fase)
     confere('%s: achados pela usuária' % fase, rotulo, '%d de %d' % (daUsuaria, total))
     if ('**%s**' % rotulo) not in doc:

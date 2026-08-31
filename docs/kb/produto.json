@@ -292,9 +292,9 @@
    "nome": "Notificações",
    "area": "Atividade",
    "noOriginal": "Aviso de curtida, comentário, nova seguidora, menção.",
-   "noLetterbooks": "Não existe: nenhuma tela, nenhuma rota, nenhuma tabela. servidor/esquema.sql tem 10 tabelas e nenhuma de notificação.",
-   "estado": "ausente",
-   "evidencia": "js/app.js:2726 rotear (sem rota de notificações); servidor/esquema.sql"
+   "noLetterbooks": "#/avisos, terceira fita da nav de Atividade (\"Você\"), lê a view `avisos` do esquema — curtida, comentário e seguidora vêm das três tabelas que já gravavam criado_em desde o primeiro dia. O \"já vi isto\" é uma marca dágua no aparelho, sempre com horário de servidor. Ponto na aba, não contagem: assim a consulta é limit=1.",
+   "estado": "completo",
+   "evidencia": "servidor/esquema.sql view avisos; js/app.js telaAvisos; servidor/provar-v3.sql"
   },
   {
    "nome": "Denunciar conteúdo",
@@ -356,9 +356,9 @@
    "nome": "Ajustes (notificações, privacidade, ícone do app)",
    "area": "Perfil",
    "noOriginal": "Linhas de ajuste com valor e chevron, cobrindo perfil, conta, notificações, privacidade e ícone do app.",
-   "noLetterbooks": "telaConta (js/app.js:2456) cobre perfil (usuário, nome, bio, lugar), sessão e migração; telaPerfil cobre nome/bio/meta/exportar/importar/apagar tudo. Faltam notificações, privacidade e ícone do app — e não há como apagar a conta, só sair (pintarConta app.js:2593).",
+   "noLetterbooks": "#/avisos, terceira fita da nav de Atividade (\"Você\"), lê a view `avisos` do esquema — curtida, comentário e seguidora vêm das três tabelas que já gravavam criado_em desde o primeiro dia. O \"já vi isto\" é uma marca dágua no aparelho, sempre com horário de servidor. Ponto na aba, não contagem: assim a consulta é limit=1. V7 entregou o AVISO (#/avisos), não a PREFERÊNCIA de aviso: não há onde escolher receber só comentário, nem desligar. Continua parcial de propósito — a distinção é do GPM e é o que impede marcar como pronto o que não está.",
    "estado": "parcial",
-   "evidencia": "js/app.js:2593 pintarConta — só o botão 'Sair desta conta'"
+   "evidencia": "servidor/esquema.sql view avisos; js/app.js telaAvisos; servidor/provar-v3.sql"
   },
   {
    "nome": "Meta de leitura do ano",

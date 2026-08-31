@@ -56,3 +56,6 @@ D55,time-hibrido,31/08 00:45,"Li ""implementação fora do script"" como ""traba
 D56,time-hibrido,31/08 01:30,"O 💬 da resenha usava href=""#comentarios"": num app por hash isso troca de rota e joga a pessoa na home",alta,agente tech-lead,~4h,"o rastreador clicar tambem em href=""#..."" que nao e rota",nao
 D57,time-hibrido,31/08 01:30,"publico() mandava token vencido e a leitura PUBLICA falhava com ""sua sessao expirou""",média,agente tech-lead,~20h,—,nao
 D58,time-hibrido,31/08 01:30,O mock nao recusava token nenhum: teste de credencial invalida passava verde dos dois lados,média,eu (o teste nao discriminava),<30min,—,nao
+D59,time-hibrido,31/08 02:30,"Curtir, comentar e seguir funcionavam e ninguém do outro lado ficava sabendo",alta,agente de produto,~25h,—,nao
+D60,time-hibrido,31/08 02:30,<a> dentro de <a> na linha de aviso: o navegador partiu cada linha em três fragmentos,média,suíte social (a contagem não bateu com a API),<20min,o design tinha avisado: sem alvo aninhado,nao
+D61,time-hibrido,31/08 02:30,"O mock nunca resolvia quem estava pedindo: token semeado era ""tok"" e ele procurava ""tok-""",média,eu (nenhum aviso aparecia),~20h,—,nao

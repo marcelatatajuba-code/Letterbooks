@@ -87,6 +87,10 @@
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M13.2 2 4 13.4h6.1L9.9 22l9.4-11.6h-6.3z"/>
     </svg>
+    <!-- O ponto de "tem coisa nova". <i> e nao <span>: o <span> desta barra e o
+         rotulo invisivel (clip-path: inset(50%)) e engoliria o ponto. E nao
+         <svg>: a suite trava esta barra em exatamente quatro svg. -->
+    <i class="ponto-aviso" id="ponto-avisos" hidden></i>
     <span>Atividade</span>
   </a>
   <a href="#/perfil" aria-label="Perfil">

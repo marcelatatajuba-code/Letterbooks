@@ -241,6 +241,39 @@ img { display: block; max-width: 100%; }
 /* Segunda fileira de segmentos, dentro de uma aba que ja tem a primeira. Mais
    apagada e mais junta que a de cima, para ler como subdivisao e nao como uma
    segunda navegacao concorrente. */
+/* ================================================ avisos ================== */
+
+/* O ponto de "tem coisa nova" na aba. Cor --texto, e os tres acentos foram
+   recusados um a um: verde e "o que VOCE fez" e isto foi outra pessoa; laranja
+   e "o que voce gostou" e aqui e alguem gostando de voce; azul e "onde voce
+   esta" e num icone inativo diria que aquela e a aba atual. --texto ja tem
+   precedente no projeto — a marca da sua nota no histograma — com a mesma
+   justificativa de nao ser um quarto acento.
+
+   position: absolute exige o relative no <a>, que esta logo abaixo: sem ele o
+   ponto ancoraria na barra inteira, que e fixed, e pousaria no canto da tela. */
+.abas-pe a { position: relative; }
+.ponto-aviso {
+  position: absolute; top: 8px; left: calc(50% + 6px);
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--texto);
+  /* O anel separa o ponto do icone sem precisar de sombra. */
+  box-shadow: 0 0 0 2px var(--fundo-2);
+}
+
+/* A linha de aviso e uma .feed-linha inteira clicavel: um destino so, entao a
+   linha e o alvo e nao ha alvo aninhado dentro dela. */
+a.feed-linha.aviso { color: inherit; text-decoration: none; }
+a.feed-linha.aviso:active { background: var(--superficie); }
+.aviso .feed-frase .alvo { color: var(--texto); font-weight: 700; }
+/* Lido vs. nao lido sem cor nova: o mesmo ponto, presente ou ausente. Fundo
+   diferente para nao-lida foi recusado — no primeiro acesso TODAS sao novas e
+   a lista inteira em --superficie nao distinguiria nada. */
+.marca-nova {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--texto); flex: none;
+}
+
 .segmentos-2 { margin-top: -8px; margin-bottom: 18px; font-size: 13px; }
 .segmentos-2 a { padding: 5px 12px; }
 

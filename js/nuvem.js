@@ -426,6 +426,29 @@ var Nuvem = (function () {
       '&order=criado_em.desc&limit=' + (limite || 60));
   }
 
+  /* ------------------------------------------------------------- avisos */
+
+  var CAMPOS_AVISO = 'id,tipo,criado_em,quem,usuario,quem_nome,leitura,titulo,' +
+                     'tem_resenha,livro';
+
+  /* Vai por tabela(), nao por publico(): a view depende de auth.uid(), e com o
+     token vencido ela devolveria lista VAZIA em silencio — que e pior do que
+     devolver erro. tabela() passa por comSessao, que renova antes. */
+  function avisos(limite) {
+    return tabela('avisos', '?select=' + CAMPOS_AVISO +
+      '&order=criado_em.desc&limit=' + (limite || 50));
+  }
+
+  /* Tem alguma coisa mais nova do que a ultima vez que a pessoa olhou? Uma
+     linha basta: a tela mostra um PONTO, nao um numero, e ponto nao precisa de
+     contagem. Isso troca `Prefer: count=exact` — que o app nao sabe ler, porque
+     pedir() descarta a resposta e devolve so o corpo — por um limit=1. */
+  function temAvisoNovo(desde) {
+    var q = '?select=id&order=criado_em.desc&limit=1';
+    if (desde) q += '&criado_em=gt.' + encodeURIComponent(desde);
+    return tabela('avisos', q).then(function (l) { return !!(l && l.length); });
+  }
+
   function perfilDe(usuario) {
     return publico('perfis', '?select=*&usuario=eq.' + encodeURIComponent(usuario))
       .then(function (l) { return (l && l[0]) || null; });
@@ -756,6 +779,8 @@ var Nuvem = (function () {
     minhasListas:   minhasListas,
     listasDe:       listasDe,
     listaPorId:     listaPorId,
+    avisos:         avisos,
+    temAvisoNovo:   temAvisoNovo,
     apagarLeitura:  apagarLeitura,
     porMarcador:    porMarcador,
     tirarMarcador:  tirarMarcador,
