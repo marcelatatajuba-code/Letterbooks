@@ -150,6 +150,33 @@ def rodar_provas():
 _ok_prova, _quanto, _obs = rodar_provas()
 criterio(2, 'RLS provado em Postgres real', _quanto, 'todos passam', _ok_prova, _obs)
 
+# O ÚNICO critério que mede o PROCESSO, e não o produto.
+#
+# Ele existe por causa do D54/D55: as entregas V5 e V6 saíram sem um único
+# papel da squad acionado, e ninguém percebeu. O motivo é estrutural — os
+# agentes de .claude/agents só se registram quando a sessão abre NESTE
+# diretório; numa sessão aberta noutra pasta, `Agent(subagent_type: "design")`
+# falha com "not found" EM SILÊNCIO, e a squad inteira fica invisível.
+#
+# Nenhuma das outras medições veria isso: elas olham o app, e o app dos dois
+# itens estava certo. O que faltou foi o caminho até ele. Um harness que
+# verifica o produto e não verifica a si mesmo tem esse ponto cego por
+# construção, e foi por ele que passaram duas entregas inteiras.
+#
+# A prova de que a squad rodou é o rastro que ela deixa: uma especificação de
+# design em docs/kb/especificacoes.json ligada ao item pelo campo `item`.
+# Rastro é medível; boa intenção não é.
+espec = json.load(open(caminho('docs/kb/especificacoes.json'), encoding='utf-8'))
+_com_espec = set(x.get('item') for x in espec)
+_entregues = [it for it in back['backlog'] if it.get('entregue')]
+_sem_espec = [it for it in _entregues if it.get('ordem') not in _com_espec]
+criterio(2, 'entregas com a squad acionada',
+         '%d de %d' % (len(_entregues) - len(_sem_espec), len(_entregues)),
+         'todas', not _sem_espec,
+         ('sem especificação de design: ' + ', '.join(
+             '"%s"' % it['titulo'][:38] for it in _sem_espec))
+         if _sem_espec else 'cada entrega deixou o rastro da especificação')
+
 # ---------------------------------------------------------- portão 3: mercado
 print('\nPORTÃO 3 — MERCADO  (não medível daqui — precisa de gente usando)')
 MERCADO = [

@@ -170,6 +170,14 @@ completa, use a skill `/ciclo`. Para só verificar, `/verificar`.
 
 **Duas armadilhas, as duas já pisadas:**
 
+0. **O portão agora mede isto.** `portoes.py` tem o critério "entregas com a
+   squad acionada": toda entrega marcada `entregue` no backlog precisa de uma
+   especificação de design ligada a ela pelo campo `item` em
+   `especificacoes.json`. Rastro é medível; boa intenção não é. Ele já nasce
+   VERMELHO, nomeando as duas entregas (V5 e V6) que passaram sem squad — a
+   dívida fica visível até alguém escrever as duas especificações que faltam.
+   Era o único ponto cego que nenhuma outra medição via, porque todas elas
+   olham o app, e o app dessas duas estava certo: o que faltou foi o caminho.
 1. Os agentes só se registram quando a sessão abre NESTE diretório. Numa sessão
    que começou noutra pasta, `Agent(subagent_type: "design")` falha com "not
    found" — e a squad inteira fica invisível sem ninguém perceber. Solução:

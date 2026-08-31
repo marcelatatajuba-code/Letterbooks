@@ -1,5 +1,6 @@
 [
  {
+  "item": 1,
   "titulo": "Trazer o diário da nuvem para o aparelho — sincronização de mão dupla",
   "telas": [
    {
@@ -113,6 +114,7 @@
   ]
  },
  {
+  "item": 2,
   "titulo": "Avaliações da comunidade na ficha do livro (substitui o histograma pessoal mal rotulado)",
   "telas": [
    {
@@ -173,6 +175,7 @@
   ]
  },
  {
+  "item": 3,
   "titulo": "A rede dentro da ficha do livro — quem você segue, as resenhas, e a curtida sem sair da página",
   "telas": [
    {
@@ -241,6 +244,7 @@
   ]
  },
  {
+  "item": 4,
   "titulo": "Uma resenha, um endereço: #/resenha/<id> como página pública, compartilhável e editável",
   "telas": [
    {
@@ -310,6 +314,7 @@
   ]
  },
  {
+  "item": 8,
   "titulo": "Notificações de curtida, comentário e nova seguidora — a fita «Você» dentro de #/atividade, e a marca de novidade na barra do pé",
   "telas": [
    {
@@ -377,6 +382,7 @@
   ]
  },
  {
+  "item": 9,
   "titulo": "Apagar a conta e a chave de privacidade do diário — a porta de saída e o controle de exposição",
   "telas": [
    {
@@ -474,6 +480,7 @@
   ]
  },
  {
+  "item": 10,
   "titulo": "Denunciar resenha e comentário — a saída que o servidor já tem, a tela nunca ofereceu, e o que ela não pode prometer",
   "telas": [
    {
@@ -570,6 +577,7 @@
   ]
  },
  {
+  "item": 11,
   "titulo": "Tirar o prompt() do navegador das doze portas — a folha de uma pergunta, a rota de editar o perfil, e a medida que o teclado impõe",
   "telas": [
    {

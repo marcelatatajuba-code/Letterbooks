@@ -67,7 +67,11 @@ de hoje e estão conferidos contra a fonte mais abaixo.
 meio do caminho.** Os dois primeiros (D54, D55) eram defeitos **do processo**,
 não do aplicativo: a squad tinha parado de ser acionada e nada media se o
 processo estava sendo seguido. Um harness que verifica o produto e não verifica
-a si mesmo tem esse ponto cego por construção.
+a si mesmo tem esse ponto cego por construção — e ele continuou aberto por mais
+nove entregas depois de descoberto, porque **saber do ponto cego não é o mesmo
+que medi-lo**. Agora o portão 2 tem o critério "entregas com a squad acionada",
+que exige de cada item entregue uma especificação de design ligada a ele. Ele
+nasceu vermelho: **8 de 10**, nomeando as duas que passaram.
 
 Os dois seguintes são de outra natureza, e piores. **D72**: o `esquema.sql`
 parava com `cannot change name of view column` no banco dela — `create or
@@ -185,6 +189,7 @@ Hoje há 14 parciais e 12 ausentes.
 | achados graves do rastreador | 0 | 0 |
 | defeitos de corrupção em aberto | 0 | 0 |
 | RLS provado em Postgres real | 7 de 7 passam | todos passam |
+| entregas com a squad acionada | 8 de 10 | todas |
 
 **Este portão já está fechado.** Ele reabre sozinho no dia em que uma suíte
 ficar vermelha — é por isso que ele é medido, e não declarado.
