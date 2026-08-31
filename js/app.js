@@ -437,7 +437,12 @@
   function linhaAjuste(tag, atributos, rotulo, valor) {
     /* Paginas nao leva a lugar nenhum, entao nao ganha chevron: seta que nao
        abre nada e promessa que a tela nao cumpre. */
-    var mudo = atributos.indexOf('sem-link') >= 0;
+    /* Duas razões diferentes para não ter chevron, e elas não são a mesma:
+       `sem-link` é linha que não leva a lugar nenhum (e o CSS tira o cursor);
+       `sem-chevron` é linha que AGE na hora — "Sair desta conta" faz algo, só
+       não abre outra tela, e uma seta ali prometeria uma tela que não existe. */
+    var mudo = atributos.indexOf('sem-link') >= 0 ||
+               atributos.indexOf('sem-chevron') >= 0;
     return '<' + tag + ' ' + atributos + '>' + esc(rotulo) +
       (valor ? '<span class="valor">' + valor + '</span>' : '') +
       (mudo ? '' : '<span class="chevron" aria-hidden="true">›</span>') +
@@ -999,6 +1004,32 @@
   /* A sua nota está no aparelho mas ainda não está na média — e o bloco diz
      qual dos dois motivos é, em vez de deixar a pessoa achar que o agregado
      está errado. */
+  /* A chave de privacidade, lembrada no aparelho.
+
+     htmlAvisoDaMinhaNota desenha DENTRO da ficha do livro, de forma síncrona,
+     e a ficha não pede o perfil — pedir só para saber isto seria uma ida à
+     rede por livro aberto. Então o estado é lembrado quando o app já o tem em
+     mãos (ao abrir a conta, ao abrir a tela de privacidade, ao mudar a chave)
+     e lido daqui.
+
+     É um espelho, nunca a fonte: quem decide é a coluna `perfis.privado`, e o
+     RLS não consulta isto. O pior que uma cópia velha faz é a frase da ficha
+     aparecer ou faltar por uma sessão; ela não abre nem fecha nada. */
+  var CHAVE_PRIVADO = 'letterbooks:privado';
+  var meuDiarioFechado = (function () {
+    try { return localStorage.getItem(CHAVE_PRIVADO) === '1'; } catch (e) { return false; }
+  })();
+
+  function lembrarPrivacidade(p) {
+    meuDiarioFechado = !!(p && p.privado);
+    try { localStorage.setItem(CHAVE_PRIVADO, meuDiarioFechado ? '1' : '0'); } catch (e) {}
+  }
+
+  function esquecerPrivacidade() {
+    meuDiarioFechado = false;
+    try { localStorage.removeItem(CHAVE_PRIVADO); } catch (e) {}
+  }
+
   function htmlAvisoDaMinhaNota(chave, minha) {
     if (!minha) return '';
     if (!Nuvem.entrou()) {
@@ -1008,6 +1039,16 @@
     if (Sinc.esperandoLeitura(chave)) {
       return '<p class="fila-aviso">Sua nota entra na conta quando a fila ' +
              'terminar de subir.</p>';
+    }
+    /* A TERCEIRA face, e sem ela o bloco cala justamente no caso em que a
+       pessoa mais vai achar que o agregado está errado: com conta, com a
+       leitura já no servidor, e a nota fora da média porque o diário está
+       fechado. Nenhuma linha de cálculo muda por causa disto — as linhas
+       simplesmente param de chegar do servidor —, então é só aqui que dá
+       para dizer o que aconteceu. */
+    if (meuDiarioFechado) {
+      return '<p class="fila-aviso">Seu diário está fechado, então sua nota fica ' +
+             'fora da média daqui. <a href="#/privacidade">Mudar isso</a>.</p>';
     }
     return '';
   }
@@ -1284,9 +1325,18 @@
       /* Apagada noutro aparelho e intacta neste: cair no estado vazio deixaria
          a resenha inalcançável a partir do próprio diário de quem escreveu. */
       if (!l) {
+        /* A AMBIGUIDADE É DELIBERADA. Distinguir "apagada" de "escondida"
+           exigiria que o servidor respondesse coisas diferentes nos dois
+           casos — e essa diferença de resposta É o vazamento: qualquer pessoa
+           com uma lista de endereços descobriria quem tem diário fechado e
+           quantas resenhas escondeu. Uma frase que cobre os dois casos custa
+           uma imprecisão pequena a quem só queria ler, e fecha o buraco
+           inteiro. Para a DONA a resenha abre sempre: o log local responde no
+           mesmo quadro, e o RLS continua liberando o dono. */
         return meu ? desenhaResenha(daLeituraLocal(meu))
                    : pintar(htmlVazio('Não achei esta resenha',
-                            'Ela pode ter sido apagada por quem escreveu.'));
+                            'Ela pode ter sido apagada por quem escreveu, ou quem ' +
+                            'escreveu fechou o diário.'));
       }
       desenhaResenha(daLeituraRemota(l, r[1] || []));
     }, function (err) {
@@ -2120,6 +2170,17 @@
         '<h1 class="perfil-nome">' + esc(d.perfil.nome) + '</h1>' +
         '<p class="perfil-bio" id="meu-arroba">' +
           (d.perfil.bio ? esc(d.perfil.bio) : 'Sem descrição ainda.') + '</p>' +
+        /* A marca só existe no estado FECHADO. Uma etiqueta "PÚBLICO"
+           permanente vira papel de parede em três dias e para de ser lida, e o
+           padrão do app é público — o que merece marca é a exceção.
+           Ela é um link: a marca não só avisa, ela leva ao lugar de desfazer.
+           A cor é --texto-2, e os quatro acentos foram recusados um a um.
+           --perigo é o mais importante dos quatro: fechar não apaga nada, e
+           vermelho aqui ensinaria que privacidade é perda. */
+        (meuDiarioFechado
+          ? '<a class="estado-exposicao rotulo" href="#/privacidade">' +
+            'Diário fechado · só você vê</a>'
+          : '') +
       '</div>' +
 
       (d.favoritos.length
@@ -3067,7 +3128,11 @@
       Nuvem.contagemSocial(p.id).then(function (c) {
         var s = document.getElementById('leitor-numeros');
         if (s) {
-          s.innerHTML = linhaAjuste('span', 'class="sem-link"', 'Leituras', String(leituras.length)) +
+          /* A linha "Leituras" some no diário fechado: o número é conteúdo do
+             diário e vazaria o TAMANHO do que está fechado. Seguidores e
+             seguindo ficam — seguir não é conteúdo, e a tabela é pública. */
+          s.innerHTML = (p.privado ? ''
+            : linhaAjuste('span', 'class="sem-link"', 'Leituras', String(leituras.length))) +
             linhaAjuste('a', 'href="#/seguidores/' + encodeURIComponent(p.id) + '"',
                         'Seguidores', String(c.seguidores)) +
             linhaAjuste('a', 'href="#/seguindo/' + encodeURIComponent(p.id) + '"',
@@ -3103,7 +3168,10 @@
 
       '<section class="secao" id="listas-do-leitor" hidden></section>' +
 
-      (comResenha.length
+      /* Num diário fechado estas seções não são "vazias": elas não existem
+         para quem olha. Desenhar o cabeçalho "Resenhas" sobre nada seria dizer
+         que há zero resenhas, que é a mesma mentira noutro lugar. */
+      (comResenha.length && !p.privado
         ? '<section class="secao"><h2>Resenhas</h2>' +
           comResenha.slice(0, 10).map(htmlLinhaFeed).join('') + '</section>'
         : '') +
@@ -3113,8 +3181,17 @@
           htmlTrilho(leituras.slice(0, 16).map(function (l) {
             return { chave: l.livro, titulo: l.titulo, capa: l.capa, ano: l.ano };
           })) + '</section>'
-        : htmlVazio('Ainda sem leituras registradas',
-                    'Quando ' + esc(nome) + ' registrar a primeira, ela aparece aqui.'))
+        /* "Ainda sem leituras registradas" AFIRMA que a pessoa não leu nada, e
+           para um diário fechado isso é falso — é o rótulo que mente, e passa a
+           ser o estado mais comum desta tela. Sem a frase, a página também faz
+           o app inteiro parecer deserto. Dizer "está fechado" é honesto, e é o
+           que quem fechou espera que apareça. */
+        : p.privado
+          ? htmlVazio('O diário de @' + p.usuario + ' está fechado',
+                      'Essa pessoa escolheu não mostrar o que lê. Você pode seguir e ' +
+                      'continuar por aqui — se ela abrir, as leituras aparecem.')
+          : htmlVazio('Ainda sem leituras registradas',
+                      'Quando ' + esc(nome) + ' registrar a primeira, ela aparece aqui.'))
     );
 
     acoes({
@@ -3527,8 +3604,13 @@
             (criando ? '' : '<button class="botao" type="button" data-acao="esqueci">Esqueci a senha</button>') +
           '</div>' +
         '</form>' +
+        /* Esta frase viaja no MESMO commit da chave de privacidade. Ela está
+           impressa na porta de entrada: dizer "seu diário fica público" para
+           quem ainda vai criar a conta, e só depois entregar a chave, é o app
+           dando informação errada sobre a própria privacidade. */
         '<p class="conta-texto conta-rodape">Seu perfil e seu diário ficam públicos, como ' +
-          'no Letterboxd. E-mail e senha, não.</p>' +
+          'no Letterboxd — e você pode fechar o diário quando quiser, em Conta. ' +
+          'E-mail e senha nunca aparecem.</p>' +
       '</div>'
     );
 
@@ -3596,7 +3678,16 @@
      nasce la, no gatilho de cadastro, e nao existe do lado de ca. */
   function contaDentro() {
     carregando('Carregando sua conta…');
-    Nuvem.meuPerfil().then(pintarConta, function (e) {
+    Nuvem.meuPerfil().then(function (p) {
+      /* TERCEIRO estado, e ele não é hipotético. `meuPerfil()` devolve null sem
+         erro quando a conta existe e o perfil não — o gatilho `ao_cadastrar`
+         falhou, ou a pessoa apagou a conta e entrou de novo com o mesmo
+         e-mail. Antes disto o formulário era desenhado em branco e nenhuma
+         frase dizia o que houve: a pessoa reescrevia o @ e o Salvar batia num
+         PATCH que não casa linha nenhuma. */
+      if (!p) return contaSemPerfil();
+      pintarConta(p);
+    }, function (e) {
       pintar('<div class="conta"><h1>Conta</h1>' +
         '<p class="conta-erro">' + esc(e.message) + '</p>' +
         '<div class="linha-botoes">' +
@@ -3607,6 +3698,7 @@
   }
 
   function pintarConta(p) {
+    lembrarPrivacidade(p);
     var eu = Nuvem.quemSou();
     var d = Dados.estado();
     var marcacoes = d.querLer.length + d.curtidas.length + d.favoritos.length;
@@ -3661,9 +3753,27 @@
 
         blocoMigrar +
 
-        '<section class="secao"><h2>Sessão</h2>' +
-          '<div class="linha-botoes">' +
-            '<button class="botao perigo" data-acao="sair">Sair desta conta</button>' +
+        /* A fileira de botões virou lista. A régua do sistema diz "opção ou
+           ajuste → .linhas", e o CSS já registra que fileira de botão em caixa
+           alta era o que fazia esta tela parecer formulário de sistema.
+
+           E "Sair desta conta" PERDE o --perigo, que é conserto de uma
+           violação que já estava no ar: sair não apaga nada — o diário do
+           aparelho fica, a conta fica, e entrar de novo desfaz. O vermelho é
+           só para o que vai sumir, e gastá-lo em "Sair" era o que impedia a
+           única linha que merece vermelho de se distinguir das outras.
+
+           Chevron só onde abre outra superfície: "Privacidade" leva a uma rota
+           e "Apagar" abre uma folha; "Sair" resolve na hora, e uma seta ali
+           prometeria uma tela que não existe. */
+        '<section class="secao"><h2>Privacidade e conta</h2>' +
+          '<div class="linhas">' +
+            linhaAjuste('a', 'href="#/privacidade"', 'Privacidade do diário',
+                        p && p.privado ? 'Fechado' : 'Público') +
+            linhaAjuste('button', 'type="button" class="sem-chevron" data-acao="sair"',
+                        'Sair desta conta', '') +
+            linhaAjuste('button', 'type="button" class="perigo" data-acao="apagar-conta"',
+                        'Apagar a conta', '') +
           '</div></section>' +
       '</div>'
     );
@@ -3702,6 +3812,7 @@
 
     acoes({
       sair: sairDaConta,
+      'apagar-conta': function () { abrirFolhaApagarConta(p); },
       migrar: function (botao) {
         var err = document.getElementById('migrar-erro');
         err.hidden = true;
@@ -3721,8 +3832,317 @@
     });
   }
 
+  /* Conta viva, perfil inexistente. Uma tela que DIZ isso e um botão que
+     conserta, em vez do formulário em branco que a pessoa preenchia para
+     receber um erro no Salvar. A política "crio o meu perfil" já permitia
+     isto desde o primeiro dia; o que faltava era ter por onde pedir. */
+  function contaSemPerfil() {
+    var eu = Nuvem.quemSou();
+    pintar(
+      '<div class="conta">' +
+        '<h1>Sua conta</h1>' +
+        '<p class="conta-texto">' + esc(eu ? eu.email : '') + '</p>' +
+        '<p class="conta-texto">Esta conta existe, mas não tem um perfil ligado a ' +
+          'ela — é o que acontece quando alguém apaga a conta e entra de novo com o ' +
+          'mesmo e-mail. Nada do seu diário deste aparelho foi perdido: ele continua ' +
+          'aqui, e sobe assim que o perfil existir.</p>' +
+        '<p class="conta-erro" id="perfil-erro" role="alert" hidden></p>' +
+        '<div class="linha-botoes">' +
+          '<button class="botao destaque" data-acao="criar-perfil">Criar o meu perfil</button>' +
+          '<button class="botao" data-acao="sair">Sair</button>' +
+        '</div>' +
+      '</div>'
+    );
+    acoes({
+      sair: sairDaConta,
+      'criar-perfil': function (b) {
+        var err = document.getElementById('perfil-erro');
+        err.hidden = true;
+        b.disabled = true; b.textContent = 'Criando…';
+        /* Sem @ nenhum: o banco exige um, e inventar aqui um nome derivado do
+           e-mail seria repetir no aplicativo a regra que o gatilho já tem. O
+           perfil nasce com o @ do e-mail e a pessoa corrige na tela seguinte. */
+        var base = (eu && eu.email || 'leitor').split('@')[0]
+                     .toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16);
+        if (base.length < 3) base = 'leitor';
+        Nuvem.criarMeuPerfil({ usuario: base + String(Date.now()).slice(-4), nome: base })
+          .then(function () { aviso('Perfil criado.'); contaDentro(); },
+                function (e) {
+                  b.disabled = false; b.textContent = 'Criar o meu perfil';
+                  err.textContent = e.message; err.hidden = false;
+                });
+      }
+    });
+  }
+
+  /* ============================================== TELA: privacidade do diário */
+  /* Rota própria, e não folha, por três motivos: tem endereço (a marca no
+     perfil leva para cá), a mudança fala com o servidor e pode falhar, e a
+     consequência precisa de espaço para caber antes da escolha.
+
+     A escolha GRAVA NO TOQUE, nos dois sentidos. O par [escolher] + [Salvar]
+     foi recusado: um botão Salvar cria estado não-salvo, e sair desta tela com
+     a chave num lugar e o servidor noutro é exatamente o erro que uma tela de
+     privacidade não pode cometer. Pelo mesmo motivo ela NÃO entra na fila do
+     Sinc: dizer "fechado" e continuar público por três horas seria a única
+     falha desta tela sem conserto possível. */
+  function telaPrivacidade() {
+    marcarAba('perfil');
+    if (!Nuvem.ligada() || !Nuvem.entrou()) return ir('#/conta');
+    carregando('Abrindo…');
+    Nuvem.meuPerfil().then(function (p) {
+      if (!p) return contaSemPerfil();
+      desenhaPrivacidade(p);
+      espelharPrivacidade(p);
+    }, function (e) {
+      pintar('<p class="erro">' + esc(e.message) + '</p>');
+    });
+  }
+
+  function desenhaPrivacidade(p) {
+    lembrarPrivacidade(p);
+    var fechado = !!p.privado;
+    function opcao(valor, rotulo, consequencia, marcado) {
+      return '<button type="button" role="radio" aria-checked="' + (marcado ? 'true' : 'false') + '" ' +
+        'data-acao="escolher-privacidade" data-valor="' + valor + '" class="sem-chevron">' +
+        '<i class="marca-escolha" aria-hidden="true">' + (marcado ? '✓' : '') + '</i>' +
+        esc(rotulo) + '<span class="valor">' + esc(consequencia) + '</span></button>';
+    }
+
+    pintar(
+      '<div class="conta">' +
+        '<h1>Privacidade do diário</h1>' +
+        '<p class="conta-texto">Esta chave vale para o seu diário — o que você leu, as ' +
+          'notas, as resenhas, as listas e as marcações.</p>' +
+
+        '<div class="linhas" role="radiogroup" aria-label="Quem vê o seu diário">' +
+          opcao('publico', 'Público', 'qualquer pessoa lê', !fechado) +
+          opcao('fechado', 'Fechado', 'só você lê', fechado) +
+        '</div>' +
+
+        '<p class="conta-texto" style="margin-top:20px"><b>Fecha:</b> as suas leituras, as ' +
+          'notas, as resenhas, as listas e a sua estante.</p>' +
+        '<p class="conta-texto"><b>E fecha a conversa que aconteceu dentro delas:</b> os ' +
+          'comentários e as curtidas que deixaram nas suas resenhas saem da vista junto.</p>' +
+        '<p class="conta-texto"><b>Não fecha:</b> o seu @, o nome, a bio e quem você segue. ' +
+          'O que você escreve na resenha de outra pessoa continua lá, com o seu nome.</p>' +
+        '<p class="conta-texto">Fechar esconde, não apaga. Abrir de novo traz tudo de ' +
+          'volta, inclusive os comentários.</p>' +
+
+        '<section class="bloco espelho" id="espelho">' +
+          '<span class="rotulo">Como outra pessoa vê você</span>' +
+          '<p class="conta-texto">Carregando…</p>' +
+        '</section>' +
+      '</div>'
+    );
+
+    acoes({
+      'escolher-privacidade': function (b) {
+        var querFechado = b.getAttribute('data-valor') === 'fechado';
+        if (querFechado === fechado) return;
+        var antes = fechado;
+        /* Resposta otimista: o espelho e as marcas mudam já, e o erro reverte.
+           Uma tela de privacidade que fica meio segundo sem dizer nada depois
+           do toque é uma tela onde a pessoa toca duas vezes. */
+        p.privado = querFechado;
+        desenhaPrivacidade(p);
+        espelharPrivacidade(p);
+        Nuvem.salvarPerfil({ privado: querFechado }).then(function () {
+          aviso(querFechado
+            ? 'Diário fechado. Só você vê.'
+            : 'Diário público. Quem tem o link lê o que você lê.');
+        }, function (e) {
+          p.privado = antes;
+          desenhaPrivacidade(p);
+          espelharPrivacidade(p);
+          aviso('Não consegui mudar: ' + e.message);
+        });
+      }
+    });
+  }
+
+  /* O espelho não é o desenho de uma tela: são os componentes de verdade, com
+     os dados de verdade, e o texto do vazio é LITERALMENTE o que a outra
+     pessoa lê — em terceira pessoa e com o seu @. Um espelho que reescreve a
+     frase para a primeira pessoa deixa de ser espelho. */
+  function espelharPrivacidade(p) {
+    var caixa = document.getElementById('espelho');
+    if (!caixa) return;
+    var fechado = !!p.privado;
+
+    Promise.all([
+      fechado ? Promise.resolve([]) : Nuvem.minhasLeituras().catch(function () { return []; }),
+      Nuvem.contagemSocial(p.id).catch(function () { return { seguidores: 0, seguindo: 0 }; }),
+      fechado ? Promise.resolve([]) : Nuvem.minhasListas().catch(function () { return []; })
+    ]).then(function (r) {
+      if (!caixa || !document.body.contains(caixa)) return;
+      var leituras = r[0] || [], c = r[1], listas = r[2] || [];
+      var corpo;
+
+      if (fechado) {
+        corpo =
+          '<div class="linhas">' +
+            linhaAjuste('span', 'class="sem-link"', 'Seguidores', String(c.seguidores)) +
+            linhaAjuste('span', 'class="sem-link"', 'Seguindo', String(c.seguindo)) +
+          '</div>' +
+          '<div style="margin-top:14px">' +
+            htmlVazio('O diário de @' + p.usuario + ' está fechado',
+                      'Ela escolheu não mostrar o que lê. O perfil continua aqui.') +
+          '</div>';
+      } else {
+        var comResenha = leituras.filter(function (l) { return l.resenha; });
+        var capas = leituras.slice(0, 4).map(function (l) {
+          return { chave: l.livro, titulo: l.titulo, capa: l.capa, ano: l.ano };
+        });
+        corpo =
+          '<div class="linhas">' +
+            linhaAjuste('span', 'class="sem-link"', 'Leituras', String(leituras.length)) +
+            linhaAjuste('span', 'class="sem-link"', 'Resenhas', String(comResenha.length)) +
+            linhaAjuste('span', 'class="sem-link"', 'Listas', String(listas.length)) +
+          '</div>' +
+          (capas.length
+            ? '<div class="fileira" style="margin-top:14px">' +
+              capas.map(function (l) { return htmlCartao(l); }).join('') + '</div>'
+            : '');
+      }
+      caixa.innerHTML = '<span class="rotulo">Como outra pessoa vê você</span>' + corpo;
+    });
+  }
+
+  /* ---------------------------------------------------- apagar a conta ---- */
+  /* A confirmação é DIGITADA, e o que se digita é o @ — nunca a senha. Senha
+     numa folha de confirmação ensina um hábito que o phishing explora, e o app
+     não tem reautenticação nenhuma para conferir com ela: a folha prova
+     INTENÇÃO, não identidade. Digitar o próprio @ prova intenção e diz, de
+     quebra, qual conta vai sumir.
+
+     E o botão de exportar fica ao lado, antes: porta destrutiva sem a cópia
+     do lado é armadilha. */
+  function abrirFolhaApagarConta(p) {
+    var usuario = (p && p.usuario) || '';
+
+    /* A folha abre NA HORA, com o inventário em "…", e os números chegam
+       depois. A primeira versão chamava carregando() antes de pedir as
+       contagens: a tela inteira piscava em branco entre o toque e a folha, e o
+       botão que a pessoa acabou de tocar sumia no meio do caminho — foi o
+       rastreador que pegou, como "existia ao mapear e não ao acionar". Uma
+       porta destrutiva é o último lugar do app onde a tela pode sumir debaixo
+       de quem está decidindo. */
+    function inventario(leituras, listas, c) {
+      var pronto = !!leituras;
+      leituras = leituras || []; listas = listas || [];
+      var comResenha = leituras.filter(function (l) { return l.resenha; });
+      var comentarios = comResenha.reduce(function (n, l) { return n + (l.comentarios || 0); }, 0);
+      function n(v) { return pronto ? String(v) : '…'; }
+      return '<div class="linhas">' +
+        linhaAjuste('span', 'class="sem-link"', 'Leituras e notas', n(leituras.length)) +
+        linhaAjuste('span', 'class="sem-link"', 'Resenhas',
+                    n(comResenha.length) +
+                    (pronto && comentarios
+                      ? '<i>' + plural(comentarios, 'comentário', 'comentários') + '</i>' : '')) +
+        linhaAjuste('span', 'class="sem-link"', 'Listas', n(listas.length)) +
+        linhaAjuste('span', 'class="sem-link"', 'Quem te segue', n(c ? c.seguidores : 0)) +
+      '</div>';
+    }
+
+    (function () {
+      camada.innerHTML =
+        '<div class="folha-fundo" data-fechar="fundo"><div class="folha" role="dialog" ' +
+          'aria-modal="true" aria-label="Apagar a conta">' +
+          '<h2>Apagar a conta @' + esc(usuario) + '?</h2>' +
+          '<p class="folha-sub">Some do servidor, e não dá para desfazer. Criar outra ' +
+            'conta com o mesmo e-mail não traz nada de volta.</p>' +
+          '<span class="rotulo">O que some</span>' +
+          '<div id="inventario-conta">' + inventario(null, null, null) + '</div>' +
+          /* Este é o efeito colateral que ninguém espera, e por isso ele é
+             frase e não item de lista: o cascade leva junto o que a pessoa
+             escreveu nas resenhas DE OUTRAS pessoas. */
+          '<p class="folha-sub" style="margin-top:14px">Os comentários que você escreveu ' +
+            'nas resenhas de outras pessoas também somem.</p>' +
+          '<p class="folha-sub" id="o-que-fica" aria-live="polite">O diário deste aparelho ' +
+            'não é apagado: ele continua aqui, sem conta.</p>' +
+          '<div class="linha-botoes">' +
+            '<button class="botao" data-acao="exportar-antes">Exportar o diário antes</button>' +
+          '</div>' +
+          '<label class="marcador"><input type="checkbox" id="apagar-local">' +
+            '<span>Apagar também o diário deste aparelho</span></label>' +
+          '<label class="campo"><span>Escreva @' + esc(usuario) + ' para confirmar</span>' +
+            '<input id="confirma-usuario" autocapitalize="none" autocorrect="off" ' +
+            'spellcheck="false" placeholder="@' + esc(usuario) + '"></label>' +
+          '<p class="conta-erro" id="apagar-erro" role="alert" hidden></p>' +
+          '<div class="folha-rodape">' +
+            '<button class="botao" data-fechar="ok">Cancelar</button>' +
+            '<span class="espaco"></span>' +
+            '<button class="botao perigo" data-acao="confirmar-apagar-conta" disabled>Apagar</button>' +
+          '</div>' +
+        '</div></div>';
+
+      var painel  = camada.firstElementChild;
+      var campo   = document.getElementById('confirma-usuario');
+      var botao   = painel.querySelector('[data-acao=confirmar-apagar-conta]');
+      var caixaEr = document.getElementById('apagar-erro');
+      var local   = document.getElementById('apagar-local');
+      var fica    = document.getElementById('o-que-fica');
+
+      function confere() {
+        var v = campo.value.trim().replace(/^@/, '').toLowerCase();
+        botao.disabled = v !== usuario.toLowerCase();
+      }
+      campo.addEventListener('input', confere);
+      local.addEventListener('change', function () {
+        fica.textContent = local.checked
+          ? 'Os dois somem: a conta no servidor e o diário deste aparelho. Exporte antes se quiser guardar.'
+          : 'O diário deste aparelho não é apagado: ele continua aqui, sem conta.';
+      });
+
+      painel.addEventListener('click', function (ev) {
+        if (ev.target.closest('[data-acao=exportar-antes]')) return exportarArquivo();
+
+        if (ev.target.closest('[data-acao=confirmar-apagar-conta]')) {
+          if (botao.disabled) return;
+          botao.disabled = true; botao.textContent = 'Apagando…';
+          caixaEr.hidden = true;
+          var tambemLocal = local.checked;
+          return Nuvem.apagarConta().then(function () {
+            esquecerPrivacidade();
+            if (tambemLocal) Dados.limpar();
+            camada.innerHTML = '';
+            aviso(tambemLocal ? 'Conta e diário apagados.' : 'Conta apagada.');
+            ir('#/conta');
+          }, function (e) {
+            botao.disabled = false; botao.textContent = 'Apagar';
+            caixaEr.textContent = e.message;
+            caixaEr.hidden = false;
+          });
+        }
+
+        var alvo = ev.target.closest('[data-fechar]');
+        if (!alvo) return;
+        if (alvo.getAttribute('data-fechar') === 'fundo' && ev.target !== alvo) return;
+        camada.innerHTML = '';
+      });
+
+      campo.focus();
+
+      /* Os números chegam depois e só preenchem o inventário. Se a rede
+         falhar, a folha continua de pé com "…": saber quantas resenhas somem é
+         útil, mas não é condição para a pessoa poder apagar a conta dela. */
+      Promise.all([
+        Nuvem.minhasLeituras(),
+        Nuvem.minhasListas(),
+        Nuvem.contagemSocial(p.id)
+      ]).then(function (r) {
+        var caixa = document.getElementById('inventario-conta');
+        if (caixa && document.body.contains(caixa)) {
+          caixa.innerHTML = inventario(r[0] || [], r[1] || [], r[2]);
+        }
+      }).catch(function () {});
+    })();
+  }
+
   function sairDaConta() {
     Nuvem.sair().then(function () {
+      esquecerPrivacidade();
       aviso('Você saiu. Seu diário deste aparelho continua aqui.');
       contaPorta('entrar');
     });
@@ -3768,6 +4188,7 @@
     if (rota === 'lista')   return telaLista(partes[1]);
     if (rota === 'perfil')  return telaPerfil();
     if (rota === 'conta')   return telaConta();
+    if (rota === 'privacidade') return telaPrivacidade();
     if (rota === 'atividade') return telaAtividade(partes[1]);
     if (rota === 'avisos')  return telaAvisos();
     if (rota === 'leitor')  return telaLeitor(decodeURIComponent(partes[1] || ''));

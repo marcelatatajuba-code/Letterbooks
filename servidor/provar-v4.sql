@@ -244,4 +244,81 @@ select (select count(*) from leituras where perfil = :'id_bruno') as leituras,
 reset role;
 
 \echo ''
-\echo '=== fim: a chave de privacidade esta provada contra um Postgres real ==='
+\echo '=========================================================================='
+\echo ' APAGAR A CONTA — a outra metade do item.'
+\echo ''
+\echo ' provar.sql ja provava `delete from auth.users`, que e a raiz que o app'
+\echo ' NAO tem: nenhuma chave anon alcanca o schema auth. O que se prova aqui'
+\echo ' e a raiz que o app REALMENTE usa — a funcao — e o cascateamento a'
+\echo ' partir dela. Sem isto, "apagar a conta" e uma promessa nao verificada.'
+\echo '=========================================================================='
+
+\echo ''
+\echo '=== 13. a Carla apaga a conta com a chave anon e o proprio JWT ==='
+select (select count(*) from auth.users)  as contas,
+       (select count(*) from perfis)      as perfis,
+       (select count(*) from leituras)    as leituras,
+       (select count(*) from comentarios) as comentarios,
+       (select count(*) from curtidas)    as curtidas,
+       (select count(*) from seguidores)  as seguidores;
+\echo '   ^ o estado ANTES'
+
+select set_config('request.jwt.claim.sub', :'id_carla', false) as carla4;
+set role authenticated;
+select apagar_minha_conta();
+reset role;
+
+select (select count(*) from auth.users where id = :'id_carla')     as conta,
+       (select count(*) from perfis   where id = :'id_carla')       as perfil,
+       (select count(*) from curtidas where perfil = :'id_carla')   as curtidas,
+       (select count(*) from comentarios where perfil = :'id_carla') as comentarios,
+       (select count(*) from seguidores
+         where seguidor = :'id_carla' or seguido = :'id_carla')     as seguidores;
+\echo '   ^ 0, 0, 0, 0, 0 — e a PRIMEIRA coluna e a que importa: a linha de'
+\echo '     auth.users foi junto. E-mail e hash de senha inclusive. Sem'
+\echo '     service_role em lugar nenhum: `security definer` roda como dono do'
+\echo '     banco, e a chave anon so precisa do JWT da propria pessoa.'
+\echo '     Uma tela que diz "conta apagada" agora esta dizendo a verdade.'
+
+select count(*) as comentario_da_carla_na_leitura_do_bruno from comentarios
+ where leitura = 'bbbbbbbb-0000-0000-0000-000000000001';
+\echo '   ^ 1: sobrou so o da Ana. O comentario que a Carla escreveu na resenha'
+\echo '     de OUTRA pessoa foi junto — e este e o efeito colateral que ninguem'
+\echo '     espera, entao a folha de confirmacao tem que dize-lo em voz alta.'
+
+select count(*) as leituras_do_bruno_intactas from leituras where perfil = :'id_bruno';
+\echo '   ^ 2: apagar a propria conta nao encosta no diario de mais ninguem'
+
+\echo ''
+\echo '=== 14. a funcao nao apaga a conta de outra pessoa. Nao ha como pedir. ==='
+\echo '   Ela tem ZERO argumentos: quem chama so consegue dizer "apague a mim".'
+select count(*) as argumentos from information_schema.parameters
+ where specific_name in (select specific_name from information_schema.routines
+                          where routine_name = 'apagar_minha_conta');
+\echo '   ^ 0. Nao e uma checagem de permissao que alguem possa esquecer de'
+\echo '     escrever um dia: e a ausencia de um parametro para forjar.'
+
+\echo ''
+\echo '=== 15. visitante nem chega a rodar a funcao ==='
+select set_config('request.jwt.claim.sub', '', false) as sem_claim2;
+set role anon;
+\set ON_ERROR_STOP off
+select apagar_minha_conta();
+\set ON_ERROR_STOP on
+\echo '   ^ tem que ser "permission denied for function apagar_minha_conta":'
+\echo '     o revoke recusa no privilegio, antes de a primeira linha do corpo'
+\echo '     rodar. O `if auth.uid() is null` la dentro e a segunda camada.'
+reset role;
+
+\echo ''
+\echo '=== 16. o Bruno nao apaga o perfil da Ana pela porta do PostgREST ==='
+select set_config('request.jwt.claim.sub', :'id_bruno', false) as bruno2;
+set role authenticated;
+delete from perfis where id = :'id_ana';
+\echo '   ^ DELETE 0: a politica "apago o meu perfil" e `auth.uid() = id`'
+reset role;
+select count(*) as ana_intacta from perfis where id = :'id_ana';
+\echo '   ^ 1'
+
+\echo ''
+\echo '=== fim: a chave de privacidade E o apagar a conta estao provados ==='

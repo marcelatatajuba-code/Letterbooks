@@ -88,10 +88,47 @@ def servir(rota, estado):
     tab = p.path.rsplit('/', 1)[-1]
     linhas = BANCO.setdefault(tab, [])
 
+    # ---- o RLS da chave de privacidade, na medida em que um mock consegue ---
+    #
+    # Este mock NAO aplica RLS, e nunca vai aplicar: quem prova politica e o
+    # servidor/provar-v4.sql, contra um Postgres real. O que ele faz aqui e
+    # imitar o EFEITO das seis politicas — as linhas de quem fechou o diario
+    # param de chegar — para que as assercoes de TELA meçam a tela.
+    #
+    # Sem isto, escrever primeiro o teste de tela daria verde enquanto a
+    # producao vazava: o app desenharia "privado" so porque o perfil diz
+    # privado, e ninguem teria verificado que as linhas somem. E a quinta vez
+    # que este mock precisa aprender uma coisa antes de o teste medir alguma
+    # coisa, e as outras quatro estao escritas neste mesmo arquivo.
+    def fechado(perfil_id):
+        if not perfil_id or perfil_id == estado.get('quem'):
+            return False                     # o dono sempre ve o proprio diario
+        pf = next((x for x in BANCO.get('perfis', []) if x['id'] == perfil_id), None)
+        return bool(pf and pf.get('privado'))
+
+    def visivel(linha, tab_nome):
+        """As mesmas seis portas do esquema, na mesma ordem."""
+        if tab_nome in ('leituras', 'marcadores', 'listas'):
+            return not fechado(linha.get('perfil'))
+        if tab_nome == 'lista_itens':
+            dona = next((x for x in BANCO.get('listas', []) if x['id'] == linha.get('lista')), None)
+            return bool(dona) and not fechado(dona.get('perfil'))
+        if tab_nome in ('curtidas', 'comentarios'):
+            # a metade `perfil = auth.uid()` do predicado: quem escreveu
+            # continua vendo o proprio texto
+            if linha.get('perfil') and linha['perfil'] == estado.get('quem'):
+                return True
+            leit = next((x for x in BANCO.get('leituras', []) if x['id'] == linha.get('leitura')), None)
+            return bool(leit) and not fechado(leit.get('perfil'))
+        return True
+
     if r.method == 'GET':
         if tab == 'feed':
             saida = []
             for l in BANCO['leituras']:
+                # a `feed` e security_invoker: ela nao e uma porta propria,
+                # herda o RLS de `leituras`. Filtrar aqui e imitar isso.
+                if not visivel(l, 'leituras'): continue
                 pf = next((x for x in BANCO['perfis'] if x['id'] == l['perfil']), {})
                 lv = next((x for x in BANCO['livros'] if x['chave'] == l['livro']), {})
                 saida.append(dict(l, usuario=pf.get('usuario'), perfil_nome=pf.get('nome'),
@@ -130,6 +167,7 @@ def servir(rota, estado):
                 # pedido dele estava certo — mock frouxo mente nos dois sentidos.
                 dentro = [x.strip('"') for x in v[0][4:-1].split(',') if x]
                 saida = [x for x in saida if str(x.get(campo)) in dentro]
+        saida = [x for x in saida if visivel(x, tab)]
         if tab == 'comentarios':
             saida = [dict(x, perfis={'usuario': 'bia', 'nome': 'Bia'}) for x in saida]
 
@@ -209,6 +247,37 @@ def servir(rota, estado):
                     (dict(usuario=p['usuario'], nome=p['nome'])
                      for p in BANCO['perfis'] if p['id'] == x['perfil']), {})) for x in saida]
         return j(saida)
+
+    # ---- a RPC de apagar a conta, com o cascateamento do esquema -----------
+    #
+    # O `on delete cascade` esta escrito no esquema.sql e provado no
+    # provar-v4.sql; aqui ele e imitado a mao para a TELA poder ser testada.
+    # A ordem das tabelas nao importa (nao ha chave estrangeira num dict), mas
+    # a lista SIM: se uma tabela faltar aqui, o teste de tela passa verde e o
+    # que ficou orfao so aparece em producao.
+    if p.path.endswith('/rpc/apagar_minha_conta'):
+        quem = estado.get('quem')
+        if not quem:
+            return j({'message': 'permission denied'}, 401)
+        minhas = [l['id'] for l in BANCO.get('leituras', []) if l.get('perfil') == quem]
+        BANCO['perfis']     = [x for x in BANCO.get('perfis', [])     if x.get('id') != quem]
+        BANCO['leituras']   = [x for x in BANCO.get('leituras', [])   if x.get('perfil') != quem]
+        BANCO['marcadores'] = [x for x in BANCO.get('marcadores', []) if x.get('perfil') != quem]
+        listas_minhas = [x['id'] for x in BANCO.get('listas', []) if x.get('perfil') == quem]
+        BANCO['listas']      = [x for x in BANCO.get('listas', [])      if x.get('perfil') != quem]
+        BANCO['lista_itens'] = [x for x in BANCO.get('lista_itens', []) if x.get('lista') not in listas_minhas]
+        BANCO['seguidores']  = [x for x in BANCO.get('seguidores', [])
+                                if x.get('seguidor') != quem and x.get('seguido') != quem]
+        # os dois lados: o que EU curti/comentei, e o que curtiram/comentaram
+        # nas MINHAS leituras. O primeiro e o efeito colateral que a folha
+        # precisa dizer em voz alta.
+        BANCO['curtidas']    = [x for x in BANCO.get('curtidas', [])
+                                if x.get('perfil') != quem and x.get('leitura') not in minhas]
+        BANCO['comentarios'] = [x for x in BANCO.get('comentarios', [])
+                                if x.get('perfil') != quem and x.get('leitura') not in minhas]
+        # a conta em si — e o que separa "apagar a conta" de "apagar o perfil"
+        BANCO['_contas'] = {e: i for e, i in BANCO.get('_contas', {}).items() if i != quem}
+        return rota.fulfill(status=204, headers=cab, body='')
 
     if r.method == 'POST':
         novas = corpo if isinstance(corpo, list) else [corpo]
@@ -1195,7 +1264,199 @@ def rodar():
               not estouros, '; '.join(estouros[:2]))
         nav.close()
 
+        # ================================ privacidade do diario ==============
+        #
+        # ATENCAO AO QUE ESTAS ASSERCOES PROVAM E AO QUE NAO PROVAM. Elas
+        # provam a TELA: o que o app desenha quando as linhas nao chegam. Quem
+        # prova as POLITICAS e servidor/provar-v4.sql, contra um Postgres real
+        # — este mock nao aplica RLS, ele imita o efeito das seis portas.
+        # Escrever so estas e achar que a privacidade esta testada seria a
+        # ilusao que o cabecalho do provar-v3.sql ja descreve.
+        print('\nprivacidade: o diario fechado da outra pessoa')
+        zerar(); estado = {}
+        BANCO['perfis'][1]['privado'] = True          # a Bia fecha o diario
+        BANCO['livros'].append(LIVRO)
+        BANCO['leituras'].append({'id': 'L9', 'perfil': 'uid-2', 'livro': '/works/OL1W',
+                                  'nota': 5, 'resenha': 'Adorei.', 'lido_em': '2026-08-20',
+                                  'criado_em': '2026-08-20T00:00:00Z', 'cliente_id': 'b1'})
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/leitor/bia', wait_until='networkidle')
+        pg.wait_for_selector('.perfil-topo', timeout=10000)
+        pg.wait_for_timeout(900)
+        texto = pg.inner_text('body')
+        checa('o perfil de quem fechou diz que esta FECHADO', 'está fechado' in texto)
+        # A assercao que importa: "Ainda sem leituras registradas" AFIRMA que a
+        # pessoa nao leu nada. Para um diario fechado isso e falso, e passa a
+        # ser o estado mais comum desta tela.
+        checa('e NAO diz "ainda sem leituras", que seria mentira',
+              'Ainda sem leituras' not in texto)
+        checa('a resenha dela nao aparece', 'Adorei.' not in texto)
+        checa('o botao de seguir continua', pg.locator('#botao-seguir').count() == 1)
+        # O numero de leituras e conteudo do diario: mostra-lo vazaria o
+        # TAMANHO do que esta fechado.
+        checa('e a contagem de Leituras nao e desenhada',
+              'Leituras' not in pg.inner_text('#leitor-numeros'))
+        nav.close()
+
+        print('\nprivacidade: a ficha do livro e o link antigo')
+        zerar(); estado = {}
+        BANCO['perfis'][1]['privado'] = True
+        BANCO['livros'].append(LIVRO)
+        BANCO['leituras'].append({'id': 'L9', 'perfil': 'uid-2', 'livro': '/works/OL1W',
+                                  'nota': 5, 'resenha': 'Adorei.', 'lido_em': '2026-08-20',
+                                  'criado_em': '2026-08-20T00:00:00Z', 'cliente_id': 'b1'})
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/livro/' + '%2Fworks%2FOL1W', wait_until='networkidle')
+        pg.wait_for_timeout(1500)
+        checa('a nota de quem fechou sai da media da comunidade',
+              'Adorei.' not in pg.inner_text('body'))
+        # A ambiguidade e deliberada: distinguir "apagada" de "escondida"
+        # exigiria que o servidor respondesse coisas diferentes nos dois casos,
+        # e essa diferenca de resposta E o vazamento.
+        pg.goto(BASE + '#/resenha/L9', wait_until='networkidle')
+        pg.wait_for_timeout(1200)
+        t = pg.inner_text('body')
+        checa('um link antigo de resenha fechada nao abre', 'Adorei.' not in t)
+        checa('e a frase cobre os DOIS casos, sem dizer qual foi',
+              'apagada' in t and 'fechou o diário' in t)
+        nav.close()
+
+        print('\nprivacidade: a minha chave, e as frases que ela muda')
+        zerar(); estado = {}
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/privacidade', wait_until='networkidle')
+        pg.wait_for_selector('.linhas [role=radio]', timeout=10000)
+        pg.wait_for_timeout(800)
+        checa('a tela abre em Publico',
+              pg.locator('[data-valor=publico]').get_attribute('aria-checked') == 'true')
+        # .lower(): o .rotulo e uppercase por CSS e inner_text devolve o texto
+        # RENDERIZADO, nao o do HTML. Comparar com a forma escrita no fonte
+        # falharia por causa do estilo, que nao e o que esta assercao mede.
+        checa('o espelho mostra o que o visitante ve',
+              'como outra pessoa vê você' in pg.inner_text('#espelho').lower())
+        pg.locator('[data-valor=fechado]').click()
+        pg.wait_for_timeout(1200)
+        checa('fechar grava na hora, sem botao de salvar',
+              any(m == 'PATCH' and '/perfis' in c for m, c, _, _ in pedidos))
+        checa('e o banco recebeu privado=true',
+              BANCO['perfis'][0].get('privado') is True)
+        checa('o espelho passa a mostrar o vazio que o visitante le',
+              'está fechado' in pg.inner_text('#espelho'))
+        pg.goto(BASE + '#/perfil', wait_until='networkidle')
+        pg.wait_for_timeout(700)
+        checa('o meu perfil ganha a marca de diario fechado',
+              pg.locator('.estado-exposicao').count() == 1)
+        pg.goto(BASE + '#/conta', wait_until='networkidle')
+        pg.wait_for_timeout(1000)
+        checa('e a linha da conta diz Fechado', 'Fechado' in pg.inner_text('.linhas'))
+        nav.close()
+
+        print('\nconta sem perfil: o PATCH que nao casa linha nenhuma')
+        zerar(vazio=True); estado = {}
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/conta', wait_until='networkidle')
+        pg.wait_for_selector('.conta', timeout=10000)
+        pg.wait_for_timeout(800)
+        checa('a tela diz que a conta esta sem perfil',
+              'não tem um perfil' in pg.inner_text('.conta'))
+        # O PostgREST devolve 200 com lista VAZIA quando o PATCH nao casa nada.
+        # Antes isso virava null e a tela dizia "Perfil salvo." repintando com o
+        # perfil velho: o unico rotulo que mente pior que um vazio e um "salvo"
+        # sobre coisa nenhuma.
+        r = pg.evaluate("() => Nuvem.salvarPerfil({nome:'x'})"
+                        ".then(() => 'ACEITOU', e => 'recusou: ' + e.message)")
+        checa('e salvar sem perfil RECUSA, em vez de dizer que salvou',
+              r.startswith('recusou'), r)
+        nav.close()
+
+        # ================================ apagar a conta =====================
+        print('\napagar a conta: a folha diz o que some, e some')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        BANCO['leituras'].append({'id': 'L1', 'perfil': 'uid-1', 'livro': '/works/OL1W',
+                                  'nota': 5, 'resenha': 'Minha resenha.', 'lido_em': '2026-08-20',
+                                  'criado_em': '2026-08-20T00:00:00Z', 'cliente_id': 'a1'})
+        # o comentario que EU escrevi na resenha de OUTRA pessoa: e o efeito
+        # colateral que ninguem espera, e o que a folha tem que dizer em voz alta
+        BANCO['leituras'].append({'id': 'L2', 'perfil': 'uid-2', 'livro': '/works/OL1W',
+                                  'nota': 4, 'lido_em': '2026-08-21',
+                                  'criado_em': '2026-08-21T00:00:00Z', 'cliente_id': 'b1'})
+        BANCO['comentarios'].append({'id': 'c1', 'leitura': 'L2', 'perfil': 'uid-1',
+                                     'texto': 'Concordo.', 'criado_em': '2026-08-22T00:00:00Z'})
+        BANCO['seguidores'].append({'seguidor': 'uid-2', 'seguido': 'uid-1'})
+        BANCO['_contas']['marcela@exemplo.com'] = 'uid-1'
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        pg.reload(wait_until='networkidle')
+        # A fila entra SEMEADA de propósito. Sem uma fila de verdade aqui, a
+        # asserção da limpeza passava dos dois lados: não havia nada para
+        # sobrar. Foi o teste-desfeito que mostrou isso — o `migrado` ficava
+        # vermelho e a `fila` continuava verde, medindo o vazio.
+        pg.evaluate("""() => {
+          localStorage.setItem('letterbooks:migrado:uid-1', '2026-08-01');
+          localStorage.setItem('letterbooks:fila', JSON.stringify(
+            [{tipo:'leitura', dado:{cliente_id:'a1'}, tentativas:0, em:1}]));
+        }""")
+        pg.goto(BASE + '#/conta', wait_until='networkidle')
+        pg.wait_for_selector('[data-acao=apagar-conta]', timeout=10000)
+        pg.locator('[data-acao=apagar-conta]').click()
+        pg.wait_for_selector('.folha', timeout=8000)
+        pg.wait_for_timeout(1200)
+        folha = pg.inner_text('.folha')
+        checa('a folha diz QUAL conta, com o @', '@marcela' in folha)
+        checa('e diz que os comentarios nas resenhas alheias somem junto',
+              'resenhas de outras pessoas' in folha)
+        checa('e que o diario deste aparelho fica', 'continua aqui' in folha)
+        checa('oferece exportar antes',
+              pg.locator('[data-acao=exportar-antes]').count() == 1)
+        botao = pg.locator('[data-acao=confirmar-apagar-conta]')
+        checa('o Apagar comeca DESLIGADO', botao.is_disabled())
+        pg.fill('#confirma-usuario', 'marcel')
+        pg.wait_for_timeout(250)
+        checa('e continua desligado com o @ pela metade', botao.is_disabled())
+        pg.fill('#confirma-usuario', '@marcela')
+        pg.wait_for_timeout(250)
+        checa('liga quando o @ confere', not botao.is_disabled())
+        botao.click()
+        pg.wait_for_timeout(1800)
+        checa('a conta sumiu do servidor',
+              not [x for x in BANCO['perfis'] if x['id'] == 'uid-1'])
+        checa('o e-mail e a senha foram junto — nao so o perfil',
+              'uid-1' not in BANCO.get('_contas', {}).values())
+        checa('as minhas leituras sumiram',
+              not [x for x in BANCO['leituras'] if x['perfil'] == 'uid-1'])
+        checa('o comentario que escrevi na resenha de outra pessoa sumiu',
+              not BANCO['comentarios'])
+        checa('e quem me seguia deixou de seguir', not BANCO['seguidores'])
+        checa('a leitura da outra pessoa continua intacta',
+              len([x for x in BANCO['leituras'] if x['perfil'] == 'uid-2']) == 1)
+        # Sem esta limpeza a fila volta a empurrar leituras para um perfil que
+        # nao existe mais: erro de chave estrangeira que nao casa com
+        # /conex|sess/, cinco tentativas e descarte com console.warn. O diario
+        # local para de subir para sempre, sem uma linha de erro na tela. E a
+        # marca de migrado esconderia o botao de migrar para sempre.
+        sobrou = pg.evaluate("() => [localStorage.getItem('letterbooks:fila'), localStorage.getItem('letterbooks:migrado:uid-1'), localStorage.getItem('letterbooks:sessao')]")
+        checa('a fila, a marca de migrado e a sessao foram limpas do aparelho',
+              not any(sobrou), str(sobrou))
+        checa('mas o diario deste aparelho continua aqui',
+              pg.evaluate("() => !!localStorage.getItem('letterbooks:v1')"))
+        nav.close()
+
     print('\n' + '-' * 60)
+
     if erros:
         print('%d falha(s):' % len(erros))
         for e in erros: print('  · ' + e)

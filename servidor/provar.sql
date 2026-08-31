@@ -124,22 +124,19 @@ reset role;
 
 \echo ''
 \echo '### ANA, entrada, no proprio diário ###'
-select set_config('request.jwt.claim.sub',
-  (select id::text from auth.users where email='ana@x.com'), false) as quem_sou;
-set role authenticated;
-update leituras set resenha = 'a Ana reescreveu' where resenha = 'da Ana';
-\echo '   ^ linhas afetadas acima: tem que ser 1'
-insert into leituras (perfil, livro, nota)
-  select id, '/works/OLxW', 3 from auth.users where email='ana@x.com';
-\echo '   ^ a Ana registrou uma leitura nova'
-insert into curtidas (perfil, leitura)
-  select (select id from auth.users where email='ana@x.com'), id from leituras limit 1;
-\echo '   ^ e curtiu'
-reset role;
--- O erro anterior era do TESTE, não do esquema: eu consultava auth.users como
--- "authenticated", e esse papel não enxerga o schema auth — no Supabase de
--- verdade também não. O aplicativo nunca faz isso: ele usa auth.uid(), que é o
--- id de quem entrou, tirado do próprio token.
+-- Aqui existiam DUAS versões desta seção, uma logo depois da outra: a errada,
+-- que lia auth.users com o papel já trocado, e a certa, que usa auth.uid().
+-- O comentário abaixo descreve o conserto, mas a versão errada nunca foi
+-- apagada. Com ON_ERROR_STOP ligado (linha 29) o psql parava ALI e saía com
+-- status diferente de zero — o arquivo estava gritando. Só que nada no
+-- processo olhava esse status: o portão media se o arquivo EXISTIA, e dizia
+-- "RLS provado em Postgres real: sim" enquanto metade daqui para baixo nunca
+-- tinha rodado uma vez. Não foi o psql que ficou em silêncio; fomos nós que
+-- não escutamos. O portão agora roda os provar*.sql e lê o status.
+--
+-- O erro era do TESTE, não do esquema: `authenticated` não lê auth.users — no
+-- Supabase de verdade também não. O aplicativo nunca faz isso; ele usa
+-- auth.uid(), que é o id de quem entrou, tirado do próprio token.
 select set_config('request.jwt.claim.sub',
   (select id::text from auth.users where email='ana@x.com'), false) as ana;
 set role authenticated;

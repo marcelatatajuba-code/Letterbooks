@@ -102,9 +102,53 @@ criterio(2, 'defeitos de corrupção presos',
          '%d de %d' % (len(_corrompe) - len(_soltos), len(_corrompe)), 'todos',
          not _soltos, 'sem caso e sem motivo: ' + (', '.join(_soltos) or 'nenhum'))
 
-prova = os.path.exists(caminho('servidor/provar.sql')) and \
-        os.path.exists(caminho('servidor/provar-v1.sql'))
-criterio(2, 'RLS provado em Postgres real', 'sim' if prova else 'não', 'sim', prova)
+def rodar_provas():
+    """Roda TODO servidor/provar*.sql contra o Postgres local.
+
+    Antes, este critério só conferia se os arquivos EXISTIAM — um portão que
+    não tinha como fechar em vermelho. E ele passou verde enquanto o provar.sql
+    morria na linha 133 e metade do arquivo nunca era executada: `ON_ERROR_STOP`
+    parava o psql e devolvia status diferente de zero, e nada no processo olhava
+    esse status. Arquivo existir não é prova; prova é o arquivo rodar até o fim.
+
+    Postgres fora do ar NÃO é "passou": é "não deu para medir", e não fecha.
+    """
+    arquivos = sorted(f for f in os.listdir(caminho('servidor'))
+                      if re.match(r'provar.*\.sql$', f))
+    if not arquivos:
+        return False, 'nenhum provar*.sql', ''
+    falhas, medidos = [], 0
+    for f in arquivos:
+        db = 'portao_' + re.sub(r'[^a-z0-9]', '_', f[:-4])
+        def psql(args, entrada=None):
+            return subprocess.run(
+                ['su', 'postgres', '-c',
+                 'cd %s && psql -h /tmp -p 5433 %s' % (caminho('servidor'), args)],
+                capture_output=True, text=True, timeout=180)
+        try:
+            r = psql("-c 'drop database if exists %s' -c 'create database %s'" % (db, db))
+            if r.returncode != 0:
+                return False, 'não deu para medir', 'Postgres local fora do ar: ' + \
+                    (r.stderr or r.stdout).strip().split('\n')[-1][:90]
+            psql('-d %s -q -f supabase-de-mentira.sql' % db)
+            # provar.sql supõe o esquema já carregado; os outros o carregam sozinhos
+            if f == 'provar.sql':
+                psql('-d %s -q -f esquema.sql' % db)
+            r = psql('-d %s -q -f %s' % (db, f))
+            medidos += 1
+            if r.returncode != 0:
+                ultima = [l for l in (r.stderr or '').split('\n') if 'ERROR' in l]
+                falhas.append('%s: %s' % (f, (ultima[-1] if ultima else 'saiu %d' % r.returncode)[:70]))
+            psql("-c 'drop database if exists %s'" % db)
+        except Exception as e:
+            return False, 'não deu para medir', str(e)[:90]
+    if falhas:
+        return False, '%d de %d falharam' % (len(falhas), medidos), '; '.join(falhas[:2])
+    return True, '%d de %d passam' % (medidos, medidos), \
+        'rodados de ponta a ponta, não só conferidos se existem'
+
+_ok_prova, _quanto, _obs = rodar_provas()
+criterio(2, 'RLS provado em Postgres real', _quanto, 'todos passam', _ok_prova, _obs)
 
 # ---------------------------------------------------------- portão 3: mercado
 print('\nPORTÃO 3 — MERCADO  (não medível daqui — precisa de gente usando)')

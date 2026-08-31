@@ -522,3 +522,47 @@ drop trigger if exists ao_cadastrar on auth.users;
 create trigger ao_cadastrar
   after insert on auth.users
   for each row execute function criar_perfil_ao_cadastrar();
+
+-- ============================================================================
+-- Apagar a conta, de verdade — e-mail e senha inclusive.
+--
+-- POR QUE UMA FUNÇÃO, e não um DELETE direto do aplicativo. A política
+-- "apago o meu perfil" já existe e o cascade já levaria o diário inteiro
+-- junto. Mas `perfis` referencia `auth.users`, e não o contrário: apagar o
+-- perfil deixaria vivos o e-mail e o hash de senha, e um botão chamado
+-- "Apagar minha conta" que deixa a credencial de pé é um rótulo que mente.
+-- O schema `auth` não é alcançável pela chave anon por nenhum outro caminho.
+--
+-- `security definer` é a maior superfície que este esquema abre, e o arquivo
+-- já recusou essa mesma superfície uma vez, por escrito, ao decidir a `avisos`
+-- como view. A diferença que justifica abri-la aqui: aquela troca era três
+-- gatilhos para guardar um estado que ninguém usava; esta é a única forma de
+-- a promessa da tela ser verdade. Ela é reduzida ao mínimo possível:
+--   · ZERO argumentos — não há id para forjar. Quem chama só consegue dizer
+--     "apague a mim", nunca "apague fulano";
+--   · o alvo é auth.uid() e nada mais, lido do JWT que o PostgREST validou;
+--   · sem sessão ela nem roda: `revoke ... from anon` faz o Postgres recusar
+--     no privilégio, antes de a primeira linha do corpo executar;
+--   · `search_path` fixo, senão um schema plantado na frente sequestra o
+--     `delete` de uma função que roda como dono do banco.
+--
+-- O resto vem de graça pelo `on delete cascade` que já estava no esquema:
+-- perfis, leituras, marcadores, listas, lista_itens, seguidores dos dois
+-- lados, curtidas e comentários — inclusive os que a pessoa escreveu nas
+-- resenhas de outras. `denuncias.autor` vira nulo e a denúncia sobrevive ao
+-- denunciante, que é o certo.
+create or replace function apagar_minha_conta() returns void
+  language plpgsql security definer set search_path = public, auth
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Preciso de uma sessão para saber qual conta apagar.';
+  end if;
+  delete from auth.users where id = auth.uid();
+end $$;
+
+revoke all on function apagar_minha_conta() from public, anon;
+grant execute on function apagar_minha_conta() to authenticated;
+
+comment on function apagar_minha_conta is
+  'Apaga a conta de quem chamou, e só ela. Sem argumentos, de propósito.';

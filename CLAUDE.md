@@ -180,10 +180,33 @@ completa, use a skill `/ciclo`. Para só verificar, `/verificar`.
    agentes. As entregas V5 e V6 saíram sem nenhum papel acionado por causa
    dessa leitura errada.
 
+**Um portão que não pode ficar vermelho não é um portão.** O critério "RLS
+provado em Postgres real" conferia se os arquivos `provar*.sql` EXISTIAM. Ele
+passou verde por seis entregas enquanto o `provar.sql` morria na linha 133 e
+metade do arquivo nunca rodava — o psql parava ali e saía com status diferente
+de zero, e ninguém lia o status. Não foi o psql que ficou calado; fomos nós que
+não escutamos. Todo critério tem que RODAR o que ele afirma medir, e "não deu
+para medir" nunca conta como passou.
+
+**Especialista errado não é especialista inútil.** O tech lead afirmou que
+apagar a conta era inviável sem a `service_role`, e listou três motivos
+independentes. O GPM tinha dito, sem justificar, que devia ser uma RPC. A RPC
+funciona: `security definer` roda como dono do banco, alcança `auth.users`, e a
+chave anon basta. Foi preciso ir ao Postgres decidir — a especificação mais
+detalhada não é automaticamente a certa, e reconciliar é testar a discordância,
+não escolher o parecer mais longo.
+
+**Não redesenhe a tela para agradar a ferramenta.** O rastreador acusou de
+"sumido" tudo que vinha depois de "Sair desta conta" — ele clica em ordem, e o
+logout mata a sessão. A ordem da tela (destrutivo por último) estava certa;
+quem tinha que aprender era o rastreador. Ele também fechava folha pelo
+primeiro `.botao:not(.perigo)`, que na folha nova era "Exportar": a saída
+DECLARADA (`data-fechar`) tem que ganhar do palpite.
+
 **Quando parar de dar voltas:** não é quando o backlog acabar — ele sempre
 volta a encher. É quando `python3 docs/processo/portoes.py` fechar os dois
 portões que ele mede (fidelidade e solidez). Hoje: fidelidade **aberto** em
-63% de paridade e 3 itens, solidez **fechado**.
+65% de paridade e 2 itens, solidez **fechado**.
 
 Marque o item do backlog com `entregue` ao publicá-lo. Sem isso o portão conta
 para sempre os mesmos itens e não pode fechar nunca.

@@ -496,6 +496,49 @@ CASOS = [
              "!document.getElementById('forma-comentario')"),
         ],
     },
+    {
+        'nome': 'conta-sem-perfil',
+        'defeitos': ['D66'],
+        'porque': 'Conta viva e perfil inexistente. `meuPerfil()` devolve null SEM erro '
+                  'e a tela desenhava o formulário em branco, sem uma frase dizendo o '
+                  'que houve — a pessoa reescrevia o @ para receber um erro no Salvar. '
+                  'Hoje isso só acontece se o gatilho ao_cadastrar falhar; depois que '
+                  '"apagar a conta" existe, passa a ser o caminho NORMAL de quem apagou '
+                  'e entrou de novo com o mesmo e-mail.',
+        'banco': {'perfis': []},
+        'diario': diario(),
+        'sessao': 'marcela',
+        'rota': '#/conta',
+        'esperar': '.conta',
+        'checagens': [
+            ('a tela DIZ que a conta está sem perfil',
+             "/não tem um perfil/.test(document.body.innerText)"),
+            ('e oferece criar, em vez do formulário em branco',
+             "document.querySelectorAll('[data-acao=criar-perfil]').length === 1"),
+            ('nenhum campo de @ vazio esperando ser preenchido à toa',
+             "document.querySelectorAll('#forma-perfil').length === 0"),
+        ],
+    },
+    {
+        'nome': 'diario-fechado-de-outra-pessoa',
+        'defeitos': ['D71'],
+        'porque': 'É a FORMA DE DADO que a chave de privacidade cria e que apodrece '
+                  'calada: perfil com privado=true e zero leituras voltando do servidor. '
+                  'O vazio genérico AFIRMA "ainda sem leituras registradas", que para um '
+                  'diário fechado é falso — e passa a ser o estado mais comum da tela.',
+        # `privado` entra AQUI e não no ELENCO: o elenco é compartilhado por
+        # treze casos, e marcar a Bia como privada lá dentro mudaria todos eles.
+        'banco': {'perfis': [perfil('marcela')[0],
+                             dict(perfil('bia')[0], privado=True)], 'leituras': []},
+        'diario': diario(),
+        'sessao': 'marcela',
+        'rota': '#/leitor/bia',
+        'esperar': '.perfil-topo',
+        'checagens': [
+            ('não afirma que a pessoa nunca leu nada',
+             "!/Ainda sem leituras/.test(document.body.innerText)"),
+        ],
+    },
 ]
 
 
@@ -523,6 +566,7 @@ def cobertura(caminho_csv=None):
 
 # Defeitos que nenhum caso de dado alcança, com o motivo. Lista explícita de
 # propósito: "não coberto" sem motivo escrito vira dívida invisível.
+
 SO_DE_TELA = {
     'D01': 'escala de layout — medida em pixel contra os quadros do vídeo',
     'D02': 'tipografia — idem',
@@ -564,6 +608,14 @@ SO_DE_TELA = {
     'D59': 'fluxo social — coberto por testar_social, bloco avisos',
     'D60': 'estrutura de DOM (âncora aninhada) — travado em testar_social',
     'D61': 'defeito do mock, não do app',
+    'D62': 'defeito do portão, não do app — o critério agora roda os provar*.sql\n            e lê o status de saída; provado que fica vermelho quebrando um deles',
+    'D63': 'defeito de um arquivo de prova, não do app — travado pelo portão novo',
+    'D64': 'defeito do Supabase de mentira, não do app',
+    'D67': 'área de toque — CSS; medida pelo rastreador, que não abre folha',
+    'D68': 'sequência de pintura de tela — achado e travado pelo rastreador',
+    'D69': 'defeito do rastreador, não do app',
+    'D70': 'defeito do rastreador, não do app',
+    'D65': 'resposta vazia do PostgREST — travado em testar_social\n            ("salvar sem perfil RECUSA, em vez de dizer que salvou")',
     'D42': 'defeito do runner desta suíte, não do app',
     'D43': 'defeito de nomenclatura entre suítes, não do app',
 }

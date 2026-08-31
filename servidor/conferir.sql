@@ -83,6 +83,11 @@ begin
          then 'ok' else 'FALTA — rode o esquema.sql de novo' end,
     'a chave de diário privado grava e o banco recusa: 400 na cara da pessoa');
 
+  insert into conferencia values (10, 'função apagar_minha_conta',
+    case when exists (select 1 from pg_proc where proname='apagar_minha_conta')
+         then 'ok' else 'FALTA — rode o esquema.sql de novo' end,
+    'o botão de apagar a conta dá erro e a conta continua de pé');
+
   -- ---- as duas coisas que não são "falta atualizar", são perigo ------------
   select count(*) into n
     from pg_tables t

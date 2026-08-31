@@ -259,6 +259,20 @@ def rastrear():
             visitadas[sig] = {'rota': rota, 'destino': destino, 'acoes': len(acoes)}
             print('  %-34s %2d ações' % (destino[:34], len(acoes)))
 
+            # Controle que ENCERRA A SESSAO vai por ultimo. O rastreador volta
+            # para a rota antes de cada clique, mas voltar nao desfaz um
+            # logout: depois de acionar "Sair desta conta", #/conta passa a
+            # desenhar o formulario de entrada e TODO controle mapeado depois
+            # dele deixa de existir — o rastreador acusava "sumiu" um por um.
+            #
+            # Nao e defeito do app: "Sair" antes de "Apagar a conta" e a ordem
+            # convencional (a acao destrutiva fica por ultimo, separada), e foi
+            # a decisao de design deste item. Quem tinha que aprender era o
+            # rastreador. Sem isto, a alternativa era reordenar a tela para
+            # agradar a ferramenta — e ai a ferramenta estaria desenhando o
+            # produto.
+            acoes = sorted(acoes, key=lambda d: 1 if d.get('acao') == 'sair' else 0)
+
             for d in acoes:
                 if d['href'].startswith('#/'):
                     if d['href'] not in [x['destino'] for x in visitadas.values()] and \
@@ -296,7 +310,17 @@ def rastrear():
                 # tela. Fechar tambem e o unico jeito de descobrir modal SEM
                 # saida, que e defeito de verdade e ai vira achado.
                 if pg.locator('.folha-fundo').count():
-                    saidas = pg.locator('.folha [data-fechar], .folha .botao:not(.perigo)')
+                    # A saida DECLARADA ganha da adivinhada. `data-fechar` e o
+                    # contrato que o app escreve; `.botao:not(.perigo)` era um
+                    # palpite que valia enquanto toda folha tinha so Cancelar e
+                    # Apagar. A folha de apagar a conta tem um terceiro botao
+                    # ("Exportar o diario antes") que nao e perigo e nao fecha
+                    # nada: o palpite clicava nele, a folha ficava aberta, e o
+                    # rastreador acusava de quebrado o controle seguinte, que
+                    # so estava atras do modal.
+                    saidas = pg.locator('.folha [data-fechar]')
+                    if not saidas.count():
+                        saidas = pg.locator('.folha .botao:not(.perigo)')
                     if not saidas.count():
                         achado('alta', 'modal-sem-saida', onde,
                                'a folha aberta por "%s" nao tem nenhum jeito de fechar'

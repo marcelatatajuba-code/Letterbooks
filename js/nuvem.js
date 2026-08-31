@@ -258,11 +258,72 @@ var Nuvem = (function () {
     });
   }
 
+  /* PATCH que nao casa NENHUMA linha nao e erro para o PostgREST: ele devolve
+     200 com uma lista vazia. Sem o `if` abaixo isso virava `null`, e a tela
+     dizia "Perfil salvo." e repintava com o perfil VELHO — o unico rotulo que
+     mente pior que um vazio e um "salvo" sobre coisa nenhuma.
+
+     Hoje isto so acontece se o gatilho `ao_cadastrar` tiver falhado. Depois
+     que "apagar a conta" existe, passa a ser o caminho NORMAL de quem apagou,
+     entrou de novo e caiu numa conta sem perfil. */
   function salvarPerfil(campos) {
     return tabela('perfis', '?id=eq.' + sessao.id, {
       metodo: 'PATCH', corpo: campos,
       cabecalhos: { Prefer: 'return=representation' }
+    }).then(function (l) {
+      if (!l || !l.length) {
+        throw new Error('Não achei o seu perfil para salvar. ' +
+                        'Recarregue a tela da conta e tente de novo.');
+      }
+      return l[0];
+    });
+  }
+
+  /* Cria o perfil que o gatilho deveria ter criado. A politica "crio o meu
+     perfil" ja permite (with check auth.uid() = id), entao nao ha nada de
+     esquema aqui — o que faltava era ter por onde pedir. */
+  function criarMeuPerfil(campos) {
+    var corpo = { id: sessao.id };
+    for (var k in (campos || {})) corpo[k] = campos[k];
+    return tabela('perfis', '', {
+      metodo: 'POST', corpo: corpo,
+      cabecalhos: { Prefer: 'return=representation' }
     }).then(function (l) { return (l && l[0]) || null; });
+  }
+
+  /* ---------------------------------------------------------- apagar tudo --
+
+     Apaga a conta INTEIRA: o e-mail e o hash de senha junto com o resto. Quem
+     faz o trabalho e a funcao `apagar_minha_conta()` do esquema, porque
+     `perfis` referencia `auth.users` e nao o contrario — apagar so o perfil
+     deixaria a credencial viva, e o botao estaria mentindo.
+
+     Ela nao leva argumento nenhum: o alvo e o auth.uid() do proprio JWT. Nao
+     ha id para forjar, aqui nem em lugar nenhum.
+
+     LIMPAR O APARELHO DEPOIS NAO E ARRUMACAO, e a parte que quebra em silencio
+     se faltar. Como a conta pode ser criada de novo com o mesmo e-mail:
+       · `letterbooks:migrado:<id>` sobrevivendo esconderia o botao de migrar
+         para sempre, com a tela dizendo "ja enviado em <data>";
+       · a fila continuaria empurrando leituras para um perfil que nao existe
+         mais. O erro de chave estrangeira nao casa com /conex|sess/, entao sao
+         cinco tentativas e descarte com console.warn: o diario local pararia
+         de subir para sempre, sem uma linha de erro na tela. */
+  function apagarConta() {
+    if (!ligada() || !sessao) {
+      return Promise.reject(new Error('Você não está em nenhuma conta.'));
+    }
+    var meuId = sessao.id;
+    return comSessao(function () {
+      return pedir('/rest/v1/rpc/apagar_minha_conta', { metodo: 'POST', corpo: {} });
+    }).then(function () {
+      try {
+        localStorage.removeItem('letterbooks:migrado:' + meuId);
+        localStorage.removeItem('letterbooks:avisos:' + meuId);
+        localStorage.removeItem('letterbooks:fila');
+      } catch (e) {}
+      return sair();
+    });
   }
 
   /* ============================================================= escrita ==
@@ -765,6 +826,8 @@ var Nuvem = (function () {
     publico:   publico,
     meuPerfil: meuPerfil,
     salvarPerfil: salvarPerfil,
+    criarMeuPerfil: criarMeuPerfil,
+    apagarConta:  apagarConta,
 
     minhasLeituras: minhasLeituras,
     meusMarcadores: meusMarcadores,

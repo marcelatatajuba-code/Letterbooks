@@ -59,3 +59,13 @@ D58,time-hibrido,31/08 01:30,O mock nao recusava token nenhum: teste de credenci
 D59,time-hibrido,31/08 02:30,"Curtir, comentar e seguir funcionavam e ninguém do outro lado ficava sabendo",alta,agente de produto,~25h,—,nao
 D60,time-hibrido,31/08 02:30,<a> dentro de <a> na linha de aviso: o navegador partiu cada linha em três fragmentos,média,suíte social (a contagem não bateu com a API),<20min,o design tinha avisado: sem alvo aninhado,nao
 D61,time-hibrido,31/08 02:30,"O mock nunca resolvia quem estava pedindo: token semeado era ""tok"" e ele procurava ""tok-""",média,eu (nenhum aviso aparecia),~20h,—,nao
+D62,time-hibrido,31/08 03:10,"O portão de RLS media se os arquivos de prova EXISTIAM, não se eles passavam: um critério sem como ficar vermelho",alta,eu (rodando as provas uma a uma à mão),~6 entregas,o portão rodar o que ele afirma medir,nao
+D63,time-hibrido,31/08 03:10,"provar.sql tinha DUAS versões da mesma seção, a errada primeiro: ela parava o psql na linha 133 e metade do arquivo nunca rodou",alta,eu (ao rodar a prova antiga contra o esquema novo),~6 entregas,ler o status de saída do psql,nao
+D64,time-hibrido,31/08 03:10,"O supabase-de-mentira não dava usage no schema auth: auth.uid() direto falhava, e dentro de política funcionava (policy roda como dona da tabela)",média,eu (ao consertar o D63),~6 entregas,—,nao
+D65,time-hibrido,31/08 03:10,"salvarPerfil dizia ""Perfil salvo."" quando o PATCH não casava linha nenhuma: PostgREST devolve 200 com lista vazia",média,agente tech lead,~20h,—,nao
+D66,time-hibrido,31/08 03:10,"meuPerfil() nulo desenhava formulário em branco sem dizer nada: conta viva e perfil inexistente não tinham tela",média,agente tech lead,~20h,—,nao
+D67,time-hibrido,31/08 03:10,"O botão Apagar das folhas destrutivas já no ar media 34px de altura, 10 abaixo da régua de 44",média,agente de design,~2 entregas,o rastreador não abre folha,nao
+D68,time-hibrido,31/08 03:10,"A folha de apagar a conta piscava a tela em branco antes de abrir: o botão sumia debaixo de quem tinha acabado de tocar",média,rastreador,<10min,—,nao
+D69,time-hibrido,31/08 03:10,"O rastreador clicava ""Sair desta conta"" antes do resto e acusava de sumido tudo que vinha depois na mesma tela",baixa,rastreador (achado próprio),<10min,—,nao
+D70,time-hibrido,31/08 03:10,"O rastreador fechava folha pelo primeiro .botao:not(.perigo), que na folha nova era ""Exportar"" — e não fechava nada",média,rastreador,<10min,a saída declarada (data-fechar) ganhar do palpite,nao
+D71,time-hibrido,31/08 03:10,"O vazio do perfil alheio AFIRMA ""ainda sem leituras registradas"": para um diário fechado isso é falso",média,agente tech lead,~20h,—,nao

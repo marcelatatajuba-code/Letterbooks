@@ -1491,3 +1491,33 @@ a.feed-resenha:hover { background: var(--superficie-2); color: var(--texto); }
 
 .voltar { width: 40px; height: 40px; }
 .aba-mais { width: 42px; height: 42px; }
+
+/* ============================================ privacidade do diário (t102+) */
+
+/* A caixa do ✓ mede 16px e existe TAMBÉM na opção não escolhida, vazia: sem
+   ela os dois rótulos desalinhavam a cada toque, e a linha inteira dançava.
+   O ✓ é aria-hidden — quem escolheu foi você, e o estado real vai no
+   aria-checked do próprio botão, que é o que o leitor de tela anuncia. */
+.marca-escolha {
+  width: 16px; flex: none; margin-right: 9px;
+  color: var(--a1); font-style: normal; font-size: 15px;
+}
+
+/* A marca de diário fechado, no seu próprio perfil. --texto-2 e não
+   --texto-3: 11px em --texto-3 dá 3,9:1 sobre o fundo, abaixo dos 4,5:1. */
+.estado-exposicao {
+  display: inline-block; position: relative; margin-top: 8px;
+  color: var(--texto-2); text-decoration: none;
+}
+.estado-exposicao:hover { color: var(--texto); }
+/* O versalete mede ~16px de altura: sem isto o alvo fica em um terço da régua.
+   O ::after cresce a área de toque sem mexer no espaçamento do bloco. */
+.estado-exposicao::after { content: ""; position: absolute; inset: -13px; }
+
+.espelho { margin-top: 30px; border-top: 1px solid var(--borda); padding-top: 20px; }
+
+/* DÍVIDA PAGA, e ela já estava no ar: o botão "Apagar" das folhas destrutivas
+   herdava o min-height 34 do .botao — 10px abaixo da régua de 44. Vale para as
+   três folhas (resenha, lista e agora conta), e o rastreador não pegava porque
+   ele não abre folha. */
+.folha-rodape .botao { min-height: 44px; }
