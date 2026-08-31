@@ -373,7 +373,24 @@ update listas
 -- leitura. Mas no dia em que uma dessas políticas ficar mais restrita — um
 -- diário privado, por exemplo — a view continuaria devolvendo tudo, e o
 -- vazamento não estaria em lugar nenhum do código do aplicativo.
-create or replace view feed
+-- DROP ANTES DE CRIAR, e isto não é higiene: é o único jeito de este arquivo
+-- rodar num banco que já existe.
+--
+-- `create or replace view` NÃO consegue mudar a lista de colunas de uma view
+-- que já está lá — nem o nome, nem a ordem. E a lista desta view muda sozinha,
+-- porque ela começa com `l.*`: no dia em que `leituras` ganhou `cliente_id`, a
+-- coluna que ficava naquela posição deixou de ser `usuario`, e o Postgres
+-- recusou o arquivo inteiro com "cannot change name of view column usuario to
+-- cliente_id". Quem só cria banco novo nunca vê isso; quem tem um banco de
+-- antes vê, e o arquivo para no meio.
+--
+-- Nada depende destas views (o PostgREST consulta direto), então derrubar e
+-- recriar não cascateia em ninguém. Os grants vêm logo abaixo, recriados
+-- junto — um `drop` leva os privilégios embora, e por isso eles moram aqui e
+-- não numa migração separada.
+drop view if exists feed;
+
+create view feed
   with (security_invoker = on) as
   select l.*,
          p.usuario, p.nome as perfil_nome,
@@ -420,7 +437,13 @@ grant select on feed to anon, authenticated;
 -- outra, nunca para apontar para uma tabela.
 -- ============================================================================
 
-create or replace view avisos
+-- Mesmo motivo do `drop view if exists feed` acima: a `avisos` é um `union
+-- all` de três consultas, e qualquer coluna acrescentada a um dos ramos mudaria
+-- a lista da view. Melhor já nascer com o drop do que descobrir isso no banco
+-- de alguém.
+drop view if exists avisos;
+
+create view avisos
   with (security_invoker = on) as
 
   -- curtiram uma leitura sua

@@ -616,6 +616,8 @@ SO_DE_TELA = {
     'D69': 'defeito do rastreador, não do app',
     'D70': 'defeito do rastreador, não do app',
     'D65': 'resposta vazia do PostgREST — travado em testar_social\n            ("salvar sem perfil RECUSA, em vez de dizer que salvou")',
+    'D72': 'forma do esquema num banco que já existe — provado em\n            servidor/provar-v5.sql, que fica vermelho se o drop sair',
+    'D73': 'buraco de cobertura das provas, não do app — fechado pelo provar-v5.sql',
     'D42': 'defeito do runner desta suíte, não do app',
     'D43': 'defeito de nomenclatura entre suítes, não do app',
 }

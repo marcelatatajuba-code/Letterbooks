@@ -17,7 +17,7 @@ aparece num burndown:
 |---|---|
 | **Ponto cego** | o ambiente não alcança a Open Library nem o Supabase. Três rodadas de retrabalho de layout saíram daí, e três defeitos só apareceram num print do celular. |
 | **Colisão de arquivo** | `js/app.js` tem ~3.000 linhas e quase toda tela passa por ele. Isso limita o paralelismo mais do que qualquer capacidade de time. |
-| **Capacidade de detecção** | defeito existe desde que foi escrito; o que muda é quando alguém consegue vê-lo. **29 dos 47** defeitos da última fase foram injetados antes dela e ficaram latentes de 1h20 a 25h. |
+| **Capacidade de detecção** | defeito existe desde que foi escrito; o que muda é quando alguém consegue vê-lo. **30 dos 49** defeitos da última fase foram injetados antes dela e ficaram latentes de 1h20 a 25h. |
 
 Então as métricas aqui medem **essas três coisas**, e não esforço:
 
@@ -54,8 +54,8 @@ o paralelismo rende.
 | linhas de app | 3.447 | 2.861 | 252 |
 | linhas de verificação | **0** | 1.465 | 1.187 |
 | linhas de conhecimento | 173 | 203 | 2.279 |
-| defeitos registrados | 10 | 13 | 47 |
-| **achados pela usuária** | **3 de 10** | **4 de 13** | **2 de 47** |
+| defeitos registrados | 10 | 13 | 49 |
+| **achados pela usuária** | **3 de 10** | **4 de 13** | **4 de 49** |
 | graves achados por ferramenta | 1 | 4 | 6 |
 
 As colunas por fase acima são um retrato do commit `dee44a2`, quando a
@@ -63,14 +63,26 @@ comparação foi escrita; só a de defeitos segue viva, porque `conferir.py` a l
 do `defeitos.csv`. Os totais do projeto — asserções, razão, defeitos — são os
 de hoje e estão conferidos contra a fonte mais abaixo.
 
-**A coluna de achados pela usuária deixou de ser zero, e o motivo importa.**
-Ela ficou em 0 enquanto o que se media eram defeitos DO APP: as suítes, o
-rastreador e os agentes pegavam tudo antes dela. Os dois que ela achou (D54,
-D55) são defeitos **do processo**, não do aplicativo — a squad tinha parado de
-ser acionada e ninguém dentro do processo percebeu, porque nenhuma das
-verificações mede se o processo está sendo seguido. Um harness que verifica o
-produto e não verifica a si mesmo tem esse ponto cego por construção, e foi
-exatamente por ele que passaram duas entregas inteiras.
+**A coluna de achados pela usuária deixou de ser zero, e o motivo mudou no
+meio do caminho.** Os dois primeiros (D54, D55) eram defeitos **do processo**,
+não do aplicativo: a squad tinha parado de ser acionada e nada media se o
+processo estava sendo seguido. Um harness que verifica o produto e não verifica
+a si mesmo tem esse ponto cego por construção.
+
+Os dois seguintes são de outra natureza, e piores. **D72**: o `esquema.sql`
+parava com `cannot change name of view column` no banco dela — `create or
+replace view` não muda a lista de colunas de uma view que já existe, e a `feed`
+começa com `l.*`, então ela muda sozinha a cada coluna nova em `leituras`.
+**D73** é o motivo de D72 ter chegado até ela: **as seis provas em Postgres
+começavam todas de um banco vazio.** Elas provavam que o esquema NASCE certo.
+Nenhuma provava que ele ATUALIZA — e atualizar é a única coisa que acontece num
+banco de verdade, que tem dados e tem a forma de alguma entrega antiga.
+
+O padrão que liga os quatro: **a verificação media o que era fácil de montar,
+não o que a pessoa faz.** Banco vazio é fácil; banco de junho com dados dentro
+dá trabalho. O `provar-v5.sql` fecha esse buraco — ele fabrica a forma antiga
+desfazendo o que veio depois, para que a forma antiga não vire um arquivo
+parado envelhecendo ao lado do que deveria vigiar.
 
 ### Como ler isto sem se enganar
 
@@ -78,7 +90,7 @@ exatamente por ele que passaram duas entregas inteiras.
 primeiro commit tem 2.420 linhas. A última é endurecimento e correção. Linha
 por hora não compara.
 
-**2. "Defeitos por fase" mede DETECÇÃO, não injeção.** **29 dos 47**
+**2. "Defeitos por fase" mede DETECÇÃO, não injeção.** **30 dos 49**
 defeitos da última fase nasceram antes dela e ficaram latentes de 1h20 a 25h —
 o mais antigo é o histograma da ficha, que mostrava as notas da leitora sob o
 rótulo "Avaliações" desde o primeiro dia. O time híbrido não os evitou: ele os
@@ -122,7 +134,7 @@ Hoje: **392 asserções** em quatro suítes, mais **50 checagens** em 14 casos d
 regressão, o rastreador (que não assere: mede e relata) e cinco provas em
 Postgres. Razão de verificação por app: razão de 0,58.
 
-**20 de 70 defeitos** tem caso de regressão que os prende. Os outros 50 estão
+**20 de 72 defeitos** tem caso de regressão que os prende. Os outros 52 estão
 listados um a um em `dados_teste.SO_DE_TELA`, cada um com o motivo de não ser
 alcançável por dado — pixel, CSS, defeito de mock ou de processo. "Sem caso"
 sem motivo escrito faz `conferir.py` falhar de propósito: dívida invisível é a
@@ -204,7 +216,7 @@ daqui com o que decide a coisa.
 
 | arquivo | o que é |
 |---|---|
-| `defeitos.csv` | os 70 defeitos, com fase, gravidade, **quem detectou** e latência |
+| `defeitos.csv` | os 72 defeitos, com fase, gravidade, **quem detectou** e latência |
 | `portoes.py` | mede os portões 1 e 2, e diz que o 3 não é medível daqui |
 | `conferir.py` | confere os números deste arquivo contra a fonte |
 | `../kb/` | a saída de uma volta do ciclo SDD |

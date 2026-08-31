@@ -69,3 +69,5 @@ D68,time-hibrido,31/08 03:10,"A folha de apagar a conta piscava a tela em branco
 D69,time-hibrido,31/08 03:10,"O rastreador clicava ""Sair desta conta"" antes do resto e acusava de sumido tudo que vinha depois na mesma tela",baixa,rastreador (achado próprio),<10min,—,nao
 D70,time-hibrido,31/08 03:10,"O rastreador fechava folha pelo primeiro .botao:not(.perigo), que na folha nova era ""Exportar"" — e não fechava nada",média,rastreador,<10min,a saída declarada (data-fechar) ganhar do palpite,nao
 D71,time-hibrido,31/08 03:10,"O vazio do perfil alheio AFIRMA ""ainda sem leituras registradas"": para um diário fechado isso é falso",média,agente tech lead,~20h,—,nao
+D72,time-hibrido,31/08 04:00,"esquema.sql parava com ""cannot change name of view column"" em banco que já existia: create or replace view não muda a lista de colunas, e a feed começa com l.*",alta,usuária,~3h,provar o caminho de ATUALIZAR e não só o de nascer,nao
+D73,time-hibrido,31/08 04:00,"As seis provas começavam todas de banco vazio: o caminho de atualização — o único que a dona do banco faz — nunca foi provado",alta,usuária (pelo D72),~8 entregas,—,nao

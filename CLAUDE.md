@@ -188,6 +188,17 @@ de zero, e ninguém lia o status. Não foi o psql que ficou calado; fomos nós q
 não escutamos. Todo critério tem que RODAR o que ele afirma medir, e "não deu
 para medir" nunca conta como passou.
 
+**Provar que nasce não é provar que atualiza.** As seis provas em Postgres
+começavam todas de um banco vazio, e por isso nenhuma via o caminho que a dona
+do banco realmente faz: colar o `esquema.sql` num banco que já existe, com
+dados dentro e com a forma de alguma entrega antiga. Foi por aí que passou o
+`cannot change name of view column` — `create or replace view` não muda a lista
+de colunas de uma view existente, e a `feed` começa com `l.*`, então ela muda
+sozinha a cada coluna nova em `leituras`. Por isso as views agora levam
+`drop view if exists` antes do `create`, e por isso existe o `provar-v5.sql`.
+A regra geral: **a verificação tende a medir o que é fácil de montar, não o que
+a pessoa faz.** Quando as duas divergem, é a segunda que conta.
+
 **Especialista errado não é especialista inútil.** O tech lead afirmou que
 apagar a conta era inviável sem a `service_role`, e listou três motivos
 independentes. O GPM tinha dito, sem justificar, que devia ser uma RPC. A RPC
