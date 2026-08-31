@@ -1402,9 +1402,18 @@
             ' aria-pressed="false" aria-label="Curtir esta resenha">' +
             '<span class="glifo" aria-hidden="true">♡</span>' +
             '<span class="conta-curtidas">' + (v.curtidas || 0) + '</span></button>' +
-          '<a class="feed-comentar" href="#comentarios" aria-label="Ir para os comentários">' +
+          /* NÃO pode ser href="#comentarios". Num app roteado por hash isso não é
+             âncora: o clique troca location.hash, dispara hashchange, o
+             rotear() lê a raiz "comentarios", não casa com rota nenhuma e cai
+             na home — a pessoa perde a resenha que estava lendo. Entrou na V4 e
+             passou por seis suítes: o rastreador só clica em href^="#/", e a
+             jornada clica neste mesmo seletor a partir do FEED, onde ele é
+             rota de verdade. O app já sabia disso em outro lugar (a grade da
+             folha de escolha usa href="#" com preventDefault). */
+          '<button class="feed-comentar" data-acao="ir-comentarios"' +
+            ' aria-label="Ir para os comentários">' +
             '<span class="glifo" aria-hidden="true">💬</span>' +
-            (v.comentarios ? v.comentarios.length : 0) + '</a>' +
+            (v.comentarios ? v.comentarios.length : 0) + '</button>' +
         '</div>'
       : '';
 
@@ -1443,6 +1452,11 @@
       'compartilhar-resenha': function () { abrirFolhaCompartilharResenha(v); },
       'curtir-leitura': alternarCurtida,
       'ver-spoiler': revelarSpoiler,
+      'ir-comentarios': function (b, ev) {
+        ev.preventDefault();
+        var secao = document.getElementById('comentarios');
+        if (secao) secao.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      },
       seguir: function (b) { alternarSeguir(v.perfilId, b); },
       'apagar-comentario': function (b) {
         var linha = b.closest('.comentario');

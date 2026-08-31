@@ -167,6 +167,18 @@ Existem papéis definidos em `.claude/agents/` (produto, mercado, design, GPM,
 tech lead, tester, harness) e o ciclo SDD que os orquestra. Para uma volta
 completa, use a skill `/ciclo`. Para só verificar, `/verificar`.
 
+**Duas armadilhas, as duas já pisadas:**
+
+1. Os agentes só se registram quando a sessão abre NESTE diretório. Numa sessão
+   que começou noutra pasta, `Agent(subagent_type: "design")` falha com "not
+   found" — e a squad inteira fica invisível sem ninguém perceber. Solução:
+   agente `general-purpose` com o conteúdo do arquivo do papel colado no começo
+   do prompt.
+2. "A implementação fica fora do script" é sobre a EDIÇÃO ser serial, não sobre
+   trabalhar sozinho. Especificar, validar, planejar teste e revisar são dos
+   agentes. As entregas V5 e V6 saíram sem nenhum papel acionado por causa
+   dessa leitura errada.
+
 **Quando parar de dar voltas:** não é quando o backlog acabar — ele sempre
 volta a encher. É quando `python3 docs/processo/portoes.py` fechar os dois
 portões que ele mede (fidelidade e solidez). Hoje: fidelidade **aberto** em

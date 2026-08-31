@@ -42,6 +42,26 @@ e trabalho perdido em silêncio custa mais do que o paralelismo rende.
 Quem quiser automatizar mais deste laço deve automatizar a **verificação**,
 não a implementação.
 
+**Cuidado com a leitura errada desta regra, porque ela já foi feita.** "A
+implementação fica fora do script" é sobre a EDIÇÃO ser serial — `js/app.js`
+não aceita duas mãos ao mesmo tempo. Não é sobre trabalhar sozinho.
+Especificar, validar contra o código, planejar o teste e revisar antes de subir
+não encostam em `js/app.js`: são trabalho de agente, e fazê-los sozinho é
+desperdiçar a squad inteira. As entregas V5 e V6 saíram assim, sem nenhum
+papel acionado, e ninguém notou até a dona do projeto perguntar.
+
+**Por item, a volta híbrida é:**
+
+```
+gpm + design + tech-lead   (paralelo, só leem)   → especificação e plano
+        ↓
+eu, sozinho, em série                            → a edição
+        ↓
+tester                                           → verificação e o ciclo
+        ↓
+tech-lead                                        → revisão antes de subir
+```
+
 ## Regras que o ciclo carrega
 
 1. **Fidelidade ganha de novidade.** Item que o original faz e nós não sobe na
@@ -61,6 +81,14 @@ não a implementação.
 O script vive em `docs/ciclo-sdd.js`. Invoque com a ferramenta Workflow
 apontando `scriptPath` para ele. Ele lê o repositório, não recebe estado por
 parâmetro — então roda igual em qualquer sessão.
+
+**Os agentes de `.claude/agents/` podem não estar carregados.** Eles só são
+registrados quando a sessão abre NESTE diretório. Desde que o Letterbooks
+virou repositório próprio, uma sessão que começa noutra pasta não os enxerga —
+e a chamada falha com "agent type not found", que é fácil de confundir com "a
+squad não serve aqui". Quando isso acontecer, chame um agente `general-purpose`
+e **cole o conteúdo do arquivo do papel no começo do prompt**. Funciona igual;
+o papel é o texto, não o registro.
 
 Depois de rodar: **leia o plano do tech lead antes de implementar**. Ele é
 quem diz o que colide e em que ordem.

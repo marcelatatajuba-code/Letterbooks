@@ -222,9 +222,34 @@ var Nuvem = (function () {
 
   /* Leitura publica: perfil e diario de qualquer pessoa, sem precisar de
      conta. Usa a chave anon direto, sem passar por comSessao. */
+  /* Leitura publica. Ela manda o token quando ha sessao — mas NAO renova, e e
+     por isso que a linha do meio existe: com a aba aberta ha mais de uma hora,
+     o token vencido ia junto e o servidor devolvia 401 numa consulta cujo dado
+     e publico. A pessoa lia "Sua sessao expirou. Entre de novo." numa ficha de
+     livro que teria carregado com a chave anon. Vencido, cai para anon, que e
+     exatamente o que a politica ja permite. */
   function publico(nome, consulta) {
     if (!ligada()) return Promise.reject(new Error('A nuvem ainda não está configurada.'));
-    return pedir('/rest/v1/' + nome + (consulta || ''), { semSessao: !sessao });
+    var caminho = '/rest/v1/' + nome + (consulta || '');
+
+    /* Duas redes de seguranca, e a segunda e a que vale.
+
+       A primeira e barata: se o proprio aparelho ja sabe que o token venceu,
+       nem manda. A segunda existe porque a primeira depende do relogio do
+       aparelho concordar com o do servidor, e isso nao se pode assumir — quem
+       tem o celular adiantado tem um token "valido" que o servidor recusa.
+
+       O dado aqui e PUBLICO por politica: se o servidor recusou a credencial,
+       a resposta certa e pedir de novo como visitante, nao mostrar "Sua sessao
+       expirou. Entre de novo." numa ficha de livro que abre para qualquer um.
+       Uma tentativa so, e so no 401 — nao vira laco. */
+    var vencido = !!sessao && sessao.expiraEm - MARGEM_MS <= Date.now();
+    if (!sessao || vencido) return pedir(caminho, { semSessao: true });
+
+    return pedir(caminho, {}).catch(function (e) {
+      if (!/expirou/.test(e.message)) throw e;
+      return pedir(caminho, { semSessao: true });
+    });
   }
 
   function meuPerfil() {

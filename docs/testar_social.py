@@ -69,6 +69,15 @@ def servir(rota, estado):
                   'expires_in': 3600, 'user': {'id': uid, 'email': email}})
 
     aut = r.headers.get('authorization', '')
+
+    # O servidor de verdade devolve 401 para JWT vencido. O mock nao sabia
+    # recusar NADA, entao um teste de "token vencido" passava verde dos dois
+    # lados — o que e o mesmo que nao ter teste. Token com a marca VENCIDO faz
+    # o papel do JWT expirado; a chave anon (que nao tem 'tok-') passa, que e
+    # justamente o caminho que o conserto usa.
+    if 'VENCIDO' in aut:
+        return j({'message': 'JWT expired', 'code': 'PGRST301'}, 401)
+
     estado['quem'] = aut.replace('Bearer tok-', '') if 'tok-' in aut else None
 
     tab = p.path.rsplit('/', 1)[-1]
@@ -608,6 +617,71 @@ def rodar():
               pg.evaluate("() => JSON.parse(localStorage.getItem('letterbooks:v1')).logs.length") == 0)
         checa('e o servidor tambem — nao ficou uma leitura fantasma la',
               len(BANCO['leituras']) == 0, '%d linhas no banco' % len(BANCO['leituras']))
+        nav.close()
+
+        # ============ o 💬 da resenha nao pode jogar a pessoa na home =========
+        # Entrou na V4 e passou por SEIS suites. O rastreador so clica em
+        # href^="#/" (rastreador.py:66), e a jornada clica neste mesmo seletor a
+        # partir do FEED, onde ele e rota de verdade. Duas suites passando por
+        # cima do mesmo defeito, cada uma pelo seu ponto cego.
+        print('\no 💬 da resenha rola ate os comentarios, nao troca de tela')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        BANCO['leituras'].append({'id': 'L1', 'perfil': 'uid-2', 'livro': '/works/OL1W',
+                                  'nota': 5.0, 'resenha': 'Capitu me pegou.',
+                                  'lido_em': '2026-08-20', 'relido': False, 'spoiler': False,
+                                  'criado_em': '2026-08-29T22:00:00Z', 'cliente_id': 'c1'})
+        BANCO['comentarios'].append({'id': 'M1', 'leitura': 'L1', 'perfil': 'uid-1',
+                                     'texto': 'Tambem quero ler.',
+                                     'criado_em': '2026-08-30T10:00:00Z'})
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        semear(pg)
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/resenha/L1', wait_until='networkidle')
+        pg.wait_for_selector('.resenha', timeout=10000)
+        pg.click('.resenha .feed-comentar')
+        pg.wait_for_timeout(800)
+        checa('o endereco continua o da resenha',
+              pg.evaluate('location.hash') == '#/resenha/L1', pg.evaluate('location.hash'))
+        checa('a resenha continua na tela', pg.locator('.resenha').count() == 1)
+        checa('e os comentarios entraram no campo de visao',
+              pg.evaluate("""() => { const s = document.getElementById('comentarios');
+                if (!s) return false; const r = s.getBoundingClientRect();
+                return r.top < innerHeight && r.bottom > 0; }"""))
+        nav.close()
+
+        # ============ sessao vencida nao pode quebrar leitura PUBLICA =========
+        # publico() mandava o token mesmo vencido, e o servidor devolvia 401 numa
+        # consulta cujo dado e publico. A pessoa lia "Sua sessao expirou" numa
+        # ficha de livro que teria carregado com a chave anon.
+        print('\nsessao vencida: a leitura publica cai para anon, nao para erro')
+        zerar(); estado = {}
+        BANCO['livros'].append(LIVRO)
+        BANCO['leituras'].append({'id': 'L1', 'perfil': 'uid-2', 'livro': '/works/OL1W',
+                                  'nota': 4.0, 'resenha': 'boa', 'lido_em': '2026-08-20',
+                                  'relido': False, 'spoiler': False,
+                                  'criado_em': '2026-08-29T22:00:00Z', 'cliente_id': 'c1'})
+        nav, ctx, pg = montar(pw, estado)
+        pg.goto(BASE, wait_until='networkidle')
+        # Sessao que o APARELHO julga boa (expiraEm no futuro) e o SERVIDOR
+        # recusa. E o caso que o relogio nao pega: celular adiantado, token
+        # revogado, relogios discordando. So a resposta do servidor revela.
+        vencida = dict(SESSAO)
+        vencida['token'] = 'tok-VENCIDO'
+        semear(pg, sessao=vencida)
+        pg.reload(wait_until='networkidle')
+        pg.goto(BASE + '#/livro/' + urllib.parse.quote('/works/OL1W', safe=''),
+                wait_until='networkidle')
+        pg.wait_for_selector('.avaliacoes-media', timeout=10000)
+        checa('a media da comunidade carrega com o token vencido',
+              pg.inner_text('.avaliacoes-media').strip() == '4,0',
+              pg.inner_text('.avaliacoes'))
+        checa('e a tela nao fala em sessao expirada',
+              'expirou' not in pg.inner_text('.pagina').lower())
+        # a consulta publica tem que ter saido SEM Authorization de sessao
+        pub = [x for x in pedidos if x[1].endswith('/feed') and 'livro=eq.' in x[2]]
+        checa('a consulta publica saiu', len(pub) >= 1)
         nav.close()
 
         # ===================== a aba Resenhas e da REDE =======================

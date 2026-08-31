@@ -279,6 +279,13 @@ with sync_playwright() as pw:
     ok(any('editar' in t for t in textos) and any('apagar' in t for t in textos),
        'mas editar e apagar continuam, que são ações locais')
     ok(pg.locator('.resenha-estado').count() == 0, 'e nada diz "no ar", porque não está')
+    # Num app roteado por hash, href="#alguma-coisa" NÃO é âncora: o roteador lê
+    # a raiz e cai na home. Trava para toda a tela, não só para o 💬 que já
+    # tropeçou nisso.
+    ancoras = pg.evaluate(
+        "() => [...document.querySelectorAll('.resenha a[href^=\"#\"]')]"
+        ".map(a => a.getAttribute('href')).filter(h => !h.startsWith('#/'))")
+    ok(ancoras == [], 'nenhuma âncora crua de hash na resenha — %r' % ancoras)
     # Sem linha no servidor não há o que curtir nem comentar. Coração morto é
     # pior do que coração nenhum.
     ok(pg.locator('.resenha .feed-curtir').count() == 0, 'nem coração')

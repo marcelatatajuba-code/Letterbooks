@@ -556,6 +556,11 @@ SO_DE_TELA = {
     'D51': 'identidade no banco — provado em servidor/provar-v2.sql',
     'D52': 'fluxo de feed — coberto por testar_social, bloco aba Resenhas',
     'D53': 'estrutura de DOM — idem',
+    'D54': 'registro de agente na sessão — processo, não código do app',
+    'D55': 'leitura errada de uma regra do processo, não código do app',
+    'D56': 'âncora de hash — estrutura de DOM; travado em testar.py 9b e testar_social',
+    'D57': 'credencial recusada pelo servidor — coberto por testar_social',
+    'D58': 'defeito do mock, não do app',
     'D42': 'defeito do runner desta suíte, não do app',
     'D43': 'defeito de nomenclatura entre suítes, não do app',
 }
